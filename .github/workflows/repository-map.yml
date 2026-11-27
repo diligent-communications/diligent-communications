@@ -15,7 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node: [24, 26]
+        # 24.12.0 is the minimum in package.json. Testing it exactly catches code
+        # that needs a newer Node 24 release.
+        node: ["24.12.0", 24, 26]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
