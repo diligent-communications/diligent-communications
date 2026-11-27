@@ -64,7 +64,7 @@ flowchart TD
 | Folder contract | Build step | Contract status | Outputs | Writes to |
 | --- | --- | --- | --- | --- |
 | [modules/app](../modules/app/CONTEXT.md) | 2 (proposed) | Draft | Application screens | — |
-| [modules/archive](../modules/archive/CONTEXT.md) | 1 (decided)<br>Storage: 4 (proposed, draft) | Step 1 complete, later lanes draft | Readable originals, Readable saved decisions and receipts, Versioned manifest, Backups and restored records, Evidence folder access, Backup list for commands, Restored decisions and receipts for commands | — |
+| [modules/archive](../modules/archive/CONTEXT.md) | 1 (decided)<br>Storage: 4 (proposed, draft) | Step 1 complete, later lanes draft | Readable originals, Readable saved decisions and receipts, Versioned manifest, Backups and restored records, Evidence folder access, Backup list for commands, Restore preview for commands, Restored decisions and receipts for commands | — |
 | [modules/attachments](../modules/attachments/CONTEXT.md) | 3 (proposed) | Draft | Attachment previews, Attachment export | — |
 | [modules/brief](../modules/brief/CONTEXT.md) | 2 (proposed) | Draft | Source-linked Brief | [state](../modules/state/CONTEXT.md) |
 | [modules/calendar](../modules/calendar/CONTEXT.md) | 4 (proposed) | Draft | Proposed events, Booked event views | [state](../modules/state/CONTEXT.md) |

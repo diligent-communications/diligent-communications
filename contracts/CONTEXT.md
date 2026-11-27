@@ -81,9 +81,11 @@ The published package layout and file information that let another app take an e
 
 ### Command list
 
-The shared list of writes with their inputs, previews, and receipts. Each write shows a preview first and runs only after the person confirms it. Afterward it returns a command receipt: a result shown to the person, saying what was done or why it was refused. A command receipt is not an action receipt and is not saved in the archive.
+The shared list of writes with their inputs, previews, and receipts. Version 1. Adding or changing a command raises the version.
 
-Step 1 commands:
+Each write shows a preview before it runs and returns a command receipt afterward: a result shown to the person, saying what was done or why it was refused. A command receipt is not an action receipt and is not saved in the archive. Confirm is a part of restore only.
+
+Version 1 covers only the folder, backup and restore commands:
 
 | Command | Preview shows | Command receipt returns |
 | --- | --- | --- |
@@ -95,9 +97,9 @@ Restore runs in five parts: list, pick, preview that backup, confirm, receipt.
 
 1. **List.** Commands returns the backup list from archive. It names each backup found in the backup folder with its time, counts, size and archive ID. A backup that is unfinished or cannot be read is listed with the reason and cannot be picked.
 2. **Pick.** The person picks one backup from the list.
-3. **Preview.** Archive checks the picked backup, and commands shows its preview. The destination is the evidence folder location. It must be empty, or hold an unfinished restore of this same backup that matches it exactly. Otherwise setup asks for a new empty folder and sets it through Set folder locations first.
+3. **Preview.** Archive checks the picked backup and returns its restore preview, which commands shows. The destination is the evidence folder location. It must be empty, or hold an unfinished restore of this same backup that matches it exactly. Otherwise setup asks for a new empty folder and sets it through Set folder locations first.
 4. **Confirm.** The person confirms, and archive restores the backup.
-5. **Receipt.** The restore is complete only after state accepts the restored decisions and receipts. Until then, capture and other archive writes are blocked. Retrying the same restore is allowed.
+5. **Receipt.** The restore is complete only after state accepts the restored decisions and receipts. Until then, capture and other archive writes are blocked. The block does not cover retrying that restore or setting the folder locations, so a person can always pick a new empty folder.
 
 The backup list is the first part of the restore preview. It is the one stated exception to the rule that surfaces read through queries. Step 1 has no query for backups.
 
@@ -111,5 +113,6 @@ The information surfaces need to tell a person whether an account is connected. 
 
 ## Open
 
-- Assign versions to the attachment export, command list, query list and connection status before their first publication.
+- Assign versions to the attachment export, query list and connection status before their first publication.
+- Add the other step 1 writes (connect the mailbox, start a capture) to the command list, and settle the inputs each command takes. The mail capture and sign-in plans settle these before their code.
 - Decide whether a saved decision or action receipt keeps the approved content, such as reply text or event details.

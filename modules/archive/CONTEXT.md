@@ -1,7 +1,7 @@
 ---
 build_step: 1
 consumes: ["../connections/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#archive-manifest","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt","../../contracts/CONTEXT.md#command-list"]
-produces: ["Readable originals","Readable saved decisions and receipts","Versioned manifest","Backups and restored records","Evidence folder access","Backup list for commands","Restored decisions and receipts for commands"]
+produces: ["Readable originals","Readable saved decisions and receipts","Versioned manifest","Backups and restored records","Evidence folder access","Backup list for commands","Restore preview for commands","Restored decisions and receipts for commands"]
 ---
 # archive — Keep originals and lasting records
 
@@ -21,7 +21,7 @@ produces: ["Readable originals","Readable saved decisions and receipts","Version
 3. Accept the evidence folder and the separate backup folder locations from commands. Keep both as local settings outside the evidence folder and out of the archive and backups. Use the evidence folder setting to resolve the folder for commands and queries. If a saved folder is missing, report it. Never replace it with a new empty archive.
 4. Accept saved decisions and receipts from state as readable archive records. Step 1 has no live producer of them: state starts producing them in step 2. In step 1, prove that archive accepts them with made-up records.
 5. In step 1, handle setup's backup and restore requests through commands. Make every backup a complete, separate copy of the evidence folder in the second folder the person picks. Never delete a backup.
-6. For restore, give commands the backup list: the backups found in the backup folder, with each unfinished or unreadable one marked and not available to pick. Restore the one the person picks into the evidence folder location only if it is empty, or on a retry, if it already matches that backup exactly. Restore never overwrites or deletes an archive. Give the restored decisions and receipts to the restore command for delivery to state.
+6. For restore, give commands the backup list: the backups found in the backup folder, with each unfinished or unreadable one listed with the reason and not available to pick. Check the backup the person picks and return its restore preview to commands. Restore it into the evidence folder location only if it is empty, or on a retry, if it already matches that backup exactly. Restore never overwrites or deletes an archive. A restore copies beside the destination and moves the copy into place only when it is complete, so a stopped copy never leaves the destination partly filled. A leftover from a stopped copy is reported and left alone. Give the restored decisions and receipts to the restore command for delivery to state.
 
 ## Outputs
 
@@ -31,12 +31,14 @@ produces: ["Readable originals","Readable saved decisions and receipts","Version
 - Backups and restored records
 - Evidence folder access
 - Backup list for commands
+- Restore preview for commands
 - Restored decisions and receipts for commands
 
 ## Check
 
 A contributor backs up a synthetic archive with originals, decisions, and receipts, empties the disposable test copy, restores it, and verifies every file and ID against the baseline.
 The contributor also verifies that backups appear in the selected backup folder, that restore lists and uses the selected backup, and that archive still resolves both local settings after restart without including either location in the backup.
+The contributor also verifies that an unfinished or unreadable backup is listed with a reason and cannot be picked, and that the picked backup is checked and its restore preview returned to commands.
 The contributor also verifies that restore refuses a destination that is neither empty nor a matching retry, that a missing folder is reported and not replaced, and that no backup is deleted.
 
 ## Lanes

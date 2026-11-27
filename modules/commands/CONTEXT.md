@@ -11,7 +11,7 @@ writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT
 
 ### Inputs
 
-- Working: The backup list and the restored decisions and receipts from archive, and the restore result from state.
+- Working: The capture outcome from capture, the backup list, restore preview, and restored decisions and receipts from archive, and the restore result from state.
 - Reference: [archive](../archive/CONTEXT.md)
 - Reference: [capture](../capture/CONTEXT.md)
 - Reference: [connections](../connections/CONTEXT.md)
@@ -24,7 +24,7 @@ writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT
 
 1. Use the evidence folder through archive. At setup's request, set the evidence and backup folder locations in archive, connect the mailbox through connections, and start the first mail capture through capture. Record capture progress in state from the outcome capture returns.
 2. In step 1, run setup's backup and restore requests through archive. Back up to the second folder the person picks. Run restore in the order the command list gives: list, pick, preview that backup, confirm, receipt. Return the backup list from archive to setup as the first part of the restore preview. This is the one stated exception to reads going through queries. If the evidence folder location is neither empty nor a matching retry, setup supplies a new empty folder through the set folder locations command before the preview.
-3. Read the saved decisions and receipts that archive returns and hand them to state. Record restore progress in state and complete the restore only after state reports that it accepted those records. Until then, block capture and other archive writes. Allow a retry of the same restore.
+3. Read the saved decisions and receipts that archive returns and hand them to state. Record restore progress in state and complete the restore only after state reports that it accepted those records. Until then, block capture and other archive writes. Do not block a retry of that restore or setting the folder locations, so the person can always pick a new empty folder. A restore copies beside the destination and moves the copy into place only when it is complete, so a stopped copy never leaves the destination partly filled. A leftover from a stopped copy is reported and left alone.
 4. Show a preview before each write and return a command receipt afterward, as the command list defines. A command receipt is shown to the person and is not saved in the archive.
 
 ### Outputs
@@ -66,4 +66,4 @@ A contributor runs setup, mail capture, backup, and restore with synthetic data.
 
 ### Check
 
-A contributor exercises each added write with synthetic data and verifies a preview before the write and a receipt afterward.
+A contributor exercises each added write with synthetic data and verifies a preview before the write and a command receipt afterward.
