@@ -1,25 +1,25 @@
 ---
-consumes: ["../commands/CONTEXT.md"]
-produces: ["MCP command access"]
+build_step: 3
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md"]
+produces: ["Agent access to commands and queries"]
 ---
 # mcp
 
-Expose the commands to agent hosts.
+Give agent hosts the same access as the screens.
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../commands/CONTEXT.md`.
+- Reference: `../commands/CONTEXT.md`, `../queries/CONTEXT.md`.
 
 ## Process
 
-1. Expose the command catalog over the Model Context Protocol.
-2. Forward requests to commands and return their results, including previews and receipts.
+1. Expose commands and queries over the Model Context Protocol. Return read results, write previews, and receipts through that interface.
 
 ## Outputs
 
-- MCP command access.
+- Agent access to commands and queries.
 
 ## Check
 
-A contributor connects with two different agent hosts and completes the same synthetic command workflow with each.
+A contributor connects two different agent hosts and completes the same read and write workflow in each.

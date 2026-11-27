@@ -1,4 +1,5 @@
 ---
+build_step: 2
 consumes: ["../../contracts/CONTEXT.md"]
 produces: ["Committed workflow state"]
 ---
@@ -13,7 +14,7 @@ Keep workflow state consistent.
 
 ## Process
 
-1. Apply changes to the queue, deduplication records, approvals, and review progress in transactions.
+1. Apply changes to the queue, deduplication records, approvals, progress, and action receipts in transactions.
 2. Return the committed result to the caller.
 
 ## Outputs

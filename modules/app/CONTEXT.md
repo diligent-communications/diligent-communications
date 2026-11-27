@@ -1,20 +1,20 @@
 ---
-consumes: ["../commands/CONTEXT.md"]
+build_step: 2
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md"]
 produces: ["Application screens"]
 ---
 # app
 
-Present the application screens.
+Present views over the same communications data.
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../commands/CONTEXT.md`.
+- Reference: `../commands/CONTEXT.md`, `../queries/CONTEXT.md`.
 
 ## Process
 
-1. Render command results, previews, and receipts for the person using the app.
-2. Route every data read and write through the command surface.
+1. Use queries to show Brief, Mail, Text, Calls, Attachments, Contacts, and Calendar. Use commands for changes and display their previews and receipts. Include Setup as a first-run view.
 
 ## Outputs
 
@@ -22,4 +22,4 @@ Present the application screens.
 
 ## Check
 
-A contributor exercises each screen against a recording command interface and verifies that every data operation takes that route.
+A contributor exercises every screen with recording command and query interfaces and verifies that all data access goes through them.

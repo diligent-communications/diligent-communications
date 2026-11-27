@@ -1,4 +1,5 @@
 ---
+build_step: 3
 consumes: ["../archive/CONTEXT.md"]
 produces: ["Attachment previews","Attachment export"]
 ---
@@ -14,7 +15,7 @@ Find, preview, and export attachments.
 ## Process
 
 1. Apply a mail filter to archived mail and find matching PDFs and images.
-2. Preview and deduplicate the matches, then export them in the published format.
+2. Preview and deduplicate the matches, then create a local export in the published format for other apps to pick up.
 
 ## Outputs
 

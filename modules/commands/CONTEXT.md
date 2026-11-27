@@ -1,28 +1,27 @@
 ---
-consumes: ["../app/CONTEXT.md","../archive/CONTEXT.md","../attachments/CONTEXT.md","../brief/CONTEXT.md","../capture/CONTEXT.md","../mcp/CONTEXT.md","../state/CONTEXT.md"]
-produces: ["Command catalog","Command results","Write previews","Write receipts"]
+build_step: 2
+consumes: ["../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../capture/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
+produces: ["Write command catalog","Write previews","Write receipts"]
 ---
 # commands
 
-Provide one command surface for people and agents.
+Publish one list of changes a person or agent can make.
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../app/CONTEXT.md`, `../archive/CONTEXT.md`, `../attachments/CONTEXT.md`, `../brief/CONTEXT.md`, `../capture/CONTEXT.md`, `../mcp/CONTEXT.md`, `../state/CONTEXT.md`.
+- Reference: `../attachments/CONTEXT.md`, `../brief/CONTEXT.md`, `../calendar/CONTEXT.md`, `../capture/CONTEXT.md`, `../contacts/CONTEXT.md`, `../effects/CONTEXT.md`.
 
 ## Process
 
-1. Use the module interfaces to define and run operations. Read the app and MCP contracts for caller needs.
-2. Show a preview before executing any write and return a receipt for the completed write.
+1. Give every write a preview and a receipt. Route changes through the working modules and send approved external actions through effects.
 
 ## Outputs
 
-- Command catalog.
-- Command results.
+- Write command catalog.
 - Write previews.
 - Write receipts.
 
 ## Check
 
-A contributor exercises each write command with synthetic data and verifies a preview before execution and a receipt afterward.
+A contributor exercises every write command on synthetic data and verifies a preview before execution and a receipt afterward.

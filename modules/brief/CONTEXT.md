@@ -1,4 +1,5 @@
 ---
+build_step: 2
 consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md"]
 produces: ["Source-linked Brief"]
 ---
@@ -13,7 +14,7 @@ Review captured items and produce the Brief.
 
 ## Process
 
-1. Use archived originals and review state to assemble the Brief.
+1. Use archived originals and review state to assemble the list of items that need attention.
 2. Give every Brief line a link to the original that supports it.
 
 ## Outputs

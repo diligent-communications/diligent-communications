@@ -1,25 +1,63 @@
 ---
-consumes: ["../../contracts/CONTEXT.md"]
-produces: ["Captured records"]
+build_step: 1
+consumes: ["../connections/CONTEXT.md","../../contracts/CONTEXT.md"]
+produces: ["Captured records with stable source IDs"]
 ---
 # capture
 
-Capture communications with stable source IDs.
+Bring all incoming communications and imports into the app.
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../../contracts/CONTEXT.md`. Synthetic fixtures are permitted once they exist in the repository.
+- Reference: `../connections/CONTEXT.md`, `../../contracts/CONTEXT.md`.
 
 ## Process
 
-1. Import mail and texts, and import calls when enabled.
-2. Derive a stable source ID for each item and preserve the original payload in the record handed off to the caller.
+1. Give each item a stable source ID and preserve its original payload for the archive. Use the input paths specified in each lane below.
 
 ## Outputs
 
-- Captured records.
+- Captured records with stable source IDs.
 
 ## Check
 
-A contributor imports the same synthetic item twice and verifies that the handoff yields one logical record for its source ID.
+A contributor captures the same synthetic item twice and verifies that its source ID resolves to one record.
+
+## Lanes
+
+### Mail · Step 1 (decided)
+
+#### Inputs
+
+- Working: None in this planning repository.
+- Reference: `../connections/CONTEXT.md`, `../../contracts/CONTEXT.md`.
+
+Import mail using a stable ID for each message. Importing the same message twice yields one record.
+
+### Text · Step 3 (proposed)
+
+#### Inputs
+
+- Working: None in this planning repository.
+- Reference: `../connections/CONTEXT.md`, `../../contracts/CONTEXT.md`.
+
+Bring in texts from a phone or import. Offline capture reconnects without duplicates.
+
+### Calls · Step 4 (proposed)
+
+#### Inputs
+
+- Working: None in this planning repository.
+- Reference: `../connections/CONTEXT.md`, `../../contracts/CONTEXT.md`.
+
+Bring in optional calls, voicemail, and transcripts. Every primary workflow works with this lane turned off.
+
+### Import · Step 3 (proposed)
+
+#### Inputs
+
+- Working: None in this planning repository.
+- Reference: `../../contracts/CONTEXT.md`.
+
+Accept items from a device or agent. The same source ID resolves to the same record.

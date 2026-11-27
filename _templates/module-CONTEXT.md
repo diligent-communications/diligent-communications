@@ -1,10 +1,13 @@
 ---
+build_step: 1
 consumes: []
 produces: []
 ---
 # {Module name}
 
 {Describe the folder’s one job.}
+
+{Set build_step to the module's planned step. Step 1 is decided. Steps 2–4 are proposed.}
 
 ## Inputs
 
