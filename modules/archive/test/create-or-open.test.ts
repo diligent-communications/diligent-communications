@@ -289,9 +289,12 @@ test('an evidence folder without permission to read it is unavailable (Linux)', 
   const w = await newWorkspace(t);
   await withFolders(w);
   await chmod(w.evidence, 0o000);
-  t.after(() => chmod(w.evidence, 0o700));
-  assert.equal((await openArchive(w.settingsFile)).outcome, 'unavailable');
-  await chmod(w.evidence, 0o700);
+  try {
+    assert.equal((await openArchive(w.settingsFile)).outcome, 'unavailable');
+  } finally {
+    // Readable again, so the clean-up can remove it.
+    await chmod(w.evidence, 0o700);
+  }
   assert.deepEqual(await readdir(w.evidence), []);
 });
 
