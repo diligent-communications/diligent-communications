@@ -14,8 +14,9 @@ writes: ["../archive/CONTEXT.md"]
 
 ## Process
 
-1. Hold the queue, approvals, review progress, and live receipts transactionally. Save lasting choices, including reviews, contact merges and their reversals, and approvals, as readable decision records in archive. Save action receipts there too.
+1. Hold the queue, approvals, review progress, proposed events, and live receipts transactionally. Save lasting choices, including reviews, contact merges and their reversals, approvals, saved views, and calendar accept or decline decisions, as readable decision records in archive. Save action receipts there too.
 2. After restore, rebuild live state from the archived decisions and receipts before resuming actions. Preserve completed actions and reconcile uncertain outcomes before retrying.
+3. After restore, keep approvals without receipts out of automatic dispatch. Hold them for a provider check or return them for approval.
 
 ## Outputs
 

@@ -55,7 +55,7 @@ flowchart TB
   capture & effects --> connections
 ```
 
-Thick arrows are records being saved into the archive. Dotted arrows are reads. Plain arrows are calls, each labelled with what it does.
+Thick arrows are records being saved into the archive. Dotted arrows are reads. Plain arrows are calls, labelled where the call does one specific thing.
 
 Three owners of the truth:
 
@@ -65,4 +65,6 @@ Three owners of the truth:
 
 Screens and agents use the same door, so a person and an agent never do the same thing two different ways. Things come in through `capture` only and go out through `effects` only.
 
-Two rules sit under the table below. Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive.
+Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `setup` owns.
+
+After a restore, an approved action that has no receipt is never sent automatically. It is checked with the provider or put back for approval.

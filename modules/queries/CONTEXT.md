@@ -24,6 +24,7 @@ produces: ["Query catalog","Read results"]
 
 1. Start in step 1 with the reads setup needs, including connection status and capture and restore progress. Expand to lists, search, and saved views in step 2.
 2. Read through the working modules and foundations, applying the same query behavior from every surface.
+3. Read saved views from state. Changes to a saved view are a person's choice. They go through commands to state and are saved into the archive like other decisions.
 
 ## Outputs
 

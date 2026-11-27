@@ -24,7 +24,9 @@
 
 Load the inputs named in the module contract. Every module may read [contracts](contracts/CONTEXT.md) and names the exact shapes it needs. Change shared shapes there first.
 
-One owner carries cross-folder features end to end. Review every contract edge they touch. Save anything that cannot be rebuilt from originals into the archive.
+One owner carries cross-folder features end to end. Review every contract edge they touch.
+
+Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `setup` owns.
 
 `map/` holds generated output and the hand-written target map. `_tools/` holds tooling. These support folders carry no contract. Update the [target map](map/target.md) whenever a module is added or removed or its edges change.
 

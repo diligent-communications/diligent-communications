@@ -2,6 +2,7 @@
 build_step: 1 to 2
 consumes: ["../archive/CONTEXT.md","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
 produces: ["Write command catalog","Write previews","Write receipts"]
+writes: ["../state/CONTEXT.md"]
 ---
 # commands — Preview and make changes
 
@@ -25,12 +26,14 @@ produces: ["Write command catalog","Write previews","Write receipts"]
 
 1. Start in step 1 with commands to choose the evidence folder, connect the mailbox, capture mail, back up, and restore. Expand the command list in step 2.
 2. Give each write a preview and a receipt. Record each approval in state before passing an approved external action to effects.
+3. Record changes to saved views in state as decisions.
 
 ## Outputs
 
 - Write command catalog
 - Write previews
 - Write receipts
+- Handoff: [state](../state/CONTEXT.md)
 
 ## Check
 

@@ -2,6 +2,7 @@
 build_step: 2
 consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
 produces: ["Source-linked Brief"]
+writes: ["../state/CONTEXT.md"]
 ---
 # brief — Show items that need attention
 
@@ -21,6 +22,7 @@ produces: ["Source-linked Brief"]
 ## Outputs
 
 - Source-linked Brief
+- Handoff: [state](../state/CONTEXT.md)
 
 ## Check
 

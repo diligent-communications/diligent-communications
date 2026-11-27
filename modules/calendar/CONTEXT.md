@@ -1,7 +1,8 @@
 ---
 build_step: 4
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#action-receipt"]
+consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#action-receipt","../../contracts/CONTEXT.md#saved-decision"]
 produces: ["Proposed events","Booked event views"]
+writes: ["../state/CONTEXT.md"]
 ---
 # calendar — Show proposed and booked events
 
@@ -11,16 +12,18 @@ produces: ["Proposed events","Booked event views"]
 - Reference: [archive](../archive/CONTEXT.md)
 - Reference: [state](../state/CONTEXT.md)
 - Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
+- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
 
 ## Process
 
-1. Show proposed events and booked-event receipts from the archive and live state. Effects creates the receipt, state holds the live copy, and archive stores the lasting copy.
-2. Keep the last known bookings visible during a provider outage.
+1. Own proposed events and keep them in state. Record a person's accept or decline in state, which saves that decision to archive.
+2. Show booked-event receipts. Effects creates the receipt, state holds the live copy, and archive stores the lasting copy. Keep the last known bookings visible during a provider outage.
 
 ## Outputs
 
 - Proposed events
 - Booked event views
+- Handoff: [state](../state/CONTEXT.md)
 
 ## Check
 
