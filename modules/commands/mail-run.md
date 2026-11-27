@@ -1,3 +1,5 @@
+Draft. Finished with this module's code. The commands seam states the operations and the hard rules. Where this page disagrees with a hard rule, the hard rule stands.
+
 # Mail run
 
 How commands runs Connect mailbox and Start mail capture. The named refusals and their pass conditions are in [mail commands](../../contracts/mail-commands.md).

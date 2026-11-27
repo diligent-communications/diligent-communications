@@ -1,3 +1,5 @@
+Draft. Finished with this module's code. The capture seam states the operations and the hard rules. Where this page disagrees with a hard rule, the hard rule stands.
+
 # Mail
 
 The mail lane of capture. Commands passes the connection ID, the requested set and the open archive writer. This lane holds no rule about who started the run. Do not read folder settings. Do not close the writer. Run only where the archive can open a writer.
@@ -24,6 +26,7 @@ A `rate-limited` or `unavailable` result is tried again for the same request, up
 | `gone` | The run ends `failed` with that name. A list is not an item, so nothing is counted | Count `gone` and go on |
 | `rate-limited` | Retried as above, then `incomplete` | Retried as above, then `incomplete` |
 | `unavailable` | Retried as above, then `incomplete`. The connection state is unchanged | The same |
+| `vault-unavailable` | The run ends `failed` with that name. The connection state is unchanged | The same |
 | `needs-sign-in` | The run ends `failed` with that name | The same |
 | `connection-not-current` | The run ends `failed` with that name | The same |
 | `refused-address` | The run ends `failed` with that name | The same |
@@ -50,3 +53,20 @@ A message that is fetched but cannot be decoded counts as `failed`, and the run 
 | **Where it runs.** | A system where the archive cannot open a writer starts no run and saves nothing. |
 | **Reports during the run.** | Commands receives a progress report at the start, at an interval and at the end, and any notice a save returned, beside the outcome. |
 | **Stop reason.** | A stop because the person asked returns `stopped`. A stop because progress could not be recorded returns `failed` with that cause. The item in hand is not counted. |
+
+## Kept starting point
+
+These decisions stay here until the code. They are not the seam.
+
+An item is counted when its handling ends, in exactly one of `saved`, `already_held`, `differing`, `skipped`, `gone` or `failed`. `listed` is the sum of those six. An item still in hand when a run stops or fails is not counted. `already_held` and `differing` never both count one item: bytes that differ count only as `differing`, and bytes that do not differ, or could not be compared, count only as `already_held`.
+
+Items that are already held, skipped or gone use up a limit. `limit:10` stops after ten items whose handling ended, including items that were already held, skipped or gone. It does not continue in order to save ten new ones. A date that appears only in the message text does not select an after-date.
+
+| Status | When it is used |
+| --- | --- |
+| `running` | The run has started and has not ended |
+| `complete` | The run reached the end of its requested list, and `failed` is zero |
+| `incomplete` | The run reached the end of its requested list and `failed` is not zero, or the same request was still `rate-limited` or `unavailable` after its tries |
+| `stopped` | The person asked to stop the run |
+| `failed` | The run ended for a named cause other than the person asking: a lookup or save result that stops the run, a fetch result that stops the run, five messages in a row that could not be decoded, or progress that could not be recorded |
+| `interrupted` | A new run, already holding the writer, found this record still `running` |

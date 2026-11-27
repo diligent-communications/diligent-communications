@@ -121,6 +121,12 @@ class MapValidationTests(unittest.TestCase):
             self.assertIn(f"    {capture} --> {archive}", text)
             self.assertIn(f"    {commands} --> {node('capture')}", text)
             self.assertIn(f"    {commands} --> {node('connections')}", text)
+            self.assertIn("mail-run.md draft", text)
+            self.assertIn("mail.md draft", text)
+            self.assertIn("fetch.md draft", text)
+            self.assertIn("progress.md draft", text)
+            self.assertIn("Step 1 complete, step 2 draft", text)
+            self.assertIn("status: draft", (root / "modules" / "commands" / "CONTEXT.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ Follow the [version rule](CONTEXT.md#version-rule).
 
 The shared list of writes with their inputs, previews, and receipts. Version 2. Adding or changing a command raises the version.
 
-Each write shows a preview before it runs and returns a command receipt afterward: a result shown to the person, saying what was done or why it was refused. A command receipt is not an action receipt and is not saved in the archive. Confirm is a part of restore only. A preview and a receipt hold no token, client secret, sign-in code, or message body. A preview writes nothing.
+Each write shows a preview before it runs and returns a command receipt afterward: a result shown to the person, saying what was done or why it was refused. A command receipt is not an action receipt and is not saved in the archive. Confirm is a part of restore only. A preview and a receipt follow [connections'](../modules/connections/CONTEXT.md) rule that nothing secret is reported. A preview writes nothing, as the [commands](../modules/commands/CONTEXT.md) contract requires.
 
 Version 2 adds Connect mailbox and Start mail capture, records the inputs version 1 left open, and describes stopping a run. The preview and receipt of Set folder locations, Back up, and Restore are unchanged.
 
@@ -35,5 +35,5 @@ Connect mailbox and Start mail capture, their refusals and their pass conditions
 | Rule | Passes when |
 | --- | --- |
 | **Old commands.** | Set folder locations, Back up, and Restore take the inputs recorded here, and the preview and receipt text in the table is unchanged. |
-| **No secret.** | A preview and a receipt contain no token, client secret, sign-in code, or message body. |
-| **Preview writes nothing.** | A preview uses folder status, does not open the archive, and changes no file. When the folder is empty and no archive ID is remembered, the preview says an archive would be created. |
+| **No secret.** | A preview and a receipt follow connections' rule that nothing secret is reported. |
+| **Preview writes nothing.** | A preview follows the commands rule: it uses folder status, does not open the archive, and changes no file. When the folder is empty and no archive ID is remembered, the preview says an archive would be created. |

@@ -19,7 +19,7 @@ The same command starts the first capture and any later catch-up. The surface te
 
 Commands asks state whether writes are blocked before it runs. It opens the archive writer first. Only then does it tell state that a run has started, and it passes the connection ID, the requested set, and the writer to capture. Capture is not given folder settings. Commands passes each progress report from capture to state. Commands closes the writer only after capture has returned its final outcome, in every ending. If the archive or the writer does not open, capture does not start, and the receipt returns the archive's result name and message.
 
-The person stops a run from setup. Setup passes the stop to commands with the reason that the person asked, and commands passes that reason to capture. Stopping is part of this command, not a separate command. Capture returns status `stopped`. If progress cannot be recorded, the reason is that, and capture returns status `failed` with that cause. Originals already saved stay saved. The receipt carries the outcome, any notice capture hands over from a save, and any notice from opening the archive.
+The run ID and the start time are the ones the [commands](../modules/commands/CONTEXT.md) contract creates, and the same values are given to state and to capture. Stopping is part of this command, not a separate command. The outcome is a capture progress status. How a stop is handled is drafted in the [mail run](../modules/commands/mail-run.md). The receipt carries the outcome, any notice capture hands over from a save, and any notice from opening the archive.
 
 | Refusal | What was found | Passes when |
 | --- | --- | --- |
@@ -36,7 +36,6 @@ Until restore is joined to the write-block question, state answers no, so `write
 | **New connection ID.** | A successful connect returns a new connection ID. A failed connect keeps the earlier connection and its ID. |
 | **Not refused during a run.** | Connect mailbox while a capture is running is not refused. That run's next fetch returns `connection-not-current`, and the run ends `failed`. |
 | **One set.** | Start mail capture is refused with `capture-set-invalid` unless the input is exactly one of a limit, an after-date, or all. |
-| **A person starts it.** | A start from an agent is refused with `not-started-by-person`. Nothing is listed, fetched or saved, and no run is recorded. |
-| **Stop.** | The stop carries its reason. The person asking returns `stopped`. Progress that could not be recorded returns `failed` with that cause. Originals saved before the stop are still held. |
-| **Writer.** | Commands opens the writer before it tells state the run has started. It closes the writer only after capture returns its final outcome. When the archive or the writer does not open, the receipt uses the archive's result name and message. |
+| **A person starts it.** | Follows the commands rule. A start from an agent is refused with `not-started-by-person`. Nothing is listed, fetched or saved, and no run is recorded. |
+| **Writer.** | Follows the commands rule. The writer is opened before state is told the run has started, and closed only after capture returns its final outcome. When the archive or the writer does not open, the receipt uses the archive's result name and message. |
 | **Receipt beside the outcome.** | The receipt carries the outcome, any notice capture handed over from a save, and any notice from opening. The progress record's fields are unchanged. |

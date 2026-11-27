@@ -34,7 +34,7 @@ Things come in through capture only and go out through effects only. App, MCP, a
 
 One owner carries cross-folder features end to end. Review every contract edge they touch.
 
-Step 1 contracts are complete. Work in steps 2 through 4 is draft. A draft can name an open handoff and is finished when its step starts.
+A contract has two layers, and this applies to every module. The seam is complete: the operations a module offers, their inputs and named results, the shared shapes it uses, and the hard rules that apply to it. Another module may rely on the seam, and the seam changes only through a contract change. Inner behaviour is draft until that module's code: the order of the small steps inside. A draft page is marked draft, may leave a detail open if it says so, and is finished in the change that adds that module's code and tests. A later step that has no seam yet stays draft, and a draft can name an open handoff.
 
 Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the evidence and backup folder locations, which `archive` keeps as local settings outside the evidence folder. A third exception: records that only describe what the program is doing (capture progress, and the connection record that holds no secret). They live in the program's local data folder, never in the archive or a backup, and losing them loses no evidence. Setup asks for both locations and sets them through commands.
 

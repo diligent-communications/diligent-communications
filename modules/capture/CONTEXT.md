@@ -18,8 +18,9 @@ All incoming communications and imports enter through capture.
 
 ## Process
 
-1. Commands starts a capture, including a later catch-up. It passes the connection ID, the requested set, and the open archive writer. Do not read folder settings. Do not close the writer. Commands closes it only after this module returns its final outcome. This module holds no rule about who started the run. Give each item a stable source ID and preserve its original payload in the captured record shape. Ask the writer `sourceHeld` before treating the item as new. Only `not-held` leads to a download. Hand a new record to the writer with `saveOriginal`. The archive manifest refuses IDs it already holds.
-2. Report progress to commands at the start, at intervals and at the end. The report is the [capture progress](../../contracts/capture-progress.md) record. Beside the outcome, hand commands any notice a save returned. The progress record does not gain a field for that notice. Whether an item is held does not depend on that record. A stop from commands carries its reason. Return `stopped` when the person asked, and `failed` with that cause when progress could not be recorded.
+1. Commands starts a capture, including a later catch-up. It passes the run ID and start time it created, the connection ID, the requested set, and the open archive writer. This module does not create the run ID or the start time, and it holds no rule about who started the run. Do not read folder settings. Do not close the writer. Commands closes it only after this module returns its final outcome. The outcome is a [capture progress](../../contracts/capture-progress.md) status. Beside the outcome, hand commands any notice a save returned. The progress record does not gain a field for that notice.
+2. The source ID for mail is the exact text `mail:gmail:`, then the account number, then `:`, then the message ID. Nothing is trimmed or folded. The account number is the provider's lasting identifier for that account: the same after signing in again or after the mail address changes, and different for another account. It is not a mail address. Ask the writer `sourceHeld` with that source ID before anything is downloaded. Only `not-held` leads to a download. `held` does not. Hand a new record to the writer with `saveOriginal`. What is saved is the raw message, decoded exactly from the provider's response. The archive manifest refuses IDs it already holds.
+3. A capture is tied to the connection it started with. When `fetchMail` or the account-number call returns `connection-not-current`, the run ends as `failed` with that name and nothing further is fetched. A run is complete only when it reached the end of its requested list and every item was saved, already held, deliberately skipped, or gone. The order of the small steps, what each fetch result does, the counts, and how a stop is handled are drafted in [Mail](mail.md).
 
 ## Outputs
 
@@ -30,7 +31,15 @@ All incoming communications and imports enter through capture.
 
 ## Check
 
-A contributor captures the same synthetic item twice and verifies that the archive holds one record for its source ID. The second run does not depend on a saved bookmark. A lookup other than `not-held` does not download. This module does not refuse a start based on who asked. A notice a save returned is handed to commands beside the outcome, and the progress record has no field for it.
+A contributor captures the same synthetic item twice and verifies that the archive holds one record for its source ID. The second run does not depend on a saved bookmark. A lookup other than `not-held` does not download. This module does not refuse a start based on who asked, and it does not create the run ID. A notice a save returned is handed to commands beside the outcome, and the progress record has no field for it.
+
+| Rule | Passes when |
+| --- | --- |
+| **Tied to the connection.** | A `fetchMail` or account-number result of `connection-not-current` ends the run as `failed` with that name. Nothing further is fetched. |
+| **Lasting account number.** | After signing in again to the same account, the account number is unchanged, so a source ID already held still matches `mail:gmail:` plus that number plus `:` plus the message ID. A second account has a different number. A mail address is in neither. |
+| **Ask before download.** | `sourceHeld` is called before a download. `held` downloads nothing. Only `not-held` downloads. |
+| **Raw message.** | The saved bytes are the raw message decoded exactly from the provider's response, not the response body. |
+| **Complete.** | Status is `complete` only when the run reached the end of its requested list and every item was saved, already held, deliberately skipped, or gone. |
 
 ## Lanes
 
@@ -48,7 +57,7 @@ A contributor captures the same synthetic item twice and verifies that the archi
 
 #### Process
 
-1. Follow [Mail](mail.md). Commands passes the connection ID, the requested set and the open writer. This lane holds no rule about who started the run.
+1. The inner steps are drafted in [Mail](mail.md) and are finished with this module's code. Commands passes the run ID and start time, the connection ID, the requested set and the open writer. This lane holds no rule about who started the run. The hard rules on this contract are the seam.
 
 #### Outputs
 
@@ -56,7 +65,7 @@ A contributor captures the same synthetic item twice and verifies that the archi
 
 #### Check
 
-A contributor imports the same message twice and verifies that the archive holds one record. The second run does not download it. The source ID holds no mail address. The saved bytes are the raw message decoded exactly from the response. An excluded kind is skipped. A listed item that was not saved, already held, skipped or gone leaves the run not complete. No token is received. The pass conditions are in [Mail](mail.md).
+A contributor imports the same message twice and verifies that the archive holds one record. The second run does not download it. An excluded kind is skipped. No token is received. The source ID, the saved bytes, and when a run is complete follow the hard rules on this contract.
 
 ### Text · Step 3 (draft)
 

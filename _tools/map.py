@@ -55,6 +55,20 @@ def edges_from_routed_page(page, node, nodes):
     return found
 
 
+def draft_page_names(path, fields):
+    """Same-folder pages this contract routes to, when the page itself is marked draft."""
+    names = []
+    for dependency in sorted(fields["consumes"]):
+        target = (path.parent / dependency).resolve()
+        if target.parent != path.parent or target.name == "CONTEXT.md" or target.suffix != ".md":
+            continue
+        if not target.is_file():
+            continue
+        if target.read_text(encoding="utf-8").lstrip().startswith("Draft."):
+            names.append(target.name)
+    return names
+
+
 def load_routed_shapes():
     """File names the contracts router links to. The map treats those as shapes."""
     names = set(re.findall(r"\]\(([^)/#\s]+\.md)\)", SHAPES.read_text(encoding="utf-8")))
@@ -254,6 +268,9 @@ def render():
             status = "Step 1 complete, step 2 draft"
         elif step == "1" and not draft and any(lane[2] == "draft" for lane in lanes):
             status = "Step 1 complete, later lanes draft"
+        inner = draft_page_names(path, fields)
+        if inner:
+            status += "; " + ", ".join(inner) + " draft"
         table.append(
             f"| [{folder}](../{folder}/CONTEXT.md) | {build_step} | {status} | {outputs} | "
             f"{', '.join(write_links) or '—'} |"

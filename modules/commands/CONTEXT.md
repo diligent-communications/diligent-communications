@@ -1,7 +1,7 @@
 ---
 build_step: 1 to 2
 status: draft
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/command-list.md","../../contracts/saved-decision.md","../../contracts/action-receipt.md","mail-run.md","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
+consumes: ["backup.md","../state/CONTEXT.md","../../contracts/command-list.md","../../contracts/mail-commands.md","../../contracts/capture-progress.md","../../contracts/connection-status.md","../../contracts/saved-decision.md","../../contracts/action-receipt.md","mail-run.md","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
 produces: ["Write command catalog","Write previews","Command receipts","Backup list for setup","Capture and restore progress for state","Restored decisions and receipts for state"]
 writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../brief/CONTEXT.md","../effects/CONTEXT.md"]
 ---
@@ -12,19 +12,23 @@ writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT
 ### Inputs
 
 - Working: Who is asking, from the surface. The capture outcome, progress reports and save notices from capture. The write-block answer from state. The backup list, restore preview, and restored decisions and receipts from archive, and the restore result from state.
-- Reference: [archive](../archive/CONTEXT.md)
+- Reference: [Backup and restore](backup.md)
 - Reference: [state](../state/CONTEXT.md)
 - Reference: [Command list](../../contracts/command-list.md)
+- Reference: [Mail commands](../../contracts/mail-commands.md)
+- Reference: [Capture progress](../../contracts/capture-progress.md)
+- Reference: [Connection status](../../contracts/connection-status.md)
 - Reference: [Saved decision](../../contracts/saved-decision.md)
 - Reference: [Action receipt](../../contracts/action-receipt.md)
 - Reference: [Mail run](mail-run.md)
 
 ### Process
 
-1. Use the evidence folder through archive. Before any write, ask state whether writes are blocked. Until restore is joined to that question, the answer is no. The unfinished-restore block below is unchanged. At setup's request, set the evidence and backup folder locations in archive, and connect the mailbox through connections. A preview uses folder status, writes nothing, and does not open the archive. Connecting and starting a capture, including who is asking, the writer, the stop and the receipt, are in [Mail run](mail-run.md).
-2. In step 1, run setup's backup and restore requests through archive. Back up to the second folder the person picks. Run restore in the order the command list gives: list, pick, preview that backup, confirm, receipt. Return the backup list from archive to setup as the first part of the restore preview. This is the one stated exception to reads going through queries. If the evidence folder location is neither empty nor a matching retry, setup supplies a new empty folder through the set folder locations command before the preview.
-3. Read the saved decisions and receipts that archive returns and hand them to state. Record restore progress in state and complete the restore only after state reports that it accepted those records. Until then, block capture and other archive writes. Do not block a retry of that restore or setting the folder locations, so the person can always pick a new empty folder. A restore copies beside the destination and moves the copy into place only when it is complete, so a stopped copy never leaves the destination partly filled. A leftover from a stopped copy is reported and left alone.
-4. Show a preview before each write and return a command receipt afterward, as the command list defines. A preview writes nothing. A command receipt is shown to the person and is not saved in the archive. Neither holds a token, client secret, sign-in code, or message body. When setup passes a stop, pass it to capture with its reason, wait for capture's outcome, and only then close the writer.
+1. The shapes this module handles are the [command list](../../contracts/command-list.md), [mail commands](../../contracts/mail-commands.md), [capture progress](../../contracts/capture-progress.md), [connection status](../../contracts/connection-status.md), the [saved decision](../../contracts/saved-decision.md) and the [action receipt](../../contracts/action-receipt.md). Before any write, ask state whether writes are blocked. Until restore is joined to that question, the answer is no. Backup and restore are in [Backup and restore](backup.md).
+2. A capture is started only by a person. The surface tells commands who is asking, a person or an agent. An agent is refused with `not-started-by-person`: nothing is listed, fetched or saved, and no run is recorded. The other refusals for connect and start are the ones [mail commands](../../contracts/mail-commands.md) names.
+3. Commands creates the run's ID and its start time and gives those same values to state and to capture. Neither of them creates a run ID or a start time.
+4. Commands opens the archive writer before a run starts and closes it only after capture has returned its final outcome, in every ending. A preview writes nothing: it uses folder status and does not open the archive. A command receipt is shown to the person and is not saved in the archive. It carries the capture outcome, any notice from opening or from a save, and, when the archive would not open, the archive's result name and message. It follows [connections'](../connections/CONTEXT.md) rule that nothing secret is reported.
+5. The order of the small steps inside a mail run is drafted in [Mail run](mail-run.md) and is finished with this module's code. A caller does not need that page for an input or a named result.
 
 ### Outputs
 
@@ -41,7 +45,15 @@ writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT
 
 ### Check
 
-A contributor runs setup, mail capture, backup, and restore with synthetic data. Each write shows a preview and returns a command receipt. The preview changes no file. Setup receives the backup list as the first part of the restore preview. State receives a progress report at the start, during the run and at the end, and the decisions and receipts returned by archive. Capture and other archive writes are refused until state accepts the restored records. A connect leaves the archive unchanged, and a connect during a run is not refused. A start from an agent lists, fetches and saves nothing and records no run. The writer is opened here before state is told the run has started, folder settings are not passed to capture, and the writer is closed only after capture returns. The write-block question is asked before a write, and until restore is joined the answer is no. A later catch-up uses the same capture command. A preview and a receipt hold no token, client secret, sign-in code, or message body.
+A contributor runs setup, mail capture, backup, and restore with synthetic data. Each write shows a preview and returns a command receipt. The preview changes no file. Setup receives the backup list as the first part of the restore preview. State receives capture and restore progress and the decisions and receipts returned by archive. Capture and other archive writes are refused until state accepts the restored records. A connect leaves the archive unchanged, and a connect during a run is not refused. A start from an agent lists, fetches and saves nothing and records no run. Commands creates one run ID and one start time and gives those same values to state and to capture. The writer is opened here before state is told the run has started, folder settings are not passed to capture, and the writer is closed only after capture returns. The write-block question is asked before a write, and until restore is joined the answer is no. A later catch-up uses the same capture command. A preview and a receipt hold no token, client secret, sign-in code, or message body.
+
+| Rule | Passes when |
+| --- | --- |
+| **A person starts it.** | A start from an agent is `not-started-by-person`. Nothing is listed, fetched or saved, and no run is recorded. |
+| **Run ID.** | State and capture are given one run ID and one start time. Both were created here. Neither module creates its own. |
+| **Writer.** | The writer is opened before the run starts. It is closed only after capture has returned its final outcome. |
+| **Preview writes nothing.** | A preview changes no file and does not open the archive. |
+| **Restore progress.** | The check above still says state receives capture and restore progress and the decisions and receipts returned by archive. |
 
 ## Step 2 (draft)
 
