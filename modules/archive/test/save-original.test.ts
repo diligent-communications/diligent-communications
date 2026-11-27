@@ -520,7 +520,8 @@ test('physical copies with the same archive ID share the lock, and closing waits
     assert.equal(duringClose.outcome, 'archive-in-use');
   } finally {
     finish.resolve();
-    await writer.close();
+    // Drain the saves even if the close-order assertion failed.
+    await Promise.allSettled([first, second, writer.close()]);
     mocked.mock.restore();
     syncBuiltinESMExports();
   }
