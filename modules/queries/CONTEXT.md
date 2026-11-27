@@ -20,6 +20,7 @@ produces: ["Query catalog","Read results"]
 ### Process
 
 1. Read the evidence folder through archive. Read mailbox connection status through connections and capture and restore progress through state. Give setup those results through the query catalog.
+2. Do not list backups. The backup list is the first part of the restore preview, which commands returns. It is the one stated exception to reads going through queries.
 
 ### Outputs
 

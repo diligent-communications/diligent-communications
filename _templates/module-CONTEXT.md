@@ -29,3 +29,5 @@ writes: []
 {Say who checks the outputs and what result passes.}
 
 {List one reference per line, or say None. Include lane references in consumes. Match output names to produces and handoff paths to writes. Omit Handoff and writes when there is no write handoff to draw.}
+
+{The map check rejects frontmatter keys other than the ones above and status. For lanes, add ## Lanes and a ### {Name} · Step {N} (decided or draft) heading for each lane. A lane may use only the sub-headings #### Inputs, #### Process, #### Outputs, #### Check, and #### Open. Any other is rejected.}

@@ -41,6 +41,32 @@ class MapValidationTests(unittest.TestCase):
     def test_lane_heading(self):
         self.rejects("capture", "Step 3 (draft)", "Step Three (draft)", "invalid lane heading")
 
+    def test_lane_with_two_hashes(self):
+        self.rejects(
+            "capture", "### Text · Step 3 (draft)", "## Text · Step 3 (draft)",
+            "must be a ### heading under ## Lanes",
+        )
+
+    def test_misspelled_lanes(self):
+        self.rejects("capture", "## Lanes", "## Lane", "must be a ### heading under ## Lanes")
+
+    def test_open_under_lane(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for folder in ("_tools", "contracts", "map", "modules"):
+                shutil.copytree(ROOT / folder, root / folder)
+            path = root / "modules" / "capture" / "CONTEXT.md"
+            contract = path.read_text(encoding="utf-8")
+            original = "verifies that the archive has no duplicates.\n"
+            self.assertIn(original, contract)
+            opened = f"{original}\n#### Open\n\n- An unsettled handoff.\n"
+            path.write_text(contract.replace(original, opened, 1), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py"), "--check"],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

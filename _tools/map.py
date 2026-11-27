@@ -11,7 +11,7 @@ MAP = ROOT / "map" / "README.md"
 SHAPES = ROOT / "contracts" / "CONTEXT.md"
 FRONTMATTER_KEYS = {"build_step", "status", "consumes", "produces", "writes"}
 LANE_HEADING = re.compile(r"### (.+) · Step ([1-4]) \((decided|draft)\)")
-LANE_SECTIONS = {"#### Inputs", "#### Process", "#### Outputs", "#### Check"}
+LANE_SECTIONS = {"#### Inputs", "#### Process", "#### Outputs", "#### Check", "#### Open"}
 
 
 def array_field(frontmatter, key, relative, *, required=True):
@@ -88,6 +88,14 @@ def read_contract(folder):
         if set(values) != items:
             raise ValueError(f"{relative}: {key} disagrees with its Inputs or Outputs section")
         fields[key] = values
+    section = ""
+    for line in body:
+        if line.startswith("## "):
+            section = line
+        if line.startswith("#") and " · Step " in line and not (
+            section == "## Lanes" and line.startswith("### ")
+        ):
+            raise ValueError(f"{relative}: lane heading {line!r} must be a ### heading under ## Lanes")
     lanes = []
     if "## Lanes" in body:
         for line in body[body.index("## Lanes") + 1:]:

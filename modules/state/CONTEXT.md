@@ -2,12 +2,14 @@
 build_step: 1 to 2
 status: draft
 consumes: ["../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
-produces: ["Capture and restore progress","Restored workflow state","Committed workflow state","Saved decisions and action receipts"]
+produces: ["Capture and restore progress","Restored workflow state","Restore result for commands","Committed workflow state","Saved decisions and action receipts"]
 writes: ["../archive/CONTEXT.md"]
 ---
 # state — Hold live workflow state
 
 ## Step 1 (complete)
+
+Step 1 has no live producer of decisions or receipts. State starts producing them in step 2. In step 1, the archive's ability to accept them is proven with made-up records.
 
 ### Inputs
 
@@ -24,6 +26,7 @@ writes: ["../archive/CONTEXT.md"]
 
 - Capture and restore progress
 - Restored workflow state
+- Restore result for commands
 
 ### Check
 
