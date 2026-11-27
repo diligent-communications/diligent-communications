@@ -1,26 +1,27 @@
 ---
 build_step: 4
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md"]
+consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#action-receipt"]
 produces: ["Proposed events","Booked event views"]
 ---
-# calendar
-
-Keep proposed events and show receipts for booked ones.
+# calendar — Show proposed and booked events
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../archive/CONTEXT.md`, `../state/CONTEXT.md`.
+- Reference: [archive](../archive/CONTEXT.md)
+- Reference: [state](../state/CONTEXT.md)
+- Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
 
 ## Process
 
-1. Build the calendar view from archived evidence and workflow state, including booked-event receipts. Keep the last known bookings visible during a provider outage.
+1. Show proposed events and booked-event receipts from the archive and live state. Effects creates the receipt, state holds the live copy, and archive stores the lasting copy.
+2. Keep the last known bookings visible during a provider outage.
 
 ## Outputs
 
-- Proposed events.
-- Booked event views.
+- Proposed events
+- Booked event views
 
 ## Check
 
-A contributor starts with a populated calendar, simulates a provider outage, and verifies that the known bookings remain visible.
+A contributor starts with a populated calendar, simulates a provider outage, and verifies that known bookings remain visible.

@@ -2,17 +2,16 @@
 build_step: 1
 consumes: []
 produces: []
+writes: []
 ---
-# {Module name}
+# {Module name} — {One job}
 
-{Describe the folder’s one job.}
-
-{Set build_step to the module's planned step. Step 1 is decided. Steps 2–4 are proposed.}
+{Set build_step to 1, 2, 3, 4, or 1 to 2 for a module that spans those steps.}
 
 ## Inputs
 
 - Working: {List exact paths relative to this file, or say none.}
-- Reference: {List exact paths relative to this file, or say none. Mirror the paths in the consumes array.}
+- Reference: [{Contract or exact shared shape}]({Relative path with section anchor for a shared shape})
 
 ## Process
 
@@ -20,8 +19,11 @@ produces: []
 
 ## Outputs
 
-- {Name the results and put their short names in the produces array.}
+- {Short result name}
+- Handoff: [{Receiving module}]({Relative path to its contract})
 
 ## Check
 
 {Say who checks the outputs and what result passes.}
+
+{List one reference per line, or say None. Include lane references in consumes. Match output names to produces and handoff paths to writes. Omit Handoff and writes when there is no write handoff to draw.}

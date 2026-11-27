@@ -22,6 +22,10 @@
 
 ## Working across folders
 
-Load the inputs named in the module contract. One owner carries cross-folder features end to end. Review every contract edge they touch. Change shared shapes in [contracts](contracts/CONTEXT.md) first.
+Load the inputs named in the module contract. Every module may read [contracts](contracts/CONTEXT.md) and names the exact shapes it needs. Change shared shapes there first.
 
-From the root, refresh with `python -I _tools/map.py` and commit the output. Check with `python -I _tools/links.py` and `python -I _tools/map.py --check`.
+One owner carries cross-folder features end to end. Review every contract edge they touch. Save anything that cannot be rebuilt from originals into the archive.
+
+`map/` holds generated output and the hand-written target map. `_tools/` holds tooling. These support folders carry no contract. Update the [target map](map/target.md) whenever a module is added or removed or its edges change.
+
+Use Python 3.10 or later. From the root, run `python -I _tools/map.py` and commit the output. Check with `python -I _tools/links.py` and `python -I _tools/map.py --check`.

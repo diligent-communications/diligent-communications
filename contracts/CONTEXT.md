@@ -2,9 +2,7 @@
 consumes: []
 produces: ["Versioned handoff specifications"]
 ---
-# Contracts
-
-Define the shapes modules hand each other.
+# contracts — Define shared handoff shapes
 
 ## Inputs
 
@@ -13,13 +11,46 @@ Define the shapes modules hand each other.
 
 ## Process
 
-1. Publish each shared shape here with a version. Start with the manifest, attachment export, and command list as those interfaces take shape.
-2. Update a shared shape before changing module interfaces that use it.
+1. Publish each shared shape here with a version. Update it before changing any module interface that uses it.
 
 ## Outputs
 
-- Versioned specifications for shared handoffs. This folder currently contains the folder contract.
+- Versioned handoff specifications
 
 ## Check
 
-A contributor compares a proposed handoff with the published version and verifies that the sending and receiving modules agree on its fields and version.
+A contributor verifies that both sides of each handoff use the same fields and version.
+
+## First shapes
+
+### Captured record
+
+The record capture hands to archive carries a shape version, a stable source ID, and the original payload. The archive uses the ID to detect repeat imports and keeps the payload unchanged.
+
+### Archive manifest
+
+A versioned index of archived originals, saved decisions, and action receipts. It identifies each file and its record ID and refuses a source ID already used by a captured record.
+
+### Saved decision
+
+A readable record of a person's choice, such as a review, contact merge or reversal, or approval. It identifies the choice and the item or action it applies to so state can rebuild it after restore.
+
+### Action receipt
+
+A readable record that identifies an approved action, its outcome, and any confirmation needed to recognize it after restore or retry.
+
+### Attachment export
+
+The published package layout and file information that let another app take an export.
+
+### Command list
+
+The shared list of writes with their inputs, previews, and receipts.
+
+### Query list
+
+The shared list of reads with their inputs and result shapes.
+
+### Connection status
+
+The information surfaces need to tell a person whether an account is connected. Sign-in details stay with connections.

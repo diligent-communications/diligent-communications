@@ -1,16 +1,17 @@
 ---
 build_step: 3
-consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md"]
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list"]
 produces: ["Agent access to commands and queries"]
 ---
-# mcp
-
-Give agent hosts the same access as the screens.
+# mcp — Expose commands and queries to agents
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../commands/CONTEXT.md`, `../queries/CONTEXT.md`.
+- Reference: [commands](../commands/CONTEXT.md)
+- Reference: [queries](../queries/CONTEXT.md)
+- Reference: [Command list](../../contracts/CONTEXT.md#command-list)
+- Reference: [Query list](../../contracts/CONTEXT.md#query-list)
 
 ## Process
 
@@ -18,7 +19,7 @@ Give agent hosts the same access as the screens.
 
 ## Outputs
 
-- Agent access to commands and queries.
+- Agent access to commands and queries
 
 ## Check
 

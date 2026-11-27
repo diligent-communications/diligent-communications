@@ -1,24 +1,27 @@
 ---
 build_step: 1
-consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md"]
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list","../../contracts/CONTEXT.md#connection-status"]
 produces: ["First-run setup flow"]
 ---
-# setup
-
-Guide a person through first run.
+# setup — Guide first run
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../commands/CONTEXT.md`, `../queries/CONTEXT.md`.
+- Reference: [commands](../commands/CONTEXT.md)
+- Reference: [queries](../queries/CONTEXT.md)
+- Reference: [Command list](../../contracts/CONTEXT.md#command-list)
+- Reference: [Query list](../../contracts/CONTEXT.md#query-list)
+- Reference: [Connection status](../../contracts/CONTEXT.md#connection-status)
 
 ## Process
 
-1. Use commands to select the evidence folder, connect the mailbox, and restore from backup when requested. Show choices and first-capture progress through queries.
+1. Own the first-run flow. The in-app Setup screen belongs to app and calls the same commands.
+2. Use commands to select the evidence folder, connect the mailbox, and restore a backup when requested. Show choices and first-capture progress through queries.
 
 ## Outputs
 
-- First-run setup flow.
+- First-run setup flow
 
 ## Check
 

@@ -1,30 +1,34 @@
 ---
 build_step: 1
-consumes: ["../../contracts/CONTEXT.md"]
-produces: ["Readable originals","Versioned manifest","Backup and restore results"]
+consumes: ["../connections/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#archive-manifest","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
+produces: ["Readable originals","Readable saved decisions and receipts","Versioned manifest","Backups and restored records"]
 ---
-# archive
-
-Keep original evidence recoverable.
+# archive — Keep originals and lasting records
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../../contracts/CONTEXT.md`.
+- Reference: [connections for the storage lane](../connections/CONTEXT.md)
+- Reference: [Captured record](../../contracts/CONTEXT.md#captured-record)
+- Reference: [Archive manifest](../../contracts/CONTEXT.md#archive-manifest)
+- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
+- Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
 
 ## Process
 
-1. Store originals as readable files and leave them as received. Back up the files and their versioned manifest together, then restore them with their recorded IDs.
+1. Accept only the captured record shape from capture. Preserve the original payload as received and refuse a source ID already in the manifest.
+2. Accept saved decisions and receipts from state as readable archive records. Back up and restore originals, decisions, receipts, and the manifest together so state can be rebuilt.
 
 ## Outputs
 
-- Readable originals.
-- Versioned manifest.
-- Backup and restore results.
+- Readable originals
+- Readable saved decisions and receipts
+- Versioned manifest
+- Backups and restored records
 
 ## Check
 
-A contributor backs up a synthetic archive, empties the disposable test copy, restores it, and compares every file and ID with the baseline.
+A contributor backs up a synthetic archive with originals, decisions, and receipts, empties the disposable test copy, restores it, and verifies every file and ID against the baseline.
 
 ## Lanes
 
@@ -33,6 +37,16 @@ A contributor backs up a synthetic archive, empties the disposable test copy, re
 #### Inputs
 
 - Working: None in this planning repository.
-- Reference: `../connections/CONTEXT.md`.
+- Reference: [connections](../connections/CONTEXT.md)
 
-Use Google Drive as a second place to keep the evidence folder. Restoring from Drive yields the same files and IDs as restoring from the local copy.
+#### Process
+
+1. Use Google Drive as a second place to keep the evidence folder.
+
+#### Outputs
+
+- Drive backup and restored archive
+
+#### Check
+
+A contributor restores the same backup from Drive and from local storage and compares every file and ID.

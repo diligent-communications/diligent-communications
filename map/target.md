@@ -23,7 +23,7 @@ flowchart TB
   end
   subgraph Foundations
     archive[archive: evidence folder + manifest]
-    state[state: queue, dedupe, approvals]
+    state[state: queue, approvals, receipts]
     connections[connections: sign-ins]
   end
   src([Mailbox, texts, calls, device or agent imports])
@@ -47,18 +47,22 @@ flowchart TB
   commands -- approved --> effects -- sends --> out
   commands -- review --> brief
   attachments -- export --> consumers
+  commands -- records approval --> state
   effects -- receipt --> state
+  state == decisions and receipts ==> archive
+  commands -- setup, backup, restore --> archive & connections
   brief -- progress --> state
-  capture -- dedupe --> state
   capture & effects --> connections
 ```
 
-Thick arrows are evidence coming in. Dotted arrows are reads. Plain arrows are approved actions and their receipts.
+Thick arrows are records being saved into the archive. Dotted arrows are reads. Plain arrows are calls, each labelled with what it does.
 
 Three owners of the truth:
 
 - **What happened** lives in `archive`. Originals are never rewritten.
-- **What it means** lives in `brief`, `contacts`, `calendar` and `attachments`, with progress in `state`. All of it can be rebuilt from the archive.
-- **What was done about it** lives in `effects`. A sent reply or a calendar write happens once, after approval, and leaves a receipt. It is never replayed on restore or retry.
+- **What it means** lives in `brief`, `contacts`, `calendar` and `attachments`, with progress in `state`. It can be rebuilt from the archive, because the choices a person makes (a review, a contact merge, an approval) are saved into the archive as records too.
+- **What was done about it** lives in `effects`. A sent reply or a calendar write happens once, after approval, and leaves a receipt. `state` holds the live receipt and `archive` stores the lasting copy, so a restore brings receipts back and nothing is sent twice.
 
 Screens and agents use the same door, so a person and an agent never do the same thing two different ways. Things come in through `capture` only and go out through `effects` only.
+
+Two rules sit under the table below. Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive.

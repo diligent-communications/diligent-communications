@@ -1,24 +1,26 @@
 ---
 build_step: 2
-consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md"]
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list"]
 produces: ["Application screens"]
 ---
-# app
-
-Present views over the same communications data.
+# app — Present application screens
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../commands/CONTEXT.md`, `../queries/CONTEXT.md`.
+- Reference: [commands](../commands/CONTEXT.md)
+- Reference: [queries](../queries/CONTEXT.md)
+- Reference: [Command list](../../contracts/CONTEXT.md#command-list)
+- Reference: [Query list](../../contracts/CONTEXT.md#query-list)
 
 ## Process
 
-1. Use queries to show Brief, Mail, Text, Calls, Attachments, Contacts, and Calendar. Use commands for changes and display their previews and receipts. Include Setup as a first-run view.
+1. Use queries for Brief, Mail, Text, Calls, Attachments, Contacts, and Calendar. Use commands for changes and display their previews and receipts.
+2. Own the in-app Setup screen. It calls the same commands as the first-run flow owned by setup.
 
 ## Outputs
 
-- Application screens.
+- Application screens
 
 ## Check
 

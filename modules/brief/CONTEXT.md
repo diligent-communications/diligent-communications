@@ -1,26 +1,27 @@
 ---
 build_step: 2
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md"]
+consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
 produces: ["Source-linked Brief"]
 ---
-# brief
-
-Review captured items and produce the Brief.
+# brief — Show items that need attention
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../archive/CONTEXT.md`, `../state/CONTEXT.md`.
+- Reference: [archive](../archive/CONTEXT.md)
+- Reference: [state](../state/CONTEXT.md)
+- Reference: [Captured record](../../contracts/CONTEXT.md#captured-record)
+- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
 
 ## Process
 
-1. Use archived originals and review state to assemble the list of items that need attention.
-2. Give every Brief line a link to the original that supports it.
+1. Use archived originals and live review progress to produce the Brief. Give each row a link to its original.
+2. Keep review choices in state. State saves those choices to archive so the Brief can be rebuilt after restore.
 
 ## Outputs
 
-- Source-linked Brief.
+- Source-linked Brief
 
 ## Check
 
-A contributor opens the link on every line in a synthetic Brief and compares it with the expected original.
+A contributor opens every row in a synthetic Brief and verifies that it opens the expected original.

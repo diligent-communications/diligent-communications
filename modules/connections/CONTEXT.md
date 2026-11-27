@@ -1,16 +1,14 @@
 ---
 build_step: 1
-consumes: ["../../contracts/CONTEXT.md"]
+consumes: ["../../contracts/CONTEXT.md#connection-status"]
 produces: ["Account connection status","Authorized connection access"]
 ---
-# connections
-
-Keep account sign-ins in one place.
+# connections — Keep account sign-ins in one place
 
 ## Inputs
 
 - Working: None in this planning repository.
-- Reference: `../../contracts/CONTEXT.md`.
+- Reference: [Connection status](../../contracts/CONTEXT.md#connection-status)
 
 ## Process
 
@@ -18,8 +16,8 @@ Keep account sign-ins in one place.
 
 ## Outputs
 
-- Account connection status.
-- Authorized connection access.
+- Account connection status
+- Authorized connection access
 
 ## Check
 
