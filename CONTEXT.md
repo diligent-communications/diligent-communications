@@ -28,7 +28,9 @@ One owner carries cross-folder features end to end. Review every contract edge t
 
 Step 1 contracts are complete. Work in steps 2 through 4 is draft. A draft can name an open handoff and is finished when its step starts.
 
-Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `archive` keeps as a local setting outside the folder. Setup asks for the location and sets it through a command.
+Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the evidence and backup folder locations, which `archive` keeps as local settings outside the evidence folder. Setup asks for both locations and sets them through commands.
+
+Step 1 backups go to the second folder the person picks. Setup requests backups and restores through commands. For restore, the person picks a backup from the list found in that folder.
 
 `map/` holds generated output and the hand-written target map. `_tools/` holds tooling. These support folders carry no contract. Update the [target map](map/target.md) whenever a module is added or removed or its edges change.
 

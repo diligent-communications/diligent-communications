@@ -9,6 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MAP = ROOT / "map" / "README.md"
 SHAPES = ROOT / "contracts" / "CONTEXT.md"
+FRONTMATTER_KEYS = {"build_step", "status", "consumes", "produces", "writes"}
+LANE_HEADING = re.compile(r"### (.+) · Step ([1-4]) \((decided|draft)\)")
+LANE_SECTIONS = {"#### Inputs", "#### Process", "#### Outputs", "#### Check"}
 
 
 def array_field(frontmatter, key, relative, *, required=True):
@@ -63,6 +66,11 @@ def read_contract(folder):
     frontmatter = lines[1:end]
     body = lines[end + 1:]
 
+    for line in frontmatter:
+        key, separator, _ = line.partition(":")
+        if line.strip() and not line.lstrip().startswith("#") and (not separator or key not in FRONTMATTER_KEYS):
+            raise ValueError(f"{relative}: unknown or indented frontmatter key {key!r}")
+
     statuses = [line for line in frontmatter if line.startswith("status:")]
     if statuses not in ([], ["status: draft"]):
         raise ValueError(f"{relative}: status must be draft if present")
@@ -80,7 +88,19 @@ def read_contract(folder):
         if set(values) != items:
             raise ValueError(f"{relative}: {key} disagrees with its Inputs or Outputs section")
         fields[key] = values
-    lanes = re.findall(r"^### (.+) · Step ([1-4]) \((decided|draft)\)$", "\n".join(body), re.M)
+    lanes = []
+    if "## Lanes" in body:
+        for line in body[body.index("## Lanes") + 1:]:
+            if line.startswith("## "):
+                break
+            if not line.lstrip().startswith("#") or line in LANE_SECTIONS:
+                continue
+            match = LANE_HEADING.fullmatch(line)
+            if not match:
+                raise ValueError(f"{relative}: invalid lane heading {line!r}")
+            lanes.append(match.groups())
+        if not lanes:
+            raise ValueError(f"{relative}: expected a lane heading under ## Lanes")
     return path, step, bool(statuses), lanes, fields
 
 
@@ -148,7 +168,10 @@ def render():
             step, f"{step} (proposed)"
         )
         if lanes:
-            build_step += "<br>" + ", ".join(f"{name}: {number} ({status})" for name, number, status in lanes)
+            build_step += "<br>" + ", ".join(
+                f"{name}: {number} ({'proposed, draft' if status == 'draft' else status})"
+                for name, number, status in lanes
+            )
         status = "Draft" if draft else "Complete"
         if step == "1 to 2" and draft:
             status = "Step 1 complete, step 2 draft"

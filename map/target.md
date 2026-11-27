@@ -66,6 +66,8 @@ Three owners of the truth:
 
 Screens and agents use the same door, so a person and an agent never do the same thing two different ways. Things come in through `capture` only and go out through `effects` only.
 
-Two rules sit under the table below. Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `archive` keeps as a local setting outside the folder. Setup asks for the location and sets it through a command.
+Two more rules. Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the locations of the evidence folder and the backup folder, which `archive` keeps as local settings outside the folder. Setup asks for both locations and sets them through commands.
+
+Backups go to a second folder the person picks, such as an external or cloud-synced drive. A restore lists the backups found in that folder and the person picks one. In step 1, `setup` is the surface that requests a backup or a restore, through `commands`.
 
 After a restore, an approved action that has no receipt is never sent automatically. It is checked with the provider or put back for approval. On restore, the restore command reads saved decisions and receipts from the archive and hands them to `state`.

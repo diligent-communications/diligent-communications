@@ -17,8 +17,8 @@ produces: ["Readable originals","Readable saved decisions and receipts","Version
 ## Process
 
 1. Accept only the captured record shape from capture. Preserve the original payload as received and refuse a source ID already in the manifest.
-2. Keep the evidence folder location in a local setting outside the folder. Accept a location from commands. Use that setting to resolve the folder for commands and queries and keep it out of the archive and backups.
-3. Accept saved decisions and receipts from state as readable archive records. Back up and restore originals, decisions, receipts, and the manifest together. On restore, give the saved decisions and receipts to the restore command for delivery to state.
+2. Accept the evidence folder and the separate backup folder locations from commands. Keep both as local settings outside the evidence folder and out of the archive and backups. Use the evidence folder setting to resolve the folder for commands and queries.
+3. Accept saved decisions and receipts from state as readable archive records. In step 1, handle setup's backup and restore requests through commands. Back up originals, decisions, receipts, and the manifest together to the second folder the person picks. For restore, list the backups in that folder and restore the one the person picks. Give the restored decisions and receipts to the restore command for delivery to state.
 
 ## Outputs
 
@@ -32,7 +32,7 @@ produces: ["Readable originals","Readable saved decisions and receipts","Version
 ## Check
 
 A contributor backs up a synthetic archive with originals, decisions, and receipts, empties the disposable test copy, restores it, and verifies every file and ID against the baseline.
-The contributor also verifies that backup excludes the folder location and that archive still resolves the locally configured folder after restart.
+The contributor also verifies that backups appear in the selected backup folder, that restore lists and uses the selected backup, and that archive still resolves both local settings after restart without including either location in the backup.
 
 ## Lanes
 

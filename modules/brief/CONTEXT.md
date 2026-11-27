@@ -17,7 +17,7 @@ writes: ["../state/CONTEXT.md"]
 
 ## Process
 
-1. Use archived originals and live review progress to produce the Brief. Give each row a link to its original.
+1. Commands calls brief for review. Use archived originals and live review progress to produce the Brief. Give each row a link to its original.
 2. Keep review choices in state. State saves those choices to archive so the Brief can be rebuilt after restore.
 
 ## Outputs

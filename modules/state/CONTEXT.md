@@ -17,8 +17,8 @@ writes: ["../archive/CONTEXT.md"]
 
 ### Process
 
-1. Record the capture and restore progress that commands sends. Make it available to queries.
-2. Receive saved decisions and receipts from the restore command and rebuild live state from them transactionally. During restore, keep an approval without a receipt out of automatic dispatch. Hold it for a provider check or return it for approval.
+1. Record the capture and restore progress that commands sends in transactions. Make it available to queries.
+2. Receive saved decisions and receipts from the restore command and rebuild live state from them transactionally. Report acceptance or failure of those records back to commands. During restore, keep an approval without a receipt out of automatic dispatch. Hold it for a provider check or return it for approval.
 
 ### Outputs
 
@@ -27,7 +27,7 @@ writes: ["../archive/CONTEXT.md"]
 
 ### Check
 
-A contributor records synthetic capture and restore progress and verifies that queries receives it. The contributor restores a backup and verifies that state accepts the passed-in decisions and receipts, rebuilds them without a partial update, and holds approvals without receipts.
+A contributor interrupts a synthetic progress write and a restore mid-write, restarting after each interruption to verify that no partial progress or restored records remain. The contributor also verifies that completed progress is available to queries, state reports the restore result to commands, and restored approvals without receipts are held.
 
 ## Step 2 (draft)
 

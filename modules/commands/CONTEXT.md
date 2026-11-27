@@ -3,7 +3,7 @@ build_step: 1 to 2
 status: draft
 consumes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
 produces: ["Write command catalog","Write previews","Write receipts","Capture and restore progress for state","Restored decisions and receipts for state"]
-writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../effects/CONTEXT.md"]
+writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../brief/CONTEXT.md","../effects/CONTEXT.md"]
 ---
 # commands — Preview and make changes
 
@@ -22,8 +22,8 @@ writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT
 
 ### Process
 
-1. Use the evidence folder through archive. Set its location in archive when setup asks, connect the mailbox through connections, and start mail capture through capture. Record capture progress in state from the outcome capture returns.
-2. Run backup and restore through archive. On restore, read the saved decisions and receipts that archive returns and hand them to state. Record restore progress in state and complete the restore only after state accepts those records.
+1. Use the evidence folder through archive. At setup's request, set the evidence and backup folder locations in archive, connect the mailbox through connections, and start the first mail capture through capture. Record capture progress in state from the outcome capture returns.
+2. In step 1, run setup's backup and restore requests through archive. Back up to the second folder the person picks. For restore, return the list of backups found in that folder to setup and restore the one the person picks. Read the saved decisions and receipts that archive returns and hand them to state. Record restore progress in state and complete the restore only after state accepts those records.
 3. Show a preview before each write and return a receipt afterward.
 
 ### Outputs
@@ -55,10 +55,11 @@ A contributor runs setup, mail capture, backup, and restore with synthetic data.
 
 ### Process
 
-1. Expand the command list to the remaining working modules. Record each approval in state before passing an approved external action to effects. Record changes to saved views in state as decisions.
+1. Expand the command list to the remaining working modules. Call brief for review. Record each approval in state before passing an approved external action to effects. Record changes to saved views in state as decisions.
 
 ### Outputs
 
+- Handoff: [brief](../brief/CONTEXT.md)
 - Handoff: [effects](../effects/CONTEXT.md)
 
 ### Check

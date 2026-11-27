@@ -19,7 +19,7 @@ All actions sent outside the application go through effects.
 
 ## Process
 
-1. Confirm the recorded approval in state before using the relevant account connection to send a reply or write a calendar event.
+1. Commands passes approved external actions to effects. Confirm the recorded approval in state before using the relevant account connection to send a reply or write a calendar event.
 2. Create a receipt and hand it to state. State holds the live copy and saves the lasting copy into archive. Check a restored receipt before acting and verify uncertain delivery before retrying.
 3. After restore, never automatically send an approved action that has no receipt. Check it with the provider or put it back for approval.
 

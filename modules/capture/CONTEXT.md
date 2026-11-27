@@ -16,7 +16,7 @@ All incoming communications and imports enter through capture.
 
 ## Process
 
-1. Give each item a stable source ID and preserve its original payload in the captured record shape. Hand that record to archive. The archive manifest refuses IDs it already holds.
+1. Commands starts a capture. Give each item a stable source ID and preserve its original payload in the captured record shape. Hand that record to archive. The archive manifest refuses IDs it already holds.
 2. Return the capture outcome to commands so it can record capture progress in state.
 
 ## Outputs
@@ -41,7 +41,7 @@ A contributor captures the same synthetic item twice and verifies that the archi
 
 #### Process
 
-1. Import mail using a stable ID for each message.
+1. Commands starts mail capture. Import mail using a stable ID for each message.
 
 #### Outputs
 
