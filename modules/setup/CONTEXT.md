@@ -17,7 +17,7 @@ produces: ["First-run setup flow"]
 ## Process
 
 1. Own the first-run flow. The in-app Setup screen belongs to app and calls the same commands.
-2. Use commands to select the evidence folder, connect the mailbox, and restore a backup when requested. Setup owns the evidence folder location, which stays on the computer and never goes into the archive or a backup. Show choices and first-capture progress through queries.
+2. Ask the person for the evidence folder location and set it through a command. The archive keeps the location as a local setting. Use commands to connect the mailbox and restore a backup when requested. Use queries to show the folder choice, connection status, and capture and restore progress.
 
 ## Outputs
 

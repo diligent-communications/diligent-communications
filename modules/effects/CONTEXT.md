@@ -1,10 +1,13 @@
 ---
 build_step: 4
+status: draft
 consumes: ["../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
 produces: ["External action receipts"]
 writes: ["../state/CONTEXT.md"]
 ---
 # effects — Carry out approved external actions
+
+All actions sent outside the application go through effects.
 
 ## Inputs
 

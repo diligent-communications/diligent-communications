@@ -54,3 +54,8 @@ The shared list of reads with their inputs and result shapes.
 ### Connection status
 
 The information surfaces need to tell a person whether an account is connected. Sign-in details stay with connections.
+
+## Open
+
+- Assign versions to the shared shapes before their first publication.
+- Decide whether a saved decision or action receipt keeps the approved content, such as reply text or event details.

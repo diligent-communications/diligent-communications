@@ -1,7 +1,7 @@
 ---
 build_step: 1
 consumes: ["../connections/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#archive-manifest","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
-produces: ["Readable originals","Readable saved decisions and receipts","Versioned manifest","Backups and restored records"]
+produces: ["Readable originals","Readable saved decisions and receipts","Versioned manifest","Backups and restored records","Evidence folder access","Restored decisions and receipts for commands"]
 ---
 # archive — Keep originals and lasting records
 
@@ -17,7 +17,8 @@ produces: ["Readable originals","Readable saved decisions and receipts","Version
 ## Process
 
 1. Accept only the captured record shape from capture. Preserve the original payload as received and refuse a source ID already in the manifest.
-2. Accept saved decisions and receipts from state as readable archive records. Back up and restore originals, decisions, receipts, and the manifest together so state can be rebuilt.
+2. Keep the evidence folder location in a local setting outside the folder. Accept a location from commands. Use that setting to resolve the folder for commands and queries and keep it out of the archive and backups.
+3. Accept saved decisions and receipts from state as readable archive records. Back up and restore originals, decisions, receipts, and the manifest together. On restore, give the saved decisions and receipts to the restore command for delivery to state.
 
 ## Outputs
 
@@ -25,14 +26,17 @@ produces: ["Readable originals","Readable saved decisions and receipts","Version
 - Readable saved decisions and receipts
 - Versioned manifest
 - Backups and restored records
+- Evidence folder access
+- Restored decisions and receipts for commands
 
 ## Check
 
 A contributor backs up a synthetic archive with originals, decisions, and receipts, empties the disposable test copy, restores it, and verifies every file and ID against the baseline.
+The contributor also verifies that backup excludes the folder location and that archive still resolves the locally configured folder after restart.
 
 ## Lanes
 
-### Storage · Step 4 (proposed)
+### Storage · Step 4 (draft)
 
 #### Inputs
 

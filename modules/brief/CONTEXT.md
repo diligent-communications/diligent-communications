@@ -1,5 +1,6 @@
 ---
 build_step: 2
+status: draft
 consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
 produces: ["Source-linked Brief"]
 writes: ["../state/CONTEXT.md"]

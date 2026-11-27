@@ -52,6 +52,7 @@ flowchart TB
   state == decisions and receipts ==> archive
   commands -- setup, backup, restore --> archive & connections
   brief -- progress --> state
+  contacts & calendar -- choices --> state
   capture & effects --> connections
 ```
 
@@ -65,6 +66,6 @@ Three owners of the truth:
 
 Screens and agents use the same door, so a person and an agent never do the same thing two different ways. Things come in through `capture` only and go out through `effects` only.
 
-Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `setup` owns.
+Two rules sit under the table below. Every module may read `contracts/`, and names the exact shapes it depends on. Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `archive` keeps as a local setting outside the folder. Setup asks for the location and sets it through a command.
 
-After a restore, an approved action that has no receipt is never sent automatically. It is checked with the provider or put back for approval.
+After a restore, an approved action that has no receipt is never sent automatically. It is checked with the provider or put back for approval. On restore, the restore command reads saved decisions and receipts from the archive and hands them to `state`.

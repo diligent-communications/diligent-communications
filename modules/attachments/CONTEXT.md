@@ -1,5 +1,6 @@
 ---
 build_step: 3
+status: draft
 consumes: ["../archive/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#archive-manifest","../../contracts/CONTEXT.md#attachment-export"]
 produces: ["Attachment previews","Attachment export"]
 ---
@@ -26,3 +27,7 @@ produces: ["Attachment previews","Attachment export"]
 ## Check
 
 A contributor runs a synthetic export and compares its contents and layout with the published attachment export shape.
+
+## Open
+
+- Decide where a person's mail filter is saved.

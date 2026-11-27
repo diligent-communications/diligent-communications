@@ -1,5 +1,6 @@
 ---
 build_step: 2
+status: draft
 consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list"]
 produces: ["Application screens"]
 ---

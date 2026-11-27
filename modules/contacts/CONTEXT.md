@@ -1,5 +1,6 @@
 ---
 build_step: 3
+status: draft
 consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
 produces: ["Contact links","Contact views"]
 writes: ["../state/CONTEXT.md"]

@@ -1,10 +1,12 @@
 ---
 build_step: 1
 consumes: ["../connections/CONTEXT.md","../../contracts/CONTEXT.md#captured-record"]
-produces: ["Captured records with stable source IDs"]
+produces: ["Captured records with stable source IDs","Capture outcome for commands"]
 writes: ["../archive/CONTEXT.md"]
 ---
 # capture — Bring in communications and imports
+
+All incoming communications and imports enter through capture.
 
 ## Inputs
 
@@ -15,10 +17,12 @@ writes: ["../archive/CONTEXT.md"]
 ## Process
 
 1. Give each item a stable source ID and preserve its original payload in the captured record shape. Hand that record to archive. The archive manifest refuses IDs it already holds.
+2. Return the capture outcome to commands so it can record capture progress in state.
 
 ## Outputs
 
 - Captured records with stable source IDs
+- Capture outcome for commands
 - Handoff: [archive](../archive/CONTEXT.md)
 
 ## Check
@@ -47,7 +51,7 @@ A contributor captures the same synthetic item twice and verifies that the archi
 
 A contributor imports the same message twice and verifies that the archive holds one record.
 
-### Text · Step 3 (proposed)
+### Text · Step 3 (draft)
 
 #### Inputs
 
@@ -67,7 +71,7 @@ A contributor imports the same message twice and verifies that the archive holds
 
 A contributor captures texts offline, reconnects, and verifies that the archive has no duplicates.
 
-### Calls · Step 4 (proposed)
+### Calls · Step 4 (draft)
 
 #### Inputs
 
@@ -87,7 +91,7 @@ A contributor captures texts offline, reconnects, and verifies that the archive 
 
 A contributor turns off calls and verifies that every other primary workflow still works.
 
-### Import · Step 3 (proposed)
+### Import · Step 3 (draft)
 
 #### Inputs
 

@@ -12,7 +12,7 @@ produces: ["Account connection status","Authorized connection access"]
 
 ## Process
 
-1. Keep sign-ins on the computer and out of the archive and its backups. Provide connection access through a shared interface and expose connection status without exposing sign-in details.
+1. Connect the mailbox when asked through commands. Keep sign-ins on the computer and out of the archive and its backups. Provide connection access through a shared interface and expose connection status to queries without exposing sign-in details.
 
 ## Outputs
 

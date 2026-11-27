@@ -1,5 +1,6 @@
 ---
 build_step: 3
+status: draft
 consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list"]
 produces: ["Agent access to commands and queries"]
 ---

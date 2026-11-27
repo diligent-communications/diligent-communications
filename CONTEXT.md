@@ -22,11 +22,13 @@
 
 ## Working across folders
 
-Load the inputs named in the module contract. Every module may read [contracts](contracts/CONTEXT.md) and names the exact shapes it needs. Change shared shapes there first.
+Things come in through capture only and go out through effects only. App, MCP, and setup use the same door, with commands for changes and queries for reads. A module may read only the folders its contract lists and the exact shapes it names in [contracts](contracts/CONTEXT.md). Change shared shapes there first.
 
 One owner carries cross-folder features end to end. Review every contract edge they touch.
 
-Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `setup` owns.
+Step 1 contracts are complete. Work in steps 2 through 4 is draft. A draft can name an open handoff and is finished when its step starts.
+
+Anything that cannot be rebuilt from originals is saved into the archive, with two exceptions that stay on the computer and never enter the archive or a backup: account sign-ins, which `connections` owns, and the location of the evidence folder, which `archive` keeps as a local setting outside the folder. Setup asks for the location and sets it through a command.
 
 `map/` holds generated output and the hand-written target map. `_tools/` holds tooling. These support folders carry no contract. Update the [target map](map/target.md) whenever a module is added or removed or its edges change.
 

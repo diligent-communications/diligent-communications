@@ -8,6 +8,8 @@ writes: []
 
 {Set build_step to 1, 2, 3, 4, or 1 to 2 for a module that spans those steps.}
 
+{For draft work, add status: draft to the frontmatter. In a mixed contract, label the complete and draft sections and give each its own process and check.}
+
 ## Inputs
 
 - Working: {List exact paths relative to this file, or say none.}

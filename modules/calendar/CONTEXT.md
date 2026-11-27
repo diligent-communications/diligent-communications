@@ -1,5 +1,6 @@
 ---
 build_step: 4
+status: draft
 consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#action-receipt","../../contracts/CONTEXT.md#saved-decision"]
 produces: ["Proposed events","Booked event views"]
 writes: ["../state/CONTEXT.md"]
@@ -28,3 +29,7 @@ writes: ["../state/CONTEXT.md"]
 ## Check
 
 A contributor starts with a populated calendar, simulates a provider outage, and verifies that known bookings remain visible.
+
+## Open
+
+- Decide how proposed events are rebuilt from the archive.
