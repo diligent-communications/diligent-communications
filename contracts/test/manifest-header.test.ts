@@ -44,6 +44,8 @@ test('a line that is not a valid version 1 header is refused', () => {
     { ...good, archive_id: 7 },
     { ...good, created_at: '2026-01-01T00:00:00+02:00' },
     { ...good, created_at: '2026-13-45T00:00:00.000Z' },
+    // A date that does not exist, although every number is in range.
+    { ...good, created_at: '2026-02-30T00:00:00.000Z' },
     { line: 'header', manifest_version: 1, archive_id: sampleId },
   ];
   for (const value of bad) {

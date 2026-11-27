@@ -25,8 +25,26 @@ export async function newWorkspace(t: TestContext): Promise<Workspace> {
 
 // A folder link: a junction on Windows, which needs no special rights, and a
 // symbolic link elsewhere (Node ignores the type argument there).
-export async function folderLink(target: string, link: string): Promise<void> {
+//
+// Both ends must be inside the test's own temporary folder, so the recursive
+// clean-up can never reach anything the test did not make. This refuses a
+// link to a drive root or to any other folder outside it.
+export async function folderLink(w: Workspace, target: string, link: string): Promise<void> {
+  for (const end of [target, link]) {
+    const relative = path.relative(w.root, path.resolve(end));
+    if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(`A test link must stay inside its temporary folder: ${end}`);
+    }
+  }
   await symlink(target, link, 'junction');
+}
+
+// Two folder links inside the test's own folder that point at each other, so
+// the system cannot follow them to a folder.
+export async function linkLoop(w: Workspace, at: string): Promise<void> {
+  const other = path.join(w.root, `loop-${path.basename(at)}`);
+  await folderLink(w, other, at);
+  await folderLink(w, at, other);
 }
 
 export async function exists(target: string): Promise<boolean> {

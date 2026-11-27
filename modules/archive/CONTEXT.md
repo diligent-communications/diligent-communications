@@ -41,6 +41,18 @@ The contributor also verifies that backups appear in the selected backup folder,
 The contributor also verifies that an unfinished or unreadable backup is listed with a reason and cannot be picked, and that the picked backup is checked and its restore preview returned to commands.
 The contributor also verifies that restore refuses a destination that is neither empty nor a matching retry, that a missing folder is reported and not replaced, and that no backup is deleted.
 
+## Folder rules
+
+| Rule | Passes when |
+| --- | --- |
+| **An archive is created once.** When an archive is created or accepted at the evidence folder, its archive ID is remembered in the settings file. From then on, opening requires that archive at that folder. Creating happens only when no archive ID is remembered for that evidence folder and the folder is empty. Choosing a different evidence folder clears the remembered ID; saving the same folder again keeps it. | After an archive is created, an empty folder, a missing folder or a different archive at the same path is reported and nothing is created. Saving the same path again keeps the ID, and choosing another folder clears it. |
+| **Both folders must already exist when they are set.** Their real locations are what is saved. | A folder that does not exist is refused and not created. A folder chosen through a folder link is saved as its real location. |
+| **What a drive root means.** On Windows, a drive letter's top folder or a share's top folder. On Linux and macOS, `/` only. Stated limit: the top folder of a mounted drive is allowed there. | Each of these roots is refused as either folder, and a folder below one is accepted. |
+| **Same folder by another name.** Besides real paths, each folder's file identity is compared with the other folder and with each of its parent folders. Stated limit: a share that starts below the other folder is not caught. | A second spelling of the same folder, or of a folder inside the other, is refused. |
+| **What a valid archive is.** A folder whose manifest starts with a header line of a known version. Other files in the folder do not make it invalid. Checking every listed file belongs to verifying, a later step. | A folder with such a header and other files opens. A folder without one is refused and left unchanged. |
+| **A folder that cannot be read is its own result.** A folder the program cannot read, a link loop, or a drive or share that is not available is reported as unavailable. It is never treated as empty, missing or safe to create in. The status of one folder never hides the status of the other. | An unreadable evidence or backup folder is reported as unavailable, nothing is created, and the other folder's status is still reported. |
+| **Creating never overwrites.** The read-me and the manifest are created only if no file of that name exists. A creation that stopped partway is reported as such and left alone. | A file that appears before creation finishes keeps its contents, and a folder holding a stopped creation is reported as one and left unchanged. |
+
 ## Lanes
 
 ### Storage · Step 4 (draft)
