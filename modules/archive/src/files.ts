@@ -110,15 +110,43 @@ export async function readFirstLine(file: string, maxBytes: number): Promise<Fir
   }
 }
 
+const MISSING_CODES = new Set(['ENOENT', 'ENOTDIR']);
+
+// No permission (EACCES, EPERM), a link loop (ELOOP), a read-only drive
+// (EROFS), or a drive or share that is not ready or not reachable. On Windows,
+// Node reports some of those last ones as UNKNOWN.
+const UNAVAILABLE_CODES = new Set([
+  'EACCES',
+  'EPERM',
+  'ELOOP',
+  'EROFS',
+  'EIO',
+  'EBUSY',
+  'ENODEV',
+  'ENXIO',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UNKNOWN',
+]);
+
 // What a failed file system call means for a caller. "missing": the path, or a
-// folder on the way to it, does not exist. "unavailable": anything else the
-// system reported, such as no permission, a link loop, or a drive or share
-// that is not ready. An error that did not come from the file system is a
-// fault in the program and is thrown again.
+// folder on the way to it, does not exist. "unavailable": one of the problems
+// listed above. Any other error is a fault the program does not expect here
+// and is thrown again.
 export function fileProblem(error: unknown): { problem: 'missing' | 'unavailable'; code: string } {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  if (typeof code !== 'string') {
-    throw error;
+  if (typeof code === 'string' && MISSING_CODES.has(code)) {
+    return { problem: 'missing', code };
   }
-  return { problem: code === 'ENOENT' || code === 'ENOTDIR' ? 'missing' : 'unavailable', code };
+  if (typeof code === 'string' && UNAVAILABLE_CODES.has(code)) {
+    return { problem: 'unavailable', code };
+  }
+  throw error;
+}
+
+// The code of a file system error, or undefined for any other error.
+export function errorCode(error: unknown): string | undefined {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return typeof code === 'string' ? code : undefined;
 }

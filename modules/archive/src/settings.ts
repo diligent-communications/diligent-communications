@@ -2,9 +2,9 @@
 // must meet before it is saved. The settings file is local to this computer and
 // is never put in the archive or a backup.
 
-import { mkdir, readFile, realpath, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { fileProblem, replaceFile, type ReplaceSteps } from './files.ts';
+import { errorCode, fileProblem, replaceFile, type ReplaceSteps } from './files.ts';
 
 export const SETTINGS_VERSION = 1;
 
@@ -114,7 +114,16 @@ export type CheckedFolders = {
   outcome: 'checked';
   // The real locations, after following any folder links.
   locations: FolderLocations;
+  // The evidence folder's real location and file identity.
+  evidencePlace: Place;
   warnings: FolderWarning[];
+};
+
+// How a given location is turned into a real folder. Tests may supply a
+// made-up result, so a rule on real locations can be tested without making a
+// link to a real folder outside the test.
+export type FolderLookup = {
+  findFolder: (location: string) => Promise<FoundFolder>;
 };
 
 // Checks the rules that do not depend on what is inside the evidence folder.
@@ -124,6 +133,7 @@ export type CheckedFolders = {
 export async function checkFolderPair(
   settingsFile: string,
   given: FolderLocations,
+  lookup: FolderLookup = { findFolder: realFolder },
 ): Promise<CheckedFolders | FolderRefusal> {
   const named: [string, string][] = [
     ['evidence folder', given.evidenceFolder],
@@ -140,7 +150,7 @@ export async function checkFolderPair(
   }
   const real: Place[] = [];
   for (const [name, location] of named) {
-    const found = await realFolder(location);
+    const found = await lookup.findFolder(location);
     if (found.kind === 'missing') {
       return refuse('missing', `The ${name} ${location} cannot be found. Choose a folder that exists.`);
     }
@@ -171,6 +181,7 @@ export async function checkFolderPair(
   return {
     outcome: 'checked',
     locations: { evidenceFolder: evidence.location, backupFolder: backup.location },
+    evidencePlace: evidence,
     warnings: driveWarnings(evidence.dev, backup.dev),
   };
 }
@@ -218,9 +229,9 @@ export function isDriveRoot(location: string, paths: path.PlatformPath = path): 
 // A folder's real location and its file identity: the device number and file
 // number the file system reports. The identity is null when the file system
 // gives no file number.
-type Place = { location: string; dev: bigint; id: string | null };
+export type Place = { location: string; dev: bigint; id: string | null };
 
-type FoundFolder =
+export type FoundFolder =
   | { kind: 'folder'; place: Place }
   | { kind: 'missing' }
   | { kind: 'not-a-folder' }
@@ -228,14 +239,16 @@ type FoundFolder =
 
 // The real location of an existing folder, with every folder link followed.
 // Node's promise-based realpath uses the system's own lookup, which on Windows
-// also gives each name its stored capitals and long form.
-async function realFolder(location: string): Promise<FoundFolder> {
+// also gives each name its stored capitals and long form. The folder is also
+// listed, since a folder can be found and looked at without being readable.
+export async function realFolder(location: string): Promise<FoundFolder> {
   try {
     const found = await realpath(location);
     const info = await stat(found, { bigint: true });
     if (!info.isDirectory()) {
       return { kind: 'not-a-folder' };
     }
+    await readdir(found);
     return { kind: 'folder', place: { location: found, dev: info.dev, id: identity(info) } };
   } catch (error) {
     const { problem, code } = fileProblem(error);
@@ -310,6 +323,19 @@ function isInsideText(inner: string, outer: string): boolean {
   return comparable(inner).startsWith(comparable(outer)) && !sameText(inner, outer);
 }
 
-export function sameSavedFolder(a: string, b: string): boolean {
-  return sameText(a, b);
+// Whether a saved folder location and a newly chosen folder are the same
+// folder: by file identity when both can be looked at, and by path text
+// otherwise. So another spelling of the same place counts as the same folder.
+export async function isSameFolder(savedLocation: string, chosen: Place): Promise<boolean> {
+  try {
+    const saved = identity(await stat(savedLocation, { bigint: true }));
+    if (saved !== null && chosen.id !== null) {
+      return saved === chosen.id;
+    }
+  } catch (error) {
+    if (errorCode(error) === undefined) {
+      throw error;
+    }
+  }
+  return sameText(savedLocation, chosen.location);
 }

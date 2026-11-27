@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { link, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, link, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
 import { openArchive, readFolders, setFolders } from '../src/archive.ts';
 import { replaceFile } from '../src/files.ts';
-import { driveWarnings, isDriveRoot, writeSettingsFile } from '../src/settings.ts';
+import { checkFolderPair, driveWarnings, isDriveRoot, realFolder, writeSettingsFile, type FoundFolder } from '../src/settings.ts';
 import { exists, folderLink, linkLoop, newWorkspace, type Workspace } from './helpers/workspace.ts';
 
 const onWindows = process.platform === 'win32';
@@ -386,4 +386,92 @@ test('both locations and the archive ID read back the same after the program sto
     locations: { evidenceFolder: w.evidence, backupFolder: w.backup },
     archiveId: opened.outcome === 'opened' ? opened.archive.archiveId : 'none',
   });
+});
+
+test('a folder whose real location is a drive root is refused', async (t) => {
+  const w = await newWorkspace(t);
+  // The lookup gives a made-up real location for an ordinary-looking path, as
+  // a link to the top of a drive would. No link is made and the root is never
+  // looked at.
+  const looksOrdinary = path.join(w.root, 'looks-ordinary');
+  const lookup = {
+    findFolder: async (location: string): Promise<FoundFolder> =>
+      location === looksOrdinary
+        ? { kind: 'folder', place: { location: path.parse(w.root).root, dev: 1n, id: 'made-up' } }
+        : realFolder(location),
+  };
+  for (const given of [
+    { evidenceFolder: looksOrdinary, backupFolder: w.backup },
+    { evidenceFolder: w.evidence, backupFolder: looksOrdinary },
+  ]) {
+    const result = await checkFolderPair(w.settingsFile, given, lookup);
+    assert.equal(result.outcome === 'refused' ? result.reason : result.outcome, 'drive-root');
+  }
+});
+
+test('saving the same evidence folder under another spelling keeps the remembered ID (Windows)', async (t) => {
+  if (!onWindows) {
+    t.skip('Windows only: it uses the \\\\localhost\\C$ spelling of a local folder.');
+    return;
+  }
+  const w = await newWorkspace(t);
+  const viaShare = (location: string) => `\\\\localhost\\${location[0]}$${location.slice(2)}`;
+  try {
+    await stat(viaShare(w.evidence));
+  } catch (error) {
+    t.skip(`This machine does not offer its administrative share (${(error as NodeJS.ErrnoException).code}).`);
+    return;
+  }
+  await setPair(w, w.evidence, w.backup);
+  const opened = await openArchive(w.settingsFile);
+  const id = opened.outcome === 'opened' ? opened.archive.archiveId : '';
+
+  // Emptied, then saved again under the other spelling: the ID stays, and
+  // opening reports the archive as gone instead of making a new one.
+  for (const name of await readdir(w.evidence)) {
+    await rm(path.join(w.evidence, name), { recursive: true });
+  }
+  assert.equal((await setPair(w, viaShare(w.evidence), w.backup)).outcome, 'saved');
+  const read = await readFolders(w.settingsFile);
+  assert.equal(read.outcome === 'found' ? read.archiveId : undefined, id);
+  assert.equal((await openArchive(w.settingsFile)).outcome, 'archive-gone');
+  assert.deepEqual(await readdir(w.evidence), []);
+
+  // Holding a different archive, saved under the first spelling again: its ID
+  // is not adopted, and opening reports it.
+  const other = '{"line":"header","manifest_version":1,"archive_id":"other-made-up-archive","created_at":"2026-01-01T00:00:00.000Z"}\n';
+  await writeFile(path.join(w.evidence, 'manifest.jsonl'), other);
+  assert.equal((await setPair(w, w.evidence, w.backup)).outcome, 'saved');
+  const again = await readFolders(w.settingsFile);
+  assert.equal(again.outcome === 'found' ? again.archiveId : undefined, id);
+  assert.equal((await openArchive(w.settingsFile)).outcome, 'different-archive');
+});
+
+test('a backup folder without permission to list it is refused as unavailable (Linux)', async (t) => {
+  if (onWindows) {
+    t.skip('Windows ignores these permission bits on folders.');
+    return;
+  }
+  if (process.getuid?.() === 0) {
+    t.skip('The system administrator account can read any folder.');
+    return;
+  }
+  const w = await newWorkspace(t);
+  await chmod(w.backup, 0o000);
+  try {
+    await assertRefused(await setPair(w, w.evidence, w.backup), 'unavailable', w.settingsFile);
+  } finally {
+    await chmod(w.backup, 0o700);
+  }
+});
+
+test('settings that cannot be written are reported, not thrown', async (t) => {
+  const w = await newWorkspace(t);
+  // The settings file's folder cannot be made: a file has that name.
+  const blocker = path.join(w.root, 'local-data');
+  await writeFile(blocker, 'made-up text');
+  const result = await setPair(w, w.evidence, w.backup);
+  assert.equal(result.outcome, 'not-saved');
+  assert.match(result.outcome === 'not-saved' ? result.message : '', /could not be saved/);
+  assert.equal(await readFile(blocker, 'utf8'), 'made-up text');
 });
