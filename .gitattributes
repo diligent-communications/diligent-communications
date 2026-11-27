@@ -1,2 +1,3 @@
 # Tests can compare fixture bytes, including line endings.
 modules/**/test/fixtures/** -text -filter -ident -working-tree-encoding
+contracts/test/fixtures/** -text -filter -ident -working-tree-encoding

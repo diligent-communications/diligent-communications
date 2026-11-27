@@ -22,9 +22,11 @@
 
 ## Code and tests
 
-Put code in `modules/<name>/src/` and tests in `modules/<name>/test/`, beside the module's `CONTEXT.md`. Put code for shared shapes in `contracts/`.
+Put code in `modules/<name>/src/` and tests in `modules/<name>/test/`, beside the module's `CONTEXT.md`. Put code for shared shapes in `contracts/` and its tests in `contracts/test/`. Name tests `*.test.ts`.
 
-Use Node.js 24 or later. Run `npm ci --ignore-scripts`, `npm test`, and `npm run typecheck` from the root. Node runs TypeScript directly. Use only erasable TypeScript syntax, so removing the types leaves valid JavaScript. Include the `.ts` extension when importing a TypeScript file by relative path and use `import type` for type-only imports.
+Put files that must retain their exact bytes in a module's or the shared contracts' `test/fixtures/` folder, where Git preserves them byte for byte.
+
+Use Node.js 24.12.0 or later. Run `npm ci --ignore-scripts`, `npm test`, and `npm run typecheck` from the root. Node runs TypeScript directly. Use only erasable TypeScript syntax, so removing the types leaves valid JavaScript. Include the `.ts` extension when importing a TypeScript file by relative path and use `import type` for type-only imports.
 
 ## Working across folders
 
