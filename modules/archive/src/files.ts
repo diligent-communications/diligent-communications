@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto';
 import { open, rename, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { getSystemErrorMap } from 'node:util';
 
 export type ReplaceSteps = {
   // Called once the new contents are complete on disk under the temporary
@@ -202,4 +203,13 @@ export function fileProblem(error: unknown): { problem: 'missing' | 'unavailable
 export function errorCode(error: unknown): string | undefined {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
   return typeof code === 'string' ? code : undefined;
+}
+
+const SYSTEM_CODES = new Set(Array.from(getSystemErrorMap().values(), ([code]) => code));
+
+export function systemFailure(error: unknown): string {
+  const code = errorCode(error);
+  if (code && (SYSTEM_CODES.has(code) || code === 'NOT_DIRECTORY' ||
+      code === 'NOT_REGULAR_FILE' || code === 'MANIFEST_REPLACED')) return code;
+  throw error;
 }

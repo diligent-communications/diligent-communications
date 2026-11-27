@@ -31,14 +31,15 @@ export type CapturedRecordResult =
   | { outcome: 'invalid-record' };
 
 export function readCapturedRecord(value: unknown): CapturedRecordResult {
-  if (!isRecord(value) || !hasFields(value, ['record_version', 'payload', ...SOURCE_FIELDS])) {
+  if (!isRecord(value)) {
     return { outcome: 'invalid-record' };
   }
-  const version = value.record_version;
+  const version: unknown = Object.getOwnPropertyDescriptor(value, 'record_version')?.value;
   if (typeof version === 'number' && Number.isSafeInteger(version) && version > 1) {
     return { outcome: 'unknown-record-version', version };
   }
-  if (version !== 1 || !(value.payload instanceof Uint8Array) || !hasCaptureSource(value)) {
+  if (version !== 1 || !hasFields(value, ['record_version', 'payload', ...SOURCE_FIELDS]) ||
+      !(value.payload instanceof Uint8Array) || !hasCaptureSource(value)) {
     return { outcome: 'invalid-record' };
   }
   const { payload, source_id, source_kind, media_type, captured_at } = value;

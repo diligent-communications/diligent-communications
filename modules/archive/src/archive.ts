@@ -1,9 +1,8 @@
 // The archive's operations for choosing its folders and creating or opening an
 // archive. Other parts of the program use only these, never the files.
 //
-// Every operation takes the location of the folder settings file. The program
-// passes its own local data folder for the signed-in person; tests pass a
-// temporary folder.
+// Folder operations take the location of the folder settings file. Opening
+// for writing takes the archive information returned by a previous open.
 
 import { readdir, stat } from 'node:fs/promises';
 import { createArchive, inspectEvidenceFolder, type ArchiveInfo, type EvidenceStatus } from './evidence-folder.ts';

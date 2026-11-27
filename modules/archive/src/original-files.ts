@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, lstat, mkdir, readFile, readdir, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readFile, readdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { errorCode, failedStep, syncFolder, writeNewFile } from './files.ts';
 
@@ -50,6 +50,12 @@ export async function putOriginal(
       throw Object.assign(new Error('An original path is not a regular file'), { code: 'NOT_REGULAR_FILE' });
     }
     if (name === location.name && info.size === payload.length && (await readFile(candidate)).equals(payload)) {
+      const handle = await open(candidate, 'r+');
+      try {
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
       adopted = true;
     } else {
       await moveLeftover(folder, candidate, name);

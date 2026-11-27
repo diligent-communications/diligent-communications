@@ -14,8 +14,13 @@ export type Checkpoint = {
 
 type LoadedManifest =
   | { outcome: 'loaded'; checkpoint: Checkpoint; held: Map<string, OriginalEntry>; usedOriginalStems: Set<string> }
-  | { outcome: 'bad-manifest'; line: number }
+  | BadManifest
   | { outcome: 'different-archive'; found: string };
+
+export type BadManifest = { outcome: 'bad-manifest'; line: number } & (
+  | { reason: 'unknown-version'; version: number }
+  | { reason: 'unreadable-line' | 'duplicate-record-id' | 'duplicate-path' | 'duplicate-source-id' | 'wrong-original-id' | 'wrong-original-path' }
+);
 
 export async function openManifest(file: string, mode: 'read' | 'truncate' | 'append'): Promise<FileHandle> {
   const before = await lstat(file, { bigint: true });
@@ -66,33 +71,37 @@ function parseManifest(bytes: Buffer, archiveId: string, file: BigIntStats): Loa
     try {
       text = utf8.decode(bytes.subarray(offset, end));
     } catch {
-      return { outcome: 'bad-manifest', line };
+      return { outcome: 'bad-manifest', line, reason: 'unreadable-line' };
     }
     lastStart = offset;
     offset = end + 1;
     if (line === 1) {
       const header = readManifestHeader(text.replace(/^\uFEFF/, ''));
-      if (header.outcome !== 'header') return { outcome: 'bad-manifest', line };
+      if (header.outcome === 'unknown-version') return { outcome: 'bad-manifest', line, reason: 'unknown-version', version: header.version };
+      if (header.outcome !== 'header') return { outcome: 'bad-manifest', line, reason: 'unreadable-line' };
       if (header.header.archive_id !== archiveId) return { outcome: 'different-archive', found: header.header.archive_id };
       continue;
     }
     const parsed = readManifestEntry(text);
-    if (parsed.outcome !== 'entry') return { outcome: 'bad-manifest', line };
+    if (parsed.outcome === 'unknown-record-version') {
+      return { outcome: 'bad-manifest', line, reason: 'unknown-version', version: parsed.version };
+    }
+    if (parsed.outcome !== 'entry') return { outcome: 'bad-manifest', line, reason: 'unreadable-line' };
     const entry = parsed.entry;
+    if (entry.kind === 'original' && held.has(entry.source_id)) return { outcome: 'bad-manifest', line, reason: 'duplicate-source-id' };
     const key = `${entry.kind}:${entry.record_id}`;
-    if (recordIds.has(key) || usedPaths.has(entry.path)) return { outcome: 'bad-manifest', line };
+    if (recordIds.has(key)) return { outcome: 'bad-manifest', line, reason: 'duplicate-record-id' };
+    if (usedPaths.has(entry.path)) return { outcome: 'bad-manifest', line, reason: 'duplicate-path' };
     recordIds.add(key);
     usedPaths.add(entry.path);
     const stem = /^originals\/([a-f0-9]{2}\/[a-f0-9]{64})(?:\.|$)/i.exec(entry.path)?.[1];
     if (stem) usedOriginalStems.add(stem.toLowerCase());
     if (entry.kind !== 'original') continue;
-    if (held.has(entry.source_id) || entry.record_id !== sha256(entry.source_id) ||
-        entry.path !== originalLocation(entry.record_id, entry.media_type).relative) {
-      return { outcome: 'bad-manifest', line };
-    }
+    if (entry.record_id !== sha256(entry.source_id)) return { outcome: 'bad-manifest', line, reason: 'wrong-original-id' };
+    if (entry.path !== originalLocation(entry.record_id, entry.media_type).relative) return { outcome: 'bad-manifest', line, reason: 'wrong-original-path' };
     held.set(entry.source_id, entry);
   }
-  if (line === 0) return { outcome: 'bad-manifest', line: 1 };
+  if (line === 0) return { outcome: 'bad-manifest', line: 1, reason: 'unreadable-line' };
   return { outcome: 'loaded', held, usedOriginalStems, checkpoint: {
     size: bytes.length, completeSize: offset, lastLine: Buffer.from(bytes.subarray(lastStart, offset)),
     suffix: Buffer.from(bytes.subarray(lastStart)), file,
@@ -102,17 +111,39 @@ function parseManifest(bytes: Buffer, archiveId: string, file: BigIntStats): Loa
 export async function manifestMatches(file: string, handle: FileHandle, expected: Checkpoint): Promise<boolean> {
   const info = await handle.stat({ bigint: true });
   if (!sameFile(info, expected.file) || info.size !== BigInt(expected.size)) return false;
-  const actual = Buffer.alloc(expected.suffix.length);
-  let offset = 0;
-  while (offset < actual.length) {
-    const { bytesRead } = await handle.read(actual, offset, actual.length - offset, expected.size - actual.length + offset);
-    if (bytesRead === 0) return false;
-    offset += bytesRead;
-  }
+  const actual = await readAt(handle, expected.size - expected.suffix.length, expected.suffix.length);
   if (!actual.equals(expected.suffix)) return false;
   const current = await lstat(file, { bigint: true });
   return sameFile(current, info) && current.size === info.size &&
     current.mtimeNs === info.mtimeNs && current.ctimeNs === info.ctimeNs;
+}
+
+// When the checkpoint no longer matches, a complete entry may still be in the
+// current manifest, with another writer's line before or after it.
+export async function containsAppendedLine(file: string, handle: FileHandle, start: number, line: Buffer): Promise<boolean> {
+  const info = await handle.stat();
+  if (info.size < start + line.length) return false;
+  // Include the preceding line end so only a whole entry counts.
+  const suffix = await readAt(handle, start - 1, info.size - start + 1);
+  let offset = suffix.indexOf(line);
+  while (offset !== -1) {
+    if (offset > 0 && suffix[offset - 1] === 10) {
+      return sameFile(await lstat(file, { bigint: true }), await handle.stat({ bigint: true }));
+    }
+    offset = suffix.indexOf(line, offset + 1);
+  }
+  return false;
+}
+
+async function readAt(handle: FileHandle, start: number, size: number): Promise<Buffer> {
+  const bytes = Buffer.alloc(size);
+  let offset = 0;
+  while (offset < size) {
+    const { bytesRead } = await handle.read(bytes, offset, size - offset, start + offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  return bytes.subarray(0, offset);
 }
 
 function sameFile(a: BigIntStats, b: BigIntStats): boolean {

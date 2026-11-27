@@ -658,7 +658,6 @@ test('no message the archive can return gives advice, and each names the right f
     }],
     [bothFoldersMessages, (text, name) => assert.match(text, /folder/, name)],
     [notices, (text, name) => assert.ok(text.length > 0, name)],
-    [originalMessages, (text, name) => assert.ok(text.length > 0, name)],
   ];
   let counted = 0;
   for (const [group, check] of groups) {
@@ -679,13 +678,46 @@ test('no message the archive can return gives advice, and each names the right f
     assert.doesNotMatch(evidence, /backup/, name);
     counted += 1;
   }
-  const all = [settingsFileMessages, evidenceMessages, backupMessages, bothFoldersMessages, notices, originalMessages, pairMessages];
+  const all = [settingsFileMessages, evidenceMessages, backupMessages, bothFoldersMessages, notices, pairMessages];
   assert.equal(counted, all.reduce((sum, group) => sum + Object.keys(group).length, 0));
 
   // The manifest's own message about a newer version, as the archive returns it.
   const newer = readManifestHeader('{"line":"header","manifest_version":2,"archive_id":"x","created_at":"2026-01-01T00:00:00.000Z"}');
   assert.ok(newer.outcome === 'unknown-version');
   assertNoAdvice(evidenceMessages.unknownManifestVersion(newer.outcome === 'unknown-version' ? newer.message : '', '/made/up'));
+});
+
+test('every original writer message identifies its file, folder, record ID or archive ID and gives no advice', () => {
+  const record = 'fixture-record-id';
+  const archive = 'fixture-archive-id';
+  const folder = '/fixture/evidence';
+  const file = '/fixture/manifest.jsonl';
+  const step = 'appending the manifest entry';
+  const messages = {
+    inUse: [originalMessages.inUse(archive), archive],
+    lockUnavailable: [originalMessages.lockUnavailable(archive, 'EACCES'), archive],
+    badManifest: [originalMessages.badManifest(file, { outcome: 'bad-manifest', line: 2, reason: 'duplicate-source-id' }), file],
+    manifestUnavailable: [originalMessages.manifestUnavailable(file, 'EACCES'), file],
+    differentArchive: [originalMessages.differentArchive(file, archive, 'requested-archive'), file],
+    manifestChanged: [originalMessages.manifestChanged(file), file],
+    invalidRecord: [originalMessages.invalidRecord(file), file],
+    unknownRecordVersion: [originalMessages.unknownRecordVersion(file, 2), file],
+    closed: [originalMessages.closed(folder), folder],
+    held: [originalMessages.held(record, true), record],
+    comparisonUnavailable: [originalMessages.comparisonUnavailable(record, file, 'EACCES'), record],
+    saveFailed: [originalMessages.saveFailed(record, step, 'EIO'), record],
+    stemInUse: [originalMessages.stemInUse(record), record],
+    saved: [originalMessages.saved(record), record],
+    appendFailure: [originalMessages.appendFailure(record, step, 'EIO'), record],
+    heldAfterChange: [originalMessages.heldAfterChange(record, file), record],
+    stopped: [originalMessages.stopped(file, step), file],
+  } satisfies Record<keyof typeof originalMessages, [string, string]>;
+  for (const [name, [message, subject]] of Object.entries(messages)) {
+    assert.ok(message.includes(subject), name);
+    assertNoAdvice(message);
+  }
+  assert.ok(messages.comparisonUnavailable[0].includes(file));
+  assert.ok(messages.heldAfterChange[0].includes(file));
 });
 
 // Makes opening this file hand back a handle whose write, flush or close

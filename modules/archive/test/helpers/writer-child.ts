@@ -8,6 +8,8 @@ import path from 'node:path';
 import { mock } from 'node:test';
 import { openArchiveWriter, type ArchiveInfo } from '../../src/archive.ts';
 
+process.once('disconnect', () => process.exit(0));
+
 const archive: ArchiveInfo = JSON.parse(process.argv[2]);
 const root = await fsp.realpath(process.cwd());
 const manifest = path.join(await fsp.realpath(archive.folder), 'manifest.jsonl');
@@ -28,6 +30,14 @@ if (stop) {
     const temporary = path.basename(file).startsWith('.original-');
     const manifestAppend = file === manifest && typeof flags === 'number' &&
       (flags & fsp.constants.O_APPEND) !== 0;
+    if (file === manifest && flags === fsp.constants.O_RDWR) {
+      const truncate = handle.truncate.bind(handle);
+      handle.truncate = async (length) => {
+        if (stop === 'before-tail-trim') await mark(stop);
+        await truncate(length);
+        if (stop === 'after-tail-trim') await mark(stop);
+      };
+    }
     if (temporary && stop === 'temp-open') await mark(stop);
     const write = handle.writeFile.bind(handle);
     const sync = handle.sync.bind(handle);
@@ -52,6 +62,7 @@ if (stop) {
   mock.method(fsp, 'link', async (from: string, to: string) => {
     await realLink(from, to);
     if (stop === 'final-name' && path.basename(from).startsWith('.original-')) await mark(stop);
+    if (stop === 'leftover-linked' && path.dirname(to) === path.join(archive.folder, 'leftovers')) await mark(stop);
   });
   syncBuiltinESMExports();
 }

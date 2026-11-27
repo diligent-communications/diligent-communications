@@ -34,6 +34,9 @@ test('captured records with missing, additional or invalid fields and newer vers
     assert.equal(readCapturedRecord(bad === null || Array.isArray(bad) ? bad : { ...captured, ...bad }).outcome, 'invalid-record');
   }
   assert.deepEqual(readCapturedRecord({ ...captured, record_version: 2 }), { outcome: 'unknown-record-version', version: 2 });
+  assert.deepEqual(readCapturedRecord({ record_version: 2, body: 'a different shape' }), {
+    outcome: 'unknown-record-version', version: 2,
+  });
 });
 
 const entry = {
@@ -70,7 +73,7 @@ test('malformed and unsupported manifest entries are refused', () => {
     assert.equal(readManifestEntry(JSON.stringify(missing)).outcome, 'invalid-entry', key);
   }
   for (const bad of [
-    { line: 'header' }, { kind: 'unknown' }, { record_id: '' }, { record_version: 2 }, { path: '../outside' },
+    { line: 'header' }, { kind: 'unknown' }, { record_id: '' }, { record_version: 0 }, { path: '../outside' },
     { path: '/absolute' }, { path: 'C:/absolute' }, { path: 'a\\b' }, { size_bytes: -1 },
     { size_bytes: Number.MAX_SAFE_INTEGER + 1 }, { sha256: 'abc' }, { archived_at: 'yesterday' },
     { extra: true }, { source_id: '' }, { source_kind: 'unknown' }, { media_type: '' }, { captured_at: '' },

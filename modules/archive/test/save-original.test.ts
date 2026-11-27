@@ -6,6 +6,7 @@ import fsp, { appendFile, cp, mkdir, readFile, readdir, stat, unlink, writeFile 
 import path from 'node:path';
 import net, { createConnection, createServer } from 'node:net';
 import { syncBuiltinESMExports } from 'node:module';
+import os from 'node:os';
 import { mock, test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -92,6 +93,9 @@ test('invalid or newer records write nothing, including an unfinished manifest t
     assert.equal((await writer.saveOriginal(invalid)).outcome, 'invalid-record');
   }
   assert.equal((await writer.saveOriginal({ ...record, record_version: 2 })).outcome, 'unknown-record-version');
+  const newer = await writer.saveOriginal({ record_version: 2, envelope: { source_id: 'not quoted' } });
+  assert.equal(newer.outcome, 'unknown-record-version');
+  assert.ok('message' in newer && newer.message.includes(w.manifest) && !newer.message.includes('not quoted'));
   assert.deepEqual(await snapshot(w.root), before);
 });
 
@@ -162,8 +166,10 @@ test('a manifest changed between two saves stops the writer for either size or l
     assert.equal((await writer.saveOriginal(captured('first'))).outcome, 'saved-original');
     await writeFile(w.manifest, edit(await readFile(w.manifest, 'utf8')));
     const before = await snapshot(w.root);
-    assert.equal((await writer.saveOriginal(captured('next'))).outcome, 'manifest-changed');
-    assert.equal((await writer.saveOriginal(captured('another'))).outcome, 'manifest-changed');
+    const firstAfterEdit = await writer.saveOriginal(captured('first'));
+    assert.equal(firstAfterEdit.outcome, 'manifest-changed', 'even a repeat checks the manifest first');
+    const later = await writer.saveOriginal(captured('another'));
+    assert.equal(later.outcome, 'writer-stopped');
     assert.deepEqual(await snapshot(w.root), before);
   }
 });
@@ -176,8 +182,234 @@ test('a manifest that disappears during an open write session is never recreated
   assert.equal((await writer.saveOriginal(captured('missing manifest'))).outcome, 'manifest-changed');
   assert.equal(await exists(w.manifest), false);
   await writeFile(w.manifest, original);
-  assert.equal((await writer.saveOriginal(captured('still stopped'))).outcome, 'manifest-changed');
+  assert.equal((await writer.saveOriginal(captured('still stopped'))).outcome, 'writer-stopped');
   assert.deepEqual(await readFile(w.manifest), original);
+});
+
+test('a missing evidence folder is reported as missing when checking the manifest', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  await fsp.rename(w.evidence, path.join(w.root, 'moved-evidence'));
+  const before = await snapshot(w.root);
+  assert.deepEqual(await writer.saveOriginal(captured('unattempted record')), {
+    outcome: 'evidence-missing', message: `The evidence folder ${w.evidence} cannot be found.`,
+  });
+  assert.equal((await writer.saveOriginal(null)).outcome, 'writer-stopped');
+  assert.deepEqual(await snapshot(w.root), before);
+});
+
+const otherEntry = (record_id = 'fixture-decision', file = 'decisions/fixture.json') => ({
+  line: 'entry', kind: 'decision', record_id, path: file, record_version: 1,
+  size_bytes: 0, sha256: digest(''), archived_at: '2026-01-01T00:00:00Z',
+});
+const entryText = (entry: object) => JSON.stringify(entry) + '\n';
+
+test('opening for writing names each manifest refusal without changing the file', async (t) => {
+  const w = await archiveFor(t);
+  const header = await readFile(w.manifest, 'utf8');
+  const source = captured('private-incoming-label');
+  const original = {
+    ...otherEntry(digest(source.source_id), path.relative(w.evidence, originalPath(w.evidence, source.source_id, '.txt')).split(path.sep).join('/')),
+    kind: 'original', source_id: source.source_id, source_kind: source.source_kind,
+    media_type: source.media_type, captured_at: source.captured_at,
+  };
+  const decision = otherEntry();
+  for (const [reason, lines, expectedLine] of [
+    ['unknown-version', header.replace('"manifest_version":1', '"manifest_version":2'), 1],
+    ['unknown-version', header + entryText({ line: 'entry', record_version: 2 }), 2],
+    ['duplicate-record-id', header + entryText(decision) + entryText({ ...decision, path: 'decisions/other.json' }), 3],
+    ['duplicate-path', header + entryText(decision) + entryText({ ...decision, record_id: 'other-decision' }), 3],
+    ['duplicate-source-id', header + entryText(original) + entryText(original), 3],
+    ['wrong-original-id', header + entryText({ ...original, record_id: 'wrong' }), 2],
+    ['wrong-original-path', header + entryText({ ...original, path: 'originals/aa/other.txt' }), 2],
+  ] as const) {
+    await writeFile(w.manifest, lines);
+    const before = await snapshot(w.root);
+    const result = await openArchiveWriter(w.archive);
+    if (result.outcome === 'writer-opened') await result.writer.close();
+    assert.ok(result.outcome === 'bad-manifest', reason);
+    assert.equal(result.reason, reason);
+    assert.equal(result.line, expectedLine);
+    assert.ok(result.message.includes(w.manifest) && !result.message.includes(source.source_id));
+    assert.deepEqual(await snapshot(w.root), before);
+  }
+});
+
+test('opening for writing checks archive identity and reports an unavailable manifest', async (t) => {
+  const w = await archiveFor(t);
+  const different = await openArchiveWriter({ ...w.archive, archiveId: 'another-archive' });
+  if (different.outcome === 'writer-opened') await different.writer.close();
+  assert.equal(different.outcome, 'different-archive');
+  assert.ok('message' in different && different.message.includes(w.archive.archiveId));
+  await unlink(w.manifest);
+  const before = await snapshot(w.root);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const missing = await openArchiveWriter(w.archive);
+    if (missing.outcome === 'writer-opened') await missing.writer.close();
+    assert.equal(missing.outcome, 'manifest-unavailable');
+    assert.ok('message' in missing && missing.message.includes(w.manifest));
+  }
+  assert.deepEqual(await snapshot(w.root), before);
+});
+
+test('a used file-name stem is refused even when the entry has a different ending', async (t) => {
+  const w = await archiveFor(t);
+  const record = captured('name already used');
+  const file = path.relative(w.evidence, originalPath(w.evidence, record.source_id, '.json')).split(path.sep).join('/');
+  await appendFile(w.manifest, entryText(otherEntry('fixture-entry', file)));
+  const writer = await writerFor(t, w.archive);
+  const before = await snapshot(w.root);
+  const result = await writer.saveOriginal(record);
+  assert.equal(result.outcome, 'file-name-in-use');
+  assert.ok('message' in result && result.message.includes(digest(record.source_id)));
+  assert.doesNotMatch(result.message, /name already used/);
+  assert.deepEqual(await snapshot(w.root), before);
+});
+
+test('the writer owns a byte copy before the caller can reuse its buffer', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const record = captured('caller reuses bytes');
+  const bytes = Buffer.from(record.payload);
+  const saving = writer.saveOriginal(record);
+  record.payload.fill(0);
+  assert.equal((await saving).outcome, 'saved-original');
+  assert.deepEqual(await readFile(originalPath(w.evidence, record.source_id, '.txt')), bytes);
+  assert.match(await readFile(w.manifest, 'utf8'), new RegExp(digest(bytes)));
+});
+
+async function withFileHandle<T>(
+  target: string,
+  wantsFlags: (flags: string | number) => boolean,
+  change: (handle: fsp.FileHandle) => void | Promise<void>,
+  run: () => Promise<T>,
+): Promise<T> {
+  const original = fsp.open;
+  const mocked = mock.method(fsp, 'open', async (file: string, flags: string | number) => {
+    const handle = await original(file, flags);
+    try {
+      if (file === target && wantsFlags(flags)) await change(handle);
+      return handle;
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
+  });
+  syncBuiltinESMExports();
+  try {
+    return await run();
+  } finally {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+  }
+}
+
+const canAppend = (flags: string | number) => typeof flags === 'number' && (flags & fsp.constants.O_APPEND) !== 0;
+
+test('a failed incomplete append stops later saves without touching their records', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const record = captured('failed earlier append');
+  const first = await withFileHandle(w.manifest, canAppend, (handle) => {
+    const write = handle.writeFile.bind(handle);
+    handle.writeFile = async (data) => {
+      assert.ok(Buffer.isBuffer(data));
+      await write(data.subarray(0, 30));
+      throw Object.assign(new Error('short append'), { code: 'EIO' });
+    };
+  }, () => writer.saveOriginal(record));
+  assert.equal(first.outcome, 'save-unavailable');
+  assert.ok('message' in first && first.message.includes(digest(record.source_id)));
+  assert.doesNotMatch(first.message, /failed earlier append/);
+  const before = await snapshot(w.root);
+  const later = await writer.saveOriginal(new Proxy({}, {
+    getOwnPropertyDescriptor() { assert.fail('a stopped writer tried to inspect a new record'); },
+  }));
+  assert.deepEqual(later, {
+    outcome: 'writer-stopped', step: 'appending the manifest entry',
+    message: `The writer for manifest ${w.manifest} has stopped after an earlier problem while appending the manifest entry.`,
+  });
+  assert.deepEqual(await snapshot(w.root), before);
+});
+
+test('an outside append after a complete entry reports held and stops the writer', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const record = captured('held before outside append');
+  const outside = entryText(otherEntry());
+  const result = await withFileHandle(w.manifest, canAppend, (handle) => {
+    const sync = handle.sync.bind(handle);
+    handle.sync = async () => {
+      await sync();
+      await appendFile(w.manifest, outside);
+    };
+  }, () => writer.saveOriginal(record));
+  assert.ok(result.outcome === 'saved-original');
+  assert.equal(result.recordId, digest(record.source_id));
+  assert.match(result.notice ?? '', /changed afterwards and the writer has stopped/);
+  const before = await snapshot(w.root);
+  const stopped = await writer.saveOriginal(captured('never attempted'));
+  assert.ok(stopped.outcome === 'writer-stopped');
+  assert.equal(stopped.step, 'checking the appended entry');
+  assert.deepEqual(await snapshot(w.root), before);
+  const lines = await readFile(w.manifest, 'utf8');
+  assert.ok(lines.endsWith(outside));
+  await writer.close();
+  const restarted = await writerFor(t, w.archive);
+  assert.equal((await restarted.saveOriginal(record)).outcome, 'already-held');
+});
+
+test('the manifest is rechecked immediately before removing an unfinished tail', async (t) => {
+  const w = await archiveFor(t);
+  const header = await readFile(w.manifest, 'utf8');
+  await appendFile(w.manifest, '{incomplete');
+  const writer = await writerFor(t, w.archive);
+  const completedFromOutside = header + entryText(otherEntry());
+  const record = captured('prevent mistaken trim');
+  const result = await withFileHandle(w.manifest, (flags) => flags === fsp.constants.O_RDWR,
+    async () => { await writeFile(w.manifest, completedFromOutside); },
+    () => writer.saveOriginal(record));
+  assert.equal(result.outcome, 'manifest-changed');
+  assert.equal(await readFile(w.manifest, 'utf8'), completedFromOutside);
+  assert.deepEqual(await readdir(path.join(w.evidence, 'originals')), []);
+});
+
+test('program faults during manifest I/O are raised unchanged', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const open = fsp.open;
+  for (const fault of [new Error('program fault'), Object.assign(new TypeError('bad argument'), { code: 'ERR_INVALID_ARG_TYPE' })]) {
+    const mocked = mock.method(fsp, 'open', async (file: string, flags: string | number) => {
+      if (file === w.manifest) throw fault;
+      return open(file, flags);
+    });
+    syncBuiltinESMExports();
+    try {
+      await assert.rejects(writer.saveOriginal(captured('fault probe')), (error) => error === fault);
+    } finally {
+      mocked.mock.restore();
+      syncBuiltinESMExports();
+    }
+  }
+});
+
+test('an unsupported endpoint refuses the writing session before the evidence folder is checked', async (t) => {
+  const w = await archiveFor(t);
+  const before = await snapshot(w.root);
+  const platform = mock.method(os, 'platform', () => 'darwin');
+  const create = mock.method(net, 'createServer', () => assert.fail('unsupported system tried to open a listener'));
+  syncBuiltinESMExports();
+  try {
+    const result = await openArchiveWriter(w.archive);
+    assert.equal(result.outcome, 'lock-unavailable');
+    assert.ok('message' in result && result.message.includes(w.archive.archiveId));
+    assert.doesNotMatch(result.message, /evidence folder/);
+    assert.deepEqual(await snapshot(w.root), before);
+  } finally {
+    platform.mock.restore();
+    create.mock.restore();
+    syncBuiltinESMExports();
+  }
 });
 
 test('the manifest is checked again after the original is placed and before appending', async (t) => {
@@ -362,12 +594,66 @@ test('an identical leftover with the exact file name is adopted without replacin
   await writeFile(file, record.payload);
   const before = await stat(file, { bigint: true });
   const writer = await writerFor(t, w.archive);
-  assert.equal((await writer.saveOriginal(record)).outcome, 'saved-original');
+  const header = await readFile(w.manifest);
+  let flushed = false;
+  const saved = await withFileHandle(file, (flags) => flags === 'r+', (handle) => {
+    const sync = handle.sync.bind(handle);
+    handle.sync = async () => {
+      assert.deepEqual(await readFile(w.manifest), header);
+      await sync();
+      flushed = true;
+    };
+  }, () => writer.saveOriginal(record));
+  assert.equal(saved.outcome, 'saved-original');
+  assert.equal(flushed, true, 'the adopted file was flushed before indexing');
   const after = await stat(file, { bigint: true });
   assert.equal(after.ino, before.ino);
   assert.equal(after.mtimeNs, before.mtimeNs);
   assert.deepEqual(await readFile(file), record.payload);
   assert.deepEqual((await readdir(w.evidence)).filter((name) => name === 'leftovers'), []);
+});
+
+test('directory names are flushed before indexing a new original or removing a kept leftover name', {
+  skip: process.platform === 'win32' ? 'Windows has no directory flush step' : false,
+}, async (t) => {
+  const w = await archiveFor(t);
+  const record = captured('directory flush order');
+  const originals = path.join(w.evidence, 'originals');
+  const final = originalPath(w.evidence, record.source_id, '.txt');
+  const shard = path.dirname(final);
+  const kept = path.join(w.evidence, 'leftovers');
+  await mkdir(shard);
+  await writeFile(final, 'different original');
+  const writer = await writerFor(t, w.archive);
+  const labels = new Map([[w.evidence, 'evidence'], [originals, 'originals'], [shard, 'shard'], [kept, 'leftovers']]);
+  const steps: string[] = [];
+  const open = fsp.open;
+  const observedOpen = mock.method(fsp, 'open', async (file: string, flags: string | number) => {
+    const handle = await open(file, flags);
+    const label = labels.get(file);
+    if (label && flags === 'r') {
+      const sync = handle.sync.bind(handle);
+      handle.sync = async () => { await sync(); steps.push(label); };
+    } else if (file === w.manifest && canAppend(flags)) {
+      const write = handle.writeFile.bind(handle);
+      handle.writeFile = async (...args) => { steps.push('append'); await write(...args); };
+    }
+    return handle;
+  });
+  const remove = fsp.unlink;
+  const observedUnlink = mock.method(fsp, 'unlink', async (file: string) => {
+    if (file === final) steps.push('old name removed');
+    return remove(file);
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.equal((await writer.saveOriginal(record)).outcome, 'saved-original');
+    assert.deepEqual(steps, ['originals', 'evidence', 'leftovers', 'old name removed', 'shard', 'shard', 'append']);
+  } finally {
+    observedOpen.mock.restore();
+    observedUnlink.mock.restore();
+    syncBuiltinESMExports();
+  }
 });
 
 test('an exact matching leftover can be adopted while other endings with the same hash are kept', async (t) => {
@@ -426,6 +712,7 @@ function writerChild(root: string, archive: ArchiveInfo, stop?: string) {
       if (child.exitCode === null && child.signalCode === null) assert.ok(child.kill('SIGKILL'));
       return exit;
     },
+    disconnect() { child.disconnect(); },
     exit,
   };
 
@@ -489,6 +776,41 @@ test('two real processes contend even before saving and the lock releases immedi
   }
 });
 
+test('the writer child exits and releases its lock when the parent IPC closes', async (t) => {
+  const w = await archiveFor(t);
+  const child = writerChild(w.root, w.archive);
+  try {
+    assert.equal(await child.first(), 'writer-opened');
+    const exited = Promise.race([
+      child.exit,
+      new Promise<never>((_, reject) => {
+        const timer = setTimeout(() => reject(new Error('writer did not exit when IPC closed')), 1500);
+        timer.unref();
+      }),
+    ]);
+    child.disconnect();
+    assert.deepEqual(await exited, [0, null]);
+    await writerFor(t, w.archive);
+  } finally {
+    await child.kill();
+  }
+});
+
+test('another writer is refused after a completed save until the writing session closes', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  assert.equal((await writer.saveOriginal(captured('first completed'))).outcome, 'saved-original');
+  const child = writerChild(w.root, w.archive);
+  try {
+    assert.equal(await child.first(), 'archive-in-use');
+    assert.deepEqual(await child.exit, [0, null]);
+  } finally {
+    await child.kill();
+  }
+  await writer.close();
+  await writerFor(t, w.archive);
+});
+
 test('physical copies with the same archive ID share the lock, and closing waits for queued saves', async (t) => {
   const w = await archiveFor(t);
   const copy = path.join(w.root, 'copied-evidence');
@@ -498,6 +820,8 @@ test('physical copies with the same archive ID share the lock, and closing waits
   const competing = await openArchiveWriter(other);
   if (competing.outcome === 'writer-opened') await competing.writer.close();
   assert.equal(competing.outcome, 'archive-in-use');
+  assert.ok('message' in competing && competing.message.includes(w.archive.archiveId));
+  assert.ok(!competing.message.includes(copy) && !competing.message.includes(w.evidence));
   const started = Promise.withResolvers<void>();
   const finish = Promise.withResolvers<void>();
   const realOpen = fsp.open;
@@ -578,3 +902,52 @@ for (const [step, finalExists, held] of [
     if (held) assert.deepEqual(manifest, stopped);
   });
 }
+
+for (const step of ['before-tail-trim', 'after-tail-trim'] as const) {
+  test(`killing a real writer at ${step} preserves every complete line and allows retry`, async (t) => {
+    const w = await archiveFor(t);
+    const header = await readFile(w.manifest, 'utf8');
+    const complete = header + entryText(otherEntry());
+    const partial = '{unfinished';
+    await writeFile(w.manifest, complete + partial);
+    const child = writerChild(w.root, w.archive, step);
+    try {
+      assert.equal(await child.first(), 'writer-opened');
+      assert.equal(await child.command('save'), step);
+      assert.deepEqual(await child.kill(), [null, 'SIGKILL']);
+    } finally {
+      await child.kill();
+    }
+    assert.equal(await readFile(w.manifest, 'utf8'), step === 'before-tail-trim' ? complete + partial : complete);
+    assert.deepEqual(await readdir(path.join(w.evidence, 'originals')), []);
+    const retry = await writerFor(t, w.archive);
+    assert.equal((await retry.saveOriginal(captured('child-original'))).outcome, 'saved-original');
+    assert.ok((await readFile(w.manifest, 'utf8')).startsWith(complete + '{"line":"entry"'));
+  });
+}
+
+test('killing a real writer after linking a leftover preserves the old bytes and allows retry', async (t) => {
+  const w = await archiveFor(t);
+  const file = originalPath(w.evidence, 'child-original', '.txt');
+  const kept = path.join(w.evidence, 'leftovers', path.basename(file));
+  const earlier = Buffer.from('earlier bytes');
+  const header = await readFile(w.manifest);
+  await mkdir(path.dirname(file));
+  await writeFile(file, earlier);
+  const child = writerChild(w.root, w.archive, 'leftover-linked');
+  try {
+    assert.equal(await child.first(), 'writer-opened');
+    assert.equal(await child.command('save'), 'leftover-linked');
+    assert.deepEqual(await child.kill(), [null, 'SIGKILL']);
+  } finally {
+    await child.kill();
+  }
+  assert.deepEqual(await readFile(file), earlier);
+  assert.deepEqual(await readFile(kept), earlier);
+  assert.deepEqual(await readFile(w.manifest), header);
+  const retry = await writerFor(t, w.archive);
+  const record = captured('child-original');
+  assert.equal((await retry.saveOriginal(record)).outcome, 'saved-original');
+  assert.deepEqual(await readFile(kept), earlier);
+  assert.deepEqual(await readFile(file), record.payload);
+});

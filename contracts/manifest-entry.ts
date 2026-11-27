@@ -22,19 +22,29 @@ export function formatManifestEntry(entry: ManifestEntry): string {
   return `${JSON.stringify(entry)}\n`;
 }
 
-export function readManifestEntry(line: string): { outcome: 'entry'; entry: ManifestEntry } | { outcome: 'invalid-entry' } {
+export function readManifestEntry(line: string):
+  | { outcome: 'entry'; entry: ManifestEntry }
+  | { outcome: 'invalid-entry' }
+  | { outcome: 'unknown-record-version'; version: number } {
   let value: unknown;
   try {
     value = JSON.parse(line);
   } catch {
     return { outcome: 'invalid-entry' };
   }
-  if (!isRecord(value) || !hasFields(value, value.kind === 'original' ? [...COMMON_FIELDS, ...SOURCE_FIELDS] : COMMON_FIELDS)) {
+  if (!isRecord(value) || value.line !== 'entry') {
+    return { outcome: 'invalid-entry' };
+  }
+  const version = value.record_version;
+  if (typeof version === 'number' && Number.isSafeInteger(version) && version > 1) {
+    return { outcome: 'unknown-record-version', version };
+  }
+  if (!hasFields(value, value.kind === 'original' ? [...COMMON_FIELDS, ...SOURCE_FIELDS] : COMMON_FIELDS)) {
     return { outcome: 'invalid-entry' };
   }
   const { kind, record_id, path, size_bytes, sha256, archived_at } = value;
   if (
-    value.line !== 'entry' || value.record_version !== 1 || !isText(record_id) ||
+    version !== 1 || !isText(record_id) ||
     !isText(path) || /[\\:\0]/.test(path) || path.split('/').some((part) => part === '' || part === '.' || part === '..') ||
     typeof size_bytes !== 'number' || !Number.isSafeInteger(size_bytes) || size_bytes < 0 ||
     typeof sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(sha256) || !isUtcTime(archived_at)

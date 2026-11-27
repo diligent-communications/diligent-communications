@@ -4,6 +4,8 @@
 // shows the result, which can see the whole situation. A message never claims
 // something the program has not checked.
 
+import type { BadManifest } from './writer-manifest.ts';
+
 // Messages about the folder settings file.
 export const settingsFileMessages = {
   notSet: (file: string) => `The folder settings file ${file} cannot be found.`,
@@ -74,25 +76,45 @@ export const backupMessages = {
   backupUnavailable: (folder: string, code: string) => `The backup folder ${folder} cannot be read (${code}).`,
 };
 
+const badManifestReasons = {
+  'unreadable-line': 'cannot be read as a manifest line',
+  'duplicate-record-id': 'repeats a record ID within its kind',
+  'duplicate-path': 'repeats a file path',
+  'duplicate-source-id': 'repeats an original’s source ID',
+  'wrong-original-id': 'has an original record ID that does not match its derivation',
+  'wrong-original-path': 'has an original path that does not match its derivation',
+};
+
 export const originalMessages = {
-  inUse: (folder: string) => `The archive in the evidence folder ${folder} is open for writing.`,
-  lockUnavailable: (folder: string, detail: string) =>
-    `The write lock for the archive in the evidence folder ${folder} could not be opened (${detail}).`,
-  badManifest: (file: string, line: number) => `Line ${line} of the manifest ${file} is invalid or unsupported.`,
+  inUse: (archiveId: string) => `An archive with ID ${archiveId} is open for writing.`,
+  lockUnavailable: (archiveId: string, detail: string) =>
+    `The write lock for archive ID ${archiveId} could not be opened (${detail}).`,
+  badManifest: (file: string, problem: BadManifest) => {
+    const reason = problem.reason === 'unknown-version' ? `has unsupported version ${problem.version}` : badManifestReasons[problem.reason];
+    return `Line ${problem.line} of the manifest ${file} ${reason}.`;
+  },
   manifestUnavailable: (file: string, detail: string) => `The manifest ${file} could not be opened for this archive (${detail}).`,
+  differentArchive: (file: string, found: string, expected: string) =>
+    `The manifest ${file} identifies archive ${found}. The requested archive ID is ${expected}.`,
   manifestChanged: (file: string) => `The manifest ${file} changed while the archive was open for writing.`,
-  invalidRecord: () => 'The captured record does not match version 1.',
-  unknownRecordVersion: (version: number) => `The captured record is version ${version}. This program reads version 1.`,
+  invalidRecord: (file: string) => `No entry was added to manifest ${file} because the captured record does not match version 1.`,
+  unknownRecordVersion: (file: string, version: number) =>
+    `No entry was added to manifest ${file} for the version ${version} captured record. This program reads version 1.`,
   closed: (folder: string) => `The archive in the evidence folder ${folder} is closed for writing.`,
   held: (id: string, bytesDiffer: boolean) =>
     `Record ${id} is already held.${bytesDiffer ? ' The incoming bytes differ from the stored original.' : ''}`,
   comparisonUnavailable: (id: string, file: string, detail: string) =>
     `Record ${id} is already held. Its original ${file} could not be read for comparison (${detail}).`,
-  saveFailed: (folder: string, step: string, detail: string) =>
-    `Saving an original in the evidence folder ${folder} encountered an error while ${step} (${detail}).`,
+  saveFailed: (id: string, step: string, detail: string) =>
+    `Saving original ${id} encountered an error while ${step} (${detail}).`,
+  stemInUse: (id: string) => `Another manifest entry uses the file name stem for original ${id}.`,
   saved: (id: string) => `Original ${id} was saved.`,
-  appendFailure: (file: string, step: string, detail: string) =>
-    `The entry is complete in ${file}. An error occurred while ${step} (${detail}).`,
+  appendFailure: (id: string, step: string, detail: string) =>
+    `The entry for original ${id} is complete. An error occurred while ${step} (${detail}).`,
+  heldAfterChange: (id: string, file: string) =>
+    `The entry for original ${id} is complete. The manifest ${file} changed afterwards and the writer has stopped.`,
+  stopped: (file: string, step: string) =>
+    `The writer for manifest ${file} has stopped after an earlier problem while ${step}.`,
 };
 
 // Notices that come with a result that succeeded.

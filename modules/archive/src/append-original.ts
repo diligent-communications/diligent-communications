@@ -1,13 +1,13 @@
-import { realpath } from 'node:fs/promises';
+import { lstat, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { readCapturedRecord, type CapturedRecord } from '../../../contracts/captured-record.ts';
 import { formatManifestEntry, type OriginalEntry } from '../../../contracts/manifest-entry.ts';
 import { MANIFEST_FILE, type ArchiveInfo } from './evidence-folder.ts';
-import { errorCode } from './files.ts';
+import { systemFailure } from './files.ts';
 import { evidenceMessages, originalMessages as say } from './messages.ts';
 import { originalBytes, originalLocation, putOriginal, sha256 } from './original-files.ts';
 import { takeWriterLock } from './writer-lock.ts';
-import { loadManifest, manifestMatches, openManifest, type Checkpoint } from './writer-manifest.ts';
+import { containsAppendedLine, loadManifest, manifestMatches, openManifest, type BadManifest, type Checkpoint } from './writer-manifest.ts';
 
 export type OriginalWriter = {
   saveOriginal(record: unknown): Promise<SaveOriginalResult>;
@@ -18,21 +18,22 @@ type OriginalRefusal<Outcome extends string> = { outcome: Outcome; message: stri
 
 export type OpenWriterResult =
   | { outcome: 'writer-opened'; writer: OriginalWriter }
-  | (OriginalRefusal<'bad-manifest'> & { line: number })
+  | (BadManifest & { message: string })
   | OriginalRefusal<'archive-in-use' | 'lock-unavailable' | 'manifest-unavailable' | 'different-archive'>;
 
 export type SaveOriginalResult =
   | { outcome: 'saved-original'; recordId: string; message: string; notice?: string }
   | { outcome: 'already-held'; recordId: string; bytesDiffer: boolean | null; message: string }
   | (OriginalRefusal<'unknown-record-version'> & { version: number })
-  | OriginalRefusal<'invalid-record' | 'manifest-changed' | 'writer-closed' | 'save-unavailable'>;
+  | (OriginalRefusal<'writer-stopped'> & { step: string })
+  | OriginalRefusal<'invalid-record' | 'manifest-changed' | 'evidence-missing' | 'writer-closed' | 'file-name-in-use' | 'save-unavailable'>;
 
 // Opens a previously initialized archive for writes, without creating it or
 // changing settings. The lock is acquired before reading the original index.
 export async function openArchiveWriter(archive: ArchiveInfo): Promise<OpenWriterResult> {
   const lock = await takeWriterLock(archive.archiveId);
-  if (lock.outcome === 'archive-in-use') return { outcome: lock.outcome, message: say.inUse(archive.folder) };
-  if (lock.outcome === 'lock-unavailable') return { outcome: lock.outcome, message: say.lockUnavailable(archive.folder, lock.detail) };
+  if (lock.outcome === 'archive-in-use') return { outcome: lock.outcome, message: say.inUse(archive.archiveId) };
+  if (lock.outcome === 'lock-unavailable') return { outcome: lock.outcome, message: say.lockUnavailable(archive.archiveId, lock.detail) };
 
   let keepLock = false;
   let manifest = path.join(archive.folder, MANIFEST_FILE);
@@ -40,20 +41,19 @@ export async function openArchiveWriter(archive: ArchiveInfo): Promise<OpenWrite
     const folder = await realpath(archive.folder);
     manifest = path.join(folder, MANIFEST_FILE);
     const loaded = await loadManifest(manifest, archive.archiveId);
-    if (loaded.outcome === 'bad-manifest') return { ...loaded, message: say.badManifest(manifest, loaded.line) };
+    if (loaded.outcome === 'bad-manifest') return { ...loaded, message: say.badManifest(manifest, loaded) };
     if (loaded.outcome === 'different-archive') {
-      return { outcome: loaded.outcome, message: evidenceMessages.differentArchive(folder, loaded.found, archive.archiveId) };
+      return { outcome: loaded.outcome, message: say.differentArchive(manifest, loaded.found, archive.archiveId) };
     }
     const writer = makeWriter(folder, manifest, loaded.checkpoint, loaded.held, loaded.usedOriginalStems, lock.close);
     keepLock = true;
     return { outcome: 'writer-opened', writer };
   } catch (error) {
-    return { outcome: 'manifest-unavailable', message: say.manifestUnavailable(manifest, detail(error)) };
+    return { outcome: 'manifest-unavailable', message: say.manifestUnavailable(manifest, systemFailure(error)) };
   } finally {
     if (!keepLock) await lock.close();
   }
 }
-
 function makeWriter(
   folder: string,
   manifest: string,
@@ -65,18 +65,21 @@ function makeWriter(
   let checkpoint = initial;
   let queue: Promise<unknown> = Promise.resolve();
   let closing: Promise<void> | undefined;
-  let stop: SaveOriginalResult | undefined;
+  let stop: Extract<SaveOriginalResult, { outcome: 'writer-stopped' }> | undefined;
 
   return {
     async saveOriginal(value) {
       if (closing) return { outcome: 'writer-closed', message: say.closed(folder) };
+      if (stop) return stop;
       const checked = readCapturedRecord(value);
-      if (checked.outcome === 'invalid-record') return { ...checked, message: say.invalidRecord() };
-      if (checked.outcome === 'unknown-record-version') return { ...checked, message: say.unknownRecordVersion(checked.version) };
-      const { record } = checked;
       // The caller can reuse its buffer as soon as it hands the record over.
-      const payload = Buffer.from(record.payload);
-      const pending = queue.then(() => stop ?? save(record, payload));
+      const prepared = checked.outcome === 'record' ? { ...checked, payload: Buffer.from(checked.record.payload) } : checked;
+      const pending = queue.then((): SaveOriginalResult | Promise<SaveOriginalResult> => {
+        if (stop) return stop;
+        if (prepared.outcome === 'invalid-record') return { ...prepared, message: say.invalidRecord(manifest) };
+        if (prepared.outcome === 'unknown-record-version') return { ...prepared, message: say.unknownRecordVersion(manifest, prepared.version) };
+        return save(prepared.record, prepared.payload);
+      });
       queue = pending.catch(() => undefined);
       return pending;
     },
@@ -89,31 +92,34 @@ function makeWriter(
   async function save(record: CapturedRecord, payload: Buffer): Promise<SaveOriginalResult> {
     let step = 'checking the manifest';
     let appendStarted = false;
+    let trimming = false;
     let entry: OriginalEntry | undefined;
     let added: Checkpoint | undefined;
+    const id = sha256(record.source_id);
     try {
       const check = await openManifest(manifest, 'read');
       try {
-        if (!(await manifestMatches(manifest, check, checkpoint))) return changed();
+        if (!(await manifestMatches(manifest, check, checkpoint))) return await changed(step);
       } finally {
         await check.close();
       }
       const existing = held.get(record.source_id);
       if (existing) return repeat(folder, existing, payload);
 
-      const id = sha256(record.source_id);
       const location = originalLocation(id, record.media_type);
       if (usedOriginalStems.has(`${location.shard}/${location.stem}`)) {
-        return { outcome: 'save-unavailable', message: say.saveFailed(folder, step, 'an entry already uses this file name') };
+        return { outcome: 'file-name-in-use', message: say.stemInUse(id) };
       }
       if (checkpoint.completeSize !== checkpoint.size) {
         step = 'removing the unfinished manifest tail';
         const tail = await openManifest(manifest, 'truncate');
         try {
-          if (!(await manifestMatches(manifest, tail, checkpoint))) return changed();
+          if (!(await manifestMatches(manifest, tail, checkpoint))) return await changed(step);
+          trimming = true;
           await tail.truncate(checkpoint.completeSize);
           checkpoint = { ...checkpoint, size: checkpoint.completeSize, suffix: checkpoint.lastLine };
           await tail.sync();
+          trimming = false;
         } finally {
           await tail.close();
         }
@@ -132,37 +138,62 @@ function makeWriter(
       step = 'checking the manifest';
       const append = await openManifest(manifest, 'append');
       try {
-        if (!(await manifestMatches(manifest, append, checkpoint))) return changed();
+        if (!(await manifestMatches(manifest, append, checkpoint))) return await changed(step);
         step = 'appending the manifest entry';
         appendStarted = true;
         await append.writeFile(line);
         step = 'flushing the manifest';
         await append.sync();
         step = 'checking the appended entry';
-        if (!(await manifestMatches(manifest, append, added))) return changed();
+        if (!(await manifestMatches(manifest, append, added))) return await changedAfterAppend(entry, added, step);
         step = 'closing the manifest';
       } finally {
         await append.close();
       }
       return saved(entry, added);
     } catch (error) {
-      const code = errorCode(error);
-      if (code === 'MANIFEST_REPLACED' ||
-          (step === 'checking the manifest' && (code === 'ENOENT' || code === 'ENOTDIR' || code === 'NOT_REGULAR_FILE'))) {
-        return changed();
+      const code = systemFailure(error);
+      if (code === 'MANIFEST_REPLACED' || (step !== 'placing the original file' &&
+          (code === 'ENOENT' || code === 'ENOTDIR' || code === 'NOT_REGULAR_FILE'))) {
+        if (appendStarted && entry && added) return changedAfterAppend(entry, added, step);
+        return changed(step);
       }
       if (appendStarted && entry && added) {
-        if (await entryWasWritten(added)) return saved(entry, added, say.appendFailure(manifest, step, detail(error)));
-        stop = { outcome: 'save-unavailable', message: say.saveFailed(folder, step, detail(error)) };
-        return stop;
+        const status = await readBack(added);
+        if (status === 'unchanged') return saved(entry, added, say.appendFailure(id, step, code));
+        if (status === 'entry-present') return heldAfterChange(entry, added, step);
+        stopAt(step);
       }
-      return { outcome: 'save-unavailable', message: say.saveFailed(folder, step, detail(error)) };
+      if (trimming) stopAt(step);
+      return { outcome: 'save-unavailable', message: say.saveFailed(id, step, code) };
     }
   }
 
-  function changed(): SaveOriginalResult {
-    stop = { outcome: 'manifest-changed', message: say.manifestChanged(manifest) };
-    return stop;
+  function stopAt(step: string) {
+    stop = { outcome: 'writer-stopped', step, message: say.stopped(manifest, step) };
+  }
+
+  async function changed(step: string): Promise<SaveOriginalResult> {
+    stopAt(step);
+    try {
+      await lstat(folder);
+    } catch (error) {
+      const code = systemFailure(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        return { outcome: 'evidence-missing', message: evidenceMessages.evidenceMissing(folder) };
+      }
+    }
+    return { outcome: 'manifest-changed', message: say.manifestChanged(manifest) };
+  }
+
+  async function changedAfterAppend(entry: OriginalEntry, added: Checkpoint, step: string): Promise<SaveOriginalResult> {
+    if (await readBack(added) !== 'unconfirmed') return heldAfterChange(entry, added, step);
+    return changed(step);
+  }
+
+  function heldAfterChange(entry: OriginalEntry, added: Checkpoint, step: string): SaveOriginalResult {
+    stopAt(step);
+    return saved(entry, added, say.heldAfterChange(entry.record_id, manifest));
   }
 
   function saved(entry: OriginalEntry, next: Checkpoint, notice?: string): SaveOriginalResult {
@@ -173,16 +204,19 @@ function makeWriter(
     return { outcome: 'saved-original', recordId: entry.record_id, message: say.saved(entry.record_id), ...(notice ? { notice } : {}) };
   }
 
-  async function entryWasWritten(expected: Checkpoint): Promise<boolean> {
+  async function readBack(expected: Checkpoint): Promise<'unchanged' | 'entry-present' | 'unconfirmed'> {
     try {
       const handle = await openManifest(manifest, 'read');
       try {
-        return await manifestMatches(manifest, handle, expected);
+        if (await manifestMatches(manifest, handle, expected)) return 'unchanged';
+        const begin = expected.size - expected.lastLine.length;
+        return (await containsAppendedLine(manifest, handle, begin, expected.lastLine)) ? 'entry-present' : 'unconfirmed';
       } finally {
         await handle.close();
       }
-    } catch {
-      return false;
+    } catch (error) {
+      systemFailure(error);
+      return 'unconfirmed';
     }
   }
 }
@@ -195,11 +229,7 @@ async function repeat(folder: string, entry: OriginalEntry, incoming: Buffer): P
   } catch (error) {
     return {
       outcome: 'already-held', recordId, bytesDiffer: null,
-      message: say.comparisonUnavailable(recordId, path.join(folder, entry.path), detail(error)),
+      message: say.comparisonUnavailable(recordId, path.join(folder, entry.path), systemFailure(error)),
     };
   }
-}
-
-function detail(error: unknown): string {
-  return errorCode(error) ?? 'the file-system operation failed';
 }
