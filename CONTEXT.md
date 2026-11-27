@@ -20,6 +20,12 @@
 | Give agent hosts access | [mcp](modules/mcp/CONTEXT.md) |
 | Change a shape shared by modules | [contracts](contracts/CONTEXT.md) |
 
+## Code and tests
+
+Put code in `modules/<name>/src/` and tests in `modules/<name>/test/`, beside the module's `CONTEXT.md`. Put code for shared shapes in `contracts/`.
+
+Use Node.js 24 or later. Run `npm ci --ignore-scripts`, `npm test`, and `npm run typecheck` from the root. Node runs TypeScript directly. Use only erasable TypeScript syntax, so removing the types leaves valid JavaScript. Include the `.ts` extension when importing a TypeScript file by relative path and use `import type` for type-only imports.
+
 ## Working across folders
 
 Things come in through capture only and go out through effects only. App, MCP, and setup use the same door, with commands for changes and queries for reads. There is one stated exception: the backup list is the first part of the restore preview, so setup gets it from commands, not from queries. A module may read only the folders its contract lists and the exact shapes it names in [contracts](contracts/CONTEXT.md). Change shared shapes there first.

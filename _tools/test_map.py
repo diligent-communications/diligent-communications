@@ -67,6 +67,18 @@ class MapValidationTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_top_level_node_modules_needs_no_contract(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for folder in ("_tools", "contracts", "map", "modules"):
+                shutil.copytree(ROOT / folder, root / folder)
+            (root / "node_modules" / "typescript").mkdir(parents=True)
+            result = subprocess.run(
+                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py"), "--check"],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -118,7 +118,8 @@ def render():
         raise ValueError("Missing modules directory")
     folders = sorted(
         path for parent in (ROOT, modules) for path in parent.iterdir()
-        if path.is_dir() and not path.name.startswith(("_", ".")) and path not in (modules, MAP.parent)
+        if path.is_dir() and not path.name.startswith(("_", "."))
+        and path not in (modules, MAP.parent, ROOT / "node_modules")
     )
     contracts = [read_contract(folder) for folder in folders]
     nodes = {contract[0].resolve(): f"folder{index}" for index, contract in enumerate(contracts)}

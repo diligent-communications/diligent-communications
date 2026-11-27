@@ -6,6 +6,19 @@ Diligent Communications will bring mail, texts, and optional calls together for 
 - The [target map](map/target.md) shows how evidence, reads, and approved actions will move through the finished app.
 - The [repository guide](CONTEXT.md) routes tasks and explains how to work across folders.
 
+## Run the checks
+
+Use Node.js 24 or later with npm, and Python 3.10 or later. From the repository root, run:
+
+```sh
+npm ci --ignore-scripts
+npm test
+npm run typecheck
+python -I _tools/links.py
+python -I _tools/map.py --check
+python -I _tools/test_map.py
+```
+
 ## Decisions
 
 - The first version runs on your own computer and uses your own evidence folder. Hosting can come later.

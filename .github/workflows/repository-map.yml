@@ -1,4 +1,4 @@
-name: Repository map
+name: Repository checks
 on:
   pull_request:
   push:
@@ -9,10 +9,22 @@ permissions:
 
 jobs:
   check:
-    name: Links and generated map
-    runs-on: ubuntu-latest
+    name: Checks (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [24, 26]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run typecheck
       - run: python -I _tools/links.py
       - run: python -I _tools/map.py --check
       - run: python -I _tools/test_map.py

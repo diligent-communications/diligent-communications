@@ -1,0 +1,15 @@
+{
+  "name": "diligent-communications",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test \"modules/*/test/**/*.test.{js,ts}\"",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
