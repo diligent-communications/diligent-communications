@@ -1,7 +1,7 @@
 ---
 build_step: 1
 consumes: ["../connections/CONTEXT.md","../connections/fetch.md","../archive/saving-originals.md","../../contracts/captured-record.md","../../contracts/capture-progress.md","mail.md"]
-produces: ["Captured records with stable source IDs","Capture outcome for commands"]
+produces: ["Captured records with stable source IDs","Capture outcome for commands","Save notices for commands"]
 writes: ["../archive/CONTEXT.md"]
 ---
 # capture — Bring in communications and imports
@@ -18,18 +18,19 @@ All incoming communications and imports enter through capture.
 
 ## Process
 
-1. Commands starts a capture, including a later catch-up. It passes the connection ID, the requested set, and the open archive writer. Do not read folder settings. Do not close the writer; commands closes it. This module holds no rule about who started the run. Give each item a stable source ID and preserve its original payload in the captured record shape. Ask the writer `sourceHeld` before treating the item as new. Only `not-held` leads to a download. Hand a new record to the writer with `saveOriginal`. The archive manifest refuses IDs it already holds.
-2. Report progress to commands at the start, at intervals and at the end. The report is the [capture progress](../../contracts/capture-progress.md) record. Commands passes each report to state. Whether an item is held does not depend on that record. When commands passes a stop, return status `stopped`.
+1. Commands starts a capture, including a later catch-up. It passes the connection ID, the requested set, and the open archive writer. Do not read folder settings. Do not close the writer. Commands closes it only after this module returns its final outcome. This module holds no rule about who started the run. Give each item a stable source ID and preserve its original payload in the captured record shape. Ask the writer `sourceHeld` before treating the item as new. Only `not-held` leads to a download. Hand a new record to the writer with `saveOriginal`. The archive manifest refuses IDs it already holds.
+2. Report progress to commands at the start, at intervals and at the end. The report is the [capture progress](../../contracts/capture-progress.md) record. Beside the outcome, hand commands any notice a save returned. The progress record does not gain a field for that notice. Whether an item is held does not depend on that record. A stop from commands carries its reason. Return `stopped` when the person asked, and `failed` with that cause when progress could not be recorded.
 
 ## Outputs
 
 - Captured records with stable source IDs
 - Capture outcome for commands
+- Save notices for commands
 - Handoff: [archive](../archive/CONTEXT.md)
 
 ## Check
 
-A contributor captures the same synthetic item twice and verifies that the archive holds one record for its source ID. The second run does not depend on a saved bookmark. A lookup other than `not-held` does not download. This module does not refuse a start based on who asked.
+A contributor captures the same synthetic item twice and verifies that the archive holds one record for its source ID. The second run does not depend on a saved bookmark. A lookup other than `not-held` does not download. This module does not refuse a start based on who asked. A notice a save returned is handed to commands beside the outcome, and the progress record has no field for it.
 
 ## Lanes
 

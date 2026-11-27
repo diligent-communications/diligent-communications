@@ -6,17 +6,19 @@
 
 The caller passes the run's connection ID and an address. Use HTTPS only, and the provider's mail API host only. Attach the sign-in here. Refuse any other address, including a redirect elsewhere, with `refused-address`, and do not attach the sign-in. The caller receives no sign-in material.
 
+A connection has two lasting states, `connected` and `needs-sign-in`. Only `needs-sign-in` changes the state, and only when the provider rejects the sign-in. `unavailable` is a result of this fetch. It covers a network or provider failure, and a vault that cannot be read. It does not change the connection's state.
+
 | Result | What was found |
 | --- | --- |
 | `fetched` | The response bytes. The raw message is decoded from this response, not taken as the response body |
 | `gone` | The provider no longer has that message |
 | `rate-limited` | The provider asked the caller to wait. The result includes that wait when the provider gives one |
 | `needs-sign-in` | The sign-in was rejected. The connection state becomes `needs-sign-in` |
-| `unavailable` | The network or the provider failed. The connection state becomes `unavailable` |
+| `unavailable` | The network, the provider, or the vault read failed. The connection state is unchanged |
 | `refused-address` | The address was not HTTPS on the provider's mail API host |
 | `connection-not-current` | That connection is no longer the current one |
 
-A successful fetch leaves the connection state `connected`.
+What each result does to the run, including how many times a request is tried, is stated once in the [mail lane](../capture/mail.md).
 
 ## Account number
 
@@ -26,5 +28,5 @@ The caller passes the run's connection ID. The result is the account number capt
 | --- | --- |
 | **Tied to the run.** | A fetch or an account-number call without the run's current connection ID returns `connection-not-current` and no bytes and no number. |
 | **HTTPS and host.** | An address that is not HTTPS on the provider's mail API host is `refused-address`, including a redirect, and the sign-in is not attached. |
-| **Named results.** | A fetch result is one of the seven names above. `needs-sign-in` and `unavailable` set the connection state to that same name. |
+| **Named results.** | A fetch result is one of the seven names above. Only `needs-sign-in` changes the connection state. `unavailable` leaves it unchanged. |
 | **No sign-in in the result.** | The bytes, the wait, the number and the refusal contain no token or client secret. |

@@ -1,5 +1,6 @@
 """Regression checks for malformed map declarations."""
 
+import re
 import shutil
 import subprocess
 import sys
@@ -96,6 +97,30 @@ class MapValidationTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 1, result.stderr)
             self.assertIn("unknown shared shape", result.stderr)
+
+    def test_a_page_in_another_module_draws_an_arrow(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for folder in ("_tools", "contracts", "map", "modules"):
+                shutil.copytree(ROOT / folder, root / folder)
+            result = subprocess.run(
+                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py")],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (root / "map" / "README.md").read_text(encoding="utf-8")
+
+            def node(name):
+                match = re.search(rf'(\w+)\["modules/{name}"\]', text)
+                self.assertIsNotNone(match, name)
+                return match.group(1)
+
+            capture = node("capture")
+            archive = node("archive")
+            commands = node("commands")
+            self.assertIn(f"    {capture} --> {archive}", text)
+            self.assertIn(f"    {commands} --> {node('capture')}", text)
+            self.assertIn(f"    {commands} --> {node('connections')}", text)
 
 
 if __name__ == "__main__":

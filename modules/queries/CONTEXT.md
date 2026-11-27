@@ -20,7 +20,7 @@ produces: ["Query catalog","Read results"]
 
 ### Process
 
-1. Read the evidence folder through archive. Read mailbox connection status through connections and capture and restore progress through state, including progress from a later capture. Capture progress answers `none-recorded`, the latest record, `progress-damaged`, or `progress-newer`. Give setup those results through the query catalog. Do not start a capture.
+1. Read the evidence folder through archive. Read mailbox connection status through connections and capture and restore progress through state, including progress from a later capture. Capture progress answers `none-recorded`, or the latest readable record and the one before it, plus a note for a damaged or newer file. Give setup those results through the query catalog. Do not start a capture.
 2. Do not list backups. The backup list is the first part of the restore preview, which commands returns. It is the one stated exception to reads going through queries.
 
 ### Outputs

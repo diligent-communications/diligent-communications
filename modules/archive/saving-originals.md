@@ -1,6 +1,6 @@
 # Saving originals
 
-The archive opens an existing archive for writing with `openArchiveWriter`. It takes the archive information from an earlier open. Commands opens that writer and passes it to capture. Capture does not read folder settings. The writer exposes `saveOriginal`, `sourceHeld` and `close`. It queues saves in the same session and holds the write lock until the queued work and close finish. Commands calls `close` in every ending. Capture does not.
+The archive opens an existing archive for writing with `openArchiveWriter`. It takes the archive information from an earlier open. Commands opens that writer and passes it to capture. Capture does not read folder settings. The writer exposes `saveOriginal`, `sourceHeld` and `close`. It queues saves in the same session and holds the write lock until the queued work and close finish. Commands calls `close` only after capture has returned its final outcome. Capture does not. A new original returns `saved-original`. A source ID that is already held returns `already-held`, and says whether the bytes differ. Capture relies on those two results, and on `manifest-changed`, `evidence-missing`, `writer-stopped`, `writer-closed` and `save-unavailable`.
 
 | Rule | Passes when |
 | --- | --- |

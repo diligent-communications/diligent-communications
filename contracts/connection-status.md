@@ -11,7 +11,7 @@ Step 1 has one connection. The result is `none-connected`, or that one connectio
 | `connection_id` | ID of this connection |
 | `provider` | `gmail` |
 | `account_label` | Label shown to the person. Not a secret |
-| `state` | `connected`, `needs-sign-in` or `unavailable` |
+| `state` | `connected` or `needs-sign-in` |
 | `reason` | A reason name. Omitted when there is nothing to report |
 | `checked_at` | When this status was produced. UTC |
 | `basis` | `live-check` if this came from a live check, or `last-use` if it is from the last use |
@@ -23,3 +23,4 @@ Step 1 has one connection. The result is `none-connected`, or that one connectio
 | **No secret.** | A status result contains none of the sign-in material above. |
 | **None or one.** | With no connection the result is `none-connected`. With a connection it has the fields above and no second connection. |
 | **Where it came from.** | `basis` is `live-check` or `last-use`, and `checked_at` is present. |
+| **Two lasting states.** | The state is `connected` or `needs-sign-in`. A fetch result of `unavailable`, including a vault that cannot be read, leaves the state unchanged. |

@@ -47,6 +47,7 @@ flowchart TD
     folder4 --> folder2
     folder5 --> folder14
     folder5 --> folder2
+    folder6 --> folder2
     folder6 --> folder8
     folder7 --> folder10
     folder7 --> folder14
@@ -68,7 +69,7 @@ flowchart TD
 | [modules/attachments](../modules/attachments/CONTEXT.md) | 3 (proposed) | Draft | Attachment previews, Attachment export | — |
 | [modules/brief](../modules/brief/CONTEXT.md) | 2 (proposed) | Draft | Source-linked Brief | [state](../modules/state/CONTEXT.md) |
 | [modules/calendar](../modules/calendar/CONTEXT.md) | 4 (proposed) | Draft | Proposed events, Booked event views | [state](../modules/state/CONTEXT.md) |
-| [modules/capture](../modules/capture/CONTEXT.md) | 1 (decided)<br>Mail: 1 (decided), Text: 3 (proposed, draft), Calls: 4 (proposed, draft), Import: 3 (proposed, draft) | Step 1 complete, later lanes draft | Captured records with stable source IDs, Capture outcome for commands | [archive](../modules/archive/CONTEXT.md) |
+| [modules/capture](../modules/capture/CONTEXT.md) | 1 (decided)<br>Mail: 1 (decided), Text: 3 (proposed, draft), Calls: 4 (proposed, draft), Import: 3 (proposed, draft) | Step 1 complete, later lanes draft | Captured records with stable source IDs, Capture outcome for commands, Save notices for commands | [archive](../modules/archive/CONTEXT.md) |
 | [modules/commands](../modules/commands/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Write command catalog, Write previews, Command receipts, Backup list for setup, Capture and restore progress for state, Restored decisions and receipts for state | [archive](../modules/archive/CONTEXT.md), [capture](../modules/capture/CONTEXT.md), [connections](../modules/connections/CONTEXT.md), [state](../modules/state/CONTEXT.md), [brief](../modules/brief/CONTEXT.md), [effects](../modules/effects/CONTEXT.md) |
 | [modules/connections](../modules/connections/CONTEXT.md) | 1 (decided) | Complete | Account connection status, Authorized connection access | — |
 | [modules/contacts](../modules/contacts/CONTEXT.md) | 3 (proposed) | Draft | Contact links, Contact views | [state](../modules/state/CONTEXT.md) |

@@ -37,6 +37,24 @@ def routed_module_page(target):
     return f"]({target.name})" in router.read_text(encoding="utf-8")
 
 
+def edges_from_routed_page(page, node, nodes):
+    """A page this folder routes to can still be a read of another module."""
+    found = set()
+    modules = (ROOT / "modules").resolve()
+    home = page.parent.joinpath("CONTEXT.md").resolve()
+    for link in re.findall(r"\]\(([^)\s#]+)\)", page.read_text(encoding="utf-8")):
+        target = (page.parent / link).resolve()
+        if target.name != "CONTEXT.md":
+            continue
+        try:
+            target.relative_to(modules)
+        except ValueError:
+            continue
+        if target in nodes and target != home:
+            found.add(f"    {node} --> {nodes[target]}")
+    return found
+
+
 def load_routed_shapes():
     """File names the contracts router links to. The map treats those as shapes."""
     names = set(re.findall(r"\]\(([^)/#\s]+\.md)\)", SHAPES.read_text(encoding="utf-8")))
@@ -203,6 +221,11 @@ def render():
                 if routed_module_page(target):
                     if key != "consumes" or anchor:
                         raise ValueError(f"{folder}/CONTEXT.md: unknown module page {dependency}")
+                    owner = (target.parent / "CONTEXT.md").resolve()
+                    if owner != path.resolve() and owner in nodes:
+                        edges.add(f"    {node} --> {nodes[owner]}")
+                    elif owner == path.resolve():
+                        edges.update(edges_from_routed_page(target, node, nodes))
                     continue
                 if target not in nodes:
                     raise ValueError(f"{folder}/CONTEXT.md: unknown contract {dependency}")
