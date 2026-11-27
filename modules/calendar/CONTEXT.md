@@ -1,7 +1,7 @@
 ---
 build_step: 4
 status: draft
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#action-receipt","../../contracts/CONTEXT.md#saved-decision"]
+consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/action-receipt.md","../../contracts/saved-decision.md"]
 produces: ["Proposed events","Booked event views"]
 writes: ["../state/CONTEXT.md"]
 ---
@@ -12,8 +12,8 @@ writes: ["../state/CONTEXT.md"]
 - Working: None in this planning repository.
 - Reference: [archive](../archive/CONTEXT.md)
 - Reference: [state](../state/CONTEXT.md)
-- Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
+- Reference: [Action receipt](../../contracts/action-receipt.md)
+- Reference: [Saved decision](../../contracts/saved-decision.md)
 
 ## Process
 

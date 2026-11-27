@@ -10,6 +10,39 @@ ROOT = Path(__file__).resolve().parent.parent
 MAP = ROOT / "map" / "README.md"
 SHAPES = ROOT / "contracts" / "CONTEXT.md"
 FRONTMATTER_KEYS = {"build_step", "status", "consumes", "produces", "writes"}
+
+
+def routed_shape_name(target):
+    """A markdown file directly in contracts/, other than the router."""
+    try:
+        relative = target.relative_to((ROOT / "contracts").resolve())
+    except ValueError:
+        return None
+    if relative.parts != (relative.name,) or relative.suffix != ".md" or relative.name == "CONTEXT.md":
+        return None
+    return relative.name
+
+
+def routed_module_page(target):
+    """A markdown page inside a module folder, linked from that folder's contract."""
+    if target.suffix != ".md" or target.name == "CONTEXT.md":
+        return False
+    router = target.parent / "CONTEXT.md"
+    try:
+        router.resolve().relative_to((ROOT / "modules").resolve())
+    except ValueError:
+        return False
+    if not router.is_file():
+        return False
+    return f"]({target.name})" in router.read_text(encoding="utf-8")
+
+
+def load_routed_shapes():
+    """File names the contracts router links to. The map treats those as shapes."""
+    names = set(re.findall(r"\]\(([^)/#\s]+\.md)\)", SHAPES.read_text(encoding="utf-8")))
+    return {name for name in names if name != "CONTEXT.md"}
+
+
 LANE_HEADING = re.compile(r"### (.+) · Step ([1-4]) \((decided|draft)\)")
 LANE_SECTIONS = {"#### Inputs", "#### Process", "#### Outputs", "#### Check", "#### Open"}
 
@@ -123,6 +156,7 @@ def render():
     )
     contracts = [read_contract(folder) for folder in folders]
     nodes = {contract[0].resolve(): f"folder{index}" for index, contract in enumerate(contracts)}
+    routed_shapes = load_routed_shapes()
     shape_anchors = {
         title.lower().replace(" ", "-")
         for title in re.findall(r"^### ([a-zA-Z0-9 -]+)$", SHAPES.read_text(encoding="utf-8"), re.M)
@@ -158,8 +192,19 @@ def render():
         for key in ("consumes", "writes"):
             for dependency in fields[key]:
                 target_path, _, anchor = dependency.partition("#")
+                if Path(target_path).is_absolute():
+                    raise ValueError(f"{folder}/CONTEXT.md: unknown contract {dependency}")
                 target = (path.parent / target_path).resolve()
-                if target not in nodes or Path(target_path).is_absolute():
+                shape_name = routed_shape_name(target)
+                if shape_name is not None:
+                    if key != "consumes" or anchor or shape_name not in routed_shapes:
+                        raise ValueError(f"{folder}/CONTEXT.md: unknown shared shape {dependency}")
+                    continue
+                if routed_module_page(target):
+                    if key != "consumes" or anchor:
+                        raise ValueError(f"{folder}/CONTEXT.md: unknown module page {dependency}")
+                    continue
+                if target not in nodes:
                     raise ValueError(f"{folder}/CONTEXT.md: unknown contract {dependency}")
                 if target == SHAPES:
                     if key != "consumes" or anchor not in shape_anchors:

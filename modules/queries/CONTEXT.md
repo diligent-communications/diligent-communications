@@ -1,7 +1,7 @@
 ---
 build_step: 1 to 2
 status: draft
-consumes: ["../archive/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#query-list","../../contracts/CONTEXT.md#connection-status","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../capture/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
+consumes: ["../archive/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/query-list.md","../../contracts/connection-status.md","../../contracts/capture-progress.md","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../capture/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
 produces: ["Query catalog","Read results"]
 ---
 # queries — Provide one way to read
@@ -14,12 +14,13 @@ produces: ["Query catalog","Read results"]
 - Reference: [archive](../archive/CONTEXT.md)
 - Reference: [connections](../connections/CONTEXT.md)
 - Reference: [state](../state/CONTEXT.md)
-- Reference: [Query list](../../contracts/CONTEXT.md#query-list)
-- Reference: [Connection status](../../contracts/CONTEXT.md#connection-status)
+- Reference: [Query list](../../contracts/query-list.md)
+- Reference: [Connection status](../../contracts/connection-status.md)
+- Reference: [Capture progress](../../contracts/capture-progress.md)
 
 ### Process
 
-1. Read the evidence folder through archive. Read mailbox connection status through connections and capture and restore progress through state. Give setup those results through the query catalog.
+1. Read the evidence folder through archive. Read mailbox connection status through connections and capture and restore progress through state, including progress from a later capture. Give setup those results through the query catalog. Do not start a capture.
 2. Do not list backups. The backup list is the first part of the restore preview, which commands returns. It is the one stated exception to reads going through queries.
 
 ### Outputs
@@ -29,7 +30,7 @@ produces: ["Query catalog","Read results"]
 
 ### Check
 
-A contributor compares the folder choice, connection status, and capture and restore progress shown in setup with the values returned by archive, connections, and state.
+A contributor compares the folder choice, connection status, and capture and restore progress shown in setup with the values returned by archive, connections, and state. The comparison includes a later capture, and the read does not start one.
 
 ## Step 2 (draft)
 

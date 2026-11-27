@@ -1,7 +1,7 @@
 ---
 build_step: 3
 status: draft
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
+consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/captured-record.md","../../contracts/saved-decision.md"]
 produces: ["Contact links","Contact views"]
 writes: ["../state/CONTEXT.md"]
 ---
@@ -12,8 +12,8 @@ writes: ["../state/CONTEXT.md"]
 - Working: None in this planning repository.
 - Reference: [archive](../archive/CONTEXT.md)
 - Reference: [state](../state/CONTEXT.md)
-- Reference: [Captured record](../../contracts/CONTEXT.md#captured-record)
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
+- Reference: [Captured record](../../contracts/captured-record.md)
+- Reference: [Saved decision](../../contracts/saved-decision.md)
 
 ## Process
 

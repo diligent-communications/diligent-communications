@@ -1,7 +1,7 @@
 ---
 build_step: 3
 status: draft
-consumes: ["../archive/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#archive-manifest","../../contracts/CONTEXT.md#attachment-export"]
+consumes: ["../archive/CONTEXT.md","../../contracts/captured-record.md","../../contracts/archive-manifest.md","../../contracts/CONTEXT.md#attachment-export"]
 produces: ["Attachment previews","Attachment export"]
 ---
 # attachments — Find and export attachments
@@ -10,8 +10,8 @@ produces: ["Attachment previews","Attachment export"]
 
 - Working: None in this planning repository.
 - Reference: [archive](../archive/CONTEXT.md)
-- Reference: [Captured record](../../contracts/CONTEXT.md#captured-record)
-- Reference: [Archive manifest](../../contracts/CONTEXT.md#archive-manifest)
+- Reference: [Captured record](../../contracts/captured-record.md)
+- Reference: [Archive manifest](../../contracts/archive-manifest.md)
 - Reference: [Attachment export](../../contracts/CONTEXT.md#attachment-export)
 
 ## Process

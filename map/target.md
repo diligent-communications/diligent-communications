@@ -50,7 +50,8 @@ flowchart TB
   commands -- records approval --> state
   effects -- receipt --> state
   state == decisions and receipts ==> archive
-  commands -- setup, backup, restore --> archive & connections
+  commands -- folders, backup, restore --> archive
+  commands -- connect, start capture --> connections & capture
   brief -- progress --> state
   contacts & calendar -- choices --> state
   capture & effects --> connections
@@ -73,3 +74,5 @@ Backups go to a second folder the person picks, such as an external or cloud-syn
 After a restore, an approved action that has no receipt is never sent automatically. It is checked with the provider or put back for approval. On restore, the restore command reads saved decisions and receipts from the archive and hands them to `state`. The restore is complete only when `state` accepts them, and capture and other archive writes wait until then. Retrying that restore and setting the folder locations do not wait, so the person can always pick a new empty folder.
 
 The receipt a command returns after a write is a result shown to the person. Only an approved action's receipt is saved in the archive.
+
+Step 1 mail capture reads Gmail with read-only access. Each person creates their own Google project. The repository ships no shared sign-in identity. One pinned package talks to Windows Credential Manager, and only `connections` uses it. If that vault cannot be read or written, that is reported, and nothing is written to a file. `commands` opens the archive writer and passes it to `capture`. `capture` does not read folder settings. A person starts a capture, including a later catch-up. Agent access does not start one. Capture progress is kept in the program's local data folder, outside the evidence and backup folders, and a missing progress record does not change what the archive holds. Setup's first form is a terminal tool that uses `commands` for changes and `queries` for reads.

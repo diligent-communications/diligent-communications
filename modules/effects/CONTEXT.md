@@ -1,7 +1,7 @@
 ---
 build_step: 4
 status: draft
-consumes: ["../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
+consumes: ["../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/saved-decision.md","../../contracts/action-receipt.md"]
 produces: ["External action receipts"]
 writes: ["../state/CONTEXT.md"]
 ---
@@ -14,8 +14,8 @@ All actions sent outside the application go through effects.
 - Working: None in this planning repository.
 - Reference: [connections](../connections/CONTEXT.md)
 - Reference: [state](../state/CONTEXT.md)
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
-- Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
+- Reference: [Saved decision](../../contracts/saved-decision.md)
+- Reference: [Action receipt](../../contracts/action-receipt.md)
 
 ## Process
 

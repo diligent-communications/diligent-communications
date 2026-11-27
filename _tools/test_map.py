@@ -80,5 +80,23 @@ class MapValidationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
 
 
+    def test_unrouted_shape_file_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for folder in ("_tools", "contracts", "map", "modules"):
+                shutil.copytree(ROOT / folder, root / folder)
+            path = root / "modules" / "commands" / "CONTEXT.md"
+            contract = path.read_text(encoding="utf-8")
+            original = "../../contracts/command-list.md"
+            self.assertIn(original, contract)
+            path.write_text(contract.replace(original, "../../contracts/not-a-shape.md"), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py"), "--check"],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("unknown shared shape", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

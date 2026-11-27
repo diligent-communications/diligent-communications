@@ -47,6 +47,7 @@ flowchart TD
     folder4 --> folder2
     folder5 --> folder14
     folder5 --> folder2
+    folder6 --> folder2
     folder6 --> folder8
     folder7 --> folder10
     folder7 --> folder14
@@ -76,4 +77,4 @@ flowchart TD
 | [modules/mcp](../modules/mcp/CONTEXT.md) | 3 (proposed) | Draft | Agent access to commands and queries | — |
 | [modules/queries](../modules/queries/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Query catalog, Read results | — |
 | [modules/setup](../modules/setup/CONTEXT.md) | 1 (decided) | Complete | First-run setup flow | — |
-| [modules/state](../modules/state/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Capture and restore progress, Restored workflow state, Restore result for commands, Committed workflow state, Saved decisions and action receipts | [archive](../modules/archive/CONTEXT.md) |
+| [modules/state](../modules/state/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Capture and restore progress, Restored workflow state, Restore result for commands, Write block answer for commands, Committed workflow state, Saved decisions and action receipts | [archive](../modules/archive/CONTEXT.md) |

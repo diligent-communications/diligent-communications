@@ -1,7 +1,7 @@
 ---
 build_step: 2
 status: draft
-consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list"]
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/command-list.md","../../contracts/query-list.md"]
 produces: ["Application screens"]
 ---
 # app — Present application screens
@@ -11,8 +11,8 @@ produces: ["Application screens"]
 - Working: None in this planning repository.
 - Reference: [commands](../commands/CONTEXT.md)
 - Reference: [queries](../queries/CONTEXT.md)
-- Reference: [Command list](../../contracts/CONTEXT.md#command-list)
-- Reference: [Query list](../../contracts/CONTEXT.md#query-list)
+- Reference: [Command list](../../contracts/command-list.md)
+- Reference: [Query list](../../contracts/query-list.md)
 
 ## Process
 
