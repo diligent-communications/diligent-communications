@@ -7,10 +7,12 @@
 
 import { readdir, stat } from 'node:fs/promises';
 import { createArchive, inspectEvidenceFolder, type ArchiveInfo, type EvidenceStatus } from './evidence-folder.ts';
-import { errorCode, fileProblem } from './files.ts';
+import { errorCode, fileProblem, ReplacedButNotFlushed } from './files.ts';
+import { folderRefusals as say, notices, settingsFileMessages as settingsSay } from './messages.ts';
 import {
   checkFolderPair,
   isSameFolder,
+  keepDamagedSettings,
   readSettingsFile,
   refuse,
   writeSettingsFile,
@@ -25,31 +27,47 @@ export type { ArchiveInfo, FolderLocations, FolderRefusal, FolderWarning, Settin
 
 type NotFound = Exclude<SettingsRead, { outcome: 'found' }>;
 
+export type SetFoldersOptions = {
+  // Set only when the person has chosen to replace a settings file that cannot
+  // be understood. The damaged file is then kept beside the new one.
+  replaceDamagedSettings?: boolean;
+};
+
 export type SetFoldersResult =
   | {
       outcome: 'saved';
       locations: FolderLocations;
       evidenceFolder: 'empty' | 'archive';
       warnings: FolderWarning[];
+      // Where a damaged settings file was kept, when one was replaced.
+      keptDamagedSettingsAs?: string;
     }
-  | { outcome: 'not-saved'; message: string }
+  | { outcome: 'settings-not-saved'; message: string }
   | FolderRefusal;
 
 // Saves the two folder locations after checking them. The evidence folder must
 // be empty or already hold a valid archive. Nothing is written when a rule
-// refuses the pair.
+// refuses the pair, or when the settings file cannot be understood and the
+// caller has not chosen to replace it.
 //
 // The remembered archive ID is kept when the same evidence folder is saved
 // again, judged by file identity when both can be looked at, so another
 // spelling of the same place keeps it. For a different evidence folder it is
 // cleared, or set to the ID of the archive already there.
-export async function setFolders(settingsFile: string, given: FolderLocations): Promise<SetFoldersResult> {
+export async function setFolders(
+  settingsFile: string,
+  given: FolderLocations,
+  options: SetFoldersOptions = {},
+): Promise<SetFoldersResult> {
   const current = await readSettingsFile(settingsFile);
-  if (current.outcome === 'unknown-version') {
-    return refuse('newer-settings', `${current.message} Update the program before changing the folders.`);
+  if (current.outcome === 'settings-unknown-version') {
+    return refuse('newer-settings', current.message);
   }
-  if (current.outcome === 'unavailable') {
-    return refuse('unavailable', current.message);
+  if (current.outcome === 'settings-unavailable') {
+    return refuse('settings-unavailable', current.message);
+  }
+  if (current.outcome === 'settings-damaged' && options.replaceDamagedSettings !== true) {
+    return refuse('settings-damaged', current.message);
   }
   const checked = await checkFolderPair(settingsFile, given);
   if (checked.outcome === 'refused') {
@@ -67,19 +85,32 @@ export async function setFolders(settingsFile: string, given: FolderLocations): 
     if (evidence.reason === 'unknown-version') {
       return refuse('unknown-manifest-version', evidence.message);
     }
-    return refuse('evidence-not-empty', `The evidence folder must be empty or already hold an archive. ${evidence.message}`);
+    return refuse('evidence-not-empty', say.evidenceNotUsable(evidence.message));
   }
   const archiveId =
     sameFolder && current.outcome === 'found' ? current.archiveId : evidence.status === 'archive' ? evidence.archiveId : null;
-  const failed = await saveSettings(settingsFile, { locations: checked.locations, archiveId });
-  if (failed !== null) {
-    return { outcome: 'not-saved', message: `The folder settings could not be saved at ${settingsFile} (${failed}). Nothing was changed.` };
+  let keptDamagedSettingsAs: string | undefined;
+  if (current.outcome === 'settings-damaged') {
+    try {
+      keptDamagedSettingsAs = await keepDamagedSettings(settingsFile);
+    } catch (error) {
+      return { outcome: 'settings-not-saved', message: settingsSay.settingsNotSaved(settingsFile, codeOf(error)) };
+    }
+  }
+  const saved = await saveSettings(settingsFile, { locations: checked.locations, archiveId });
+  if (saved.outcome === 'not-saved') {
+    return { outcome: 'settings-not-saved', message: settingsSay.settingsNotSaved(settingsFile, saved.code) };
+  }
+  const warnings = [...checked.warnings];
+  if (saved.outcome === 'replaced-not-flushed') {
+    warnings.push({ kind: 'settings-not-flushed', message: notices.settingsNotFlushed(settingsFile, saved.code) });
   }
   return {
     outcome: 'saved',
     locations: checked.locations,
     evidenceFolder: evidence.status,
-    warnings: checked.warnings,
+    warnings,
+    ...(keptDamagedSettingsAs === undefined ? {} : { keptDamagedSettingsAs }),
   };
 }
 
@@ -121,17 +152,22 @@ export async function folderStatus(settingsFile: string): Promise<FolderStatus> 
 }
 
 export type OpenResult =
-  | ({ outcome: 'opened'; created: boolean; archive: ArchiveInfo } & Remembered)
-  | { outcome: 'missing' | 'unavailable' | 'not-created' | 'creation-stopped'; folder: string; message: string }
-  | { outcome: 'unknown-version'; folder: string; version: number; message: string }
+  | ({ outcome: 'opened'; created: boolean; archive: ArchiveInfo; notice?: string } & Remembered)
+  | {
+      outcome: 'missing' | 'unavailable' | 'not-created' | 'creation-stopped' | 'creation-incomplete';
+      folder: string;
+      message: string;
+    }
+  | { outcome: 'unknown-manifest-version'; folder: string; version: number; message: string }
   | { outcome: 'not-an-archive'; folder: string; reason: string; message: string }
   | { outcome: 'archive-gone'; folder: string; expectedArchiveId: string; message: string }
   | { outcome: 'different-archive'; folder: string; expectedArchiveId: string; foundArchiveId: string; message: string }
   | NotFound;
 
 // Whether the archive's ID is remembered in the settings file. When saving it
-// failed, the message says so; the next open tries again.
-type Remembered = { remembered: true } | { remembered: false; message: string };
+// failed, the message says so; the next open tries again. When it was saved
+// but the last flush failed, it is remembered and a notice says so.
+type Remembered = { remembered: true; rememberNotice?: string } | { remembered: false; message: string };
 
 // Opens the archive in the saved evidence folder. An archive is created only
 // when no archive ID is remembered and the folder is empty; its ID is then
@@ -159,7 +195,13 @@ export async function openArchive(settingsFile: string): Promise<OpenResult> {
       if (created.outcome !== 'created') {
         return { outcome: created.outcome, folder, message: created.message };
       }
-      return { outcome: 'opened', created: true, archive: created.archive, ...(await remember(settingsFile, settings, created.archive, true)) };
+      return {
+        outcome: 'opened',
+        created: true,
+        archive: created.archive,
+        ...(created.notice === undefined ? {} : { notice: created.notice }),
+        ...(await remember(settingsFile, settings, created.archive, true)),
+      };
     }
     case 'missing':
     case 'unavailable':
@@ -176,7 +218,7 @@ export async function openArchive(settingsFile: string): Promise<OpenResult> {
       };
     case 'not-an-archive':
       if (evidence.reason === 'unknown-version') {
-        return { outcome: 'unknown-version', folder, version: evidence.version, message: evidence.message };
+        return { outcome: 'unknown-manifest-version', folder, version: evidence.version, message: evidence.message };
       }
       return { outcome: 'not-an-archive', folder, reason: evidence.reason, message: evidence.message };
   }
@@ -188,30 +230,42 @@ async function remember(
   archive: ArchiveInfo,
   created: boolean,
 ): Promise<Remembered> {
-  const failed = await saveSettings(settingsFile, { locations: settings.locations, archiveId: archive.archiveId });
-  if (failed === null) {
+  const saved = await saveSettings(settingsFile, { locations: settings.locations, archiveId: archive.archiveId });
+  if (saved.outcome === 'saved') {
     return { remembered: true };
   }
+  if (saved.outcome === 'replaced-not-flushed') {
+    return { remembered: true, rememberNotice: notices.settingsNotFlushed(settingsFile, saved.code) };
+  }
   const what = created ? 'The archive was created' : 'The archive was opened';
-  return {
-    remembered: false,
-    message: `${what}, but its ID could not be remembered in ${settingsFile} (${failed}). Opening it again tries once more.`,
-  };
+  return { remembered: false, message: notices.notRemembered(what, settingsFile, saved.code) };
 }
 
-// Writes the settings file, returning null, or the error code when it could
-// not be written.
-async function saveSettings(settingsFile: string, settings: SavedSettings): Promise<string | null> {
+type SaveOutcome =
+  | { outcome: 'saved' }
+  | { outcome: 'replaced-not-flushed'; code: string }
+  | { outcome: 'not-saved'; code: string };
+
+// Writes the settings file and says what really happened: saved, replaced but
+// not flushed to disk, or not saved at all.
+async function saveSettings(settingsFile: string, settings: SavedSettings): Promise<SaveOutcome> {
   try {
     await writeSettingsFile(settingsFile, settings);
-    return null;
+    return { outcome: 'saved' };
   } catch (error) {
-    const code = errorCode(error);
-    if (code === undefined) {
-      throw error;
+    if (error instanceof ReplacedButNotFlushed) {
+      return { outcome: 'replaced-not-flushed', code: error.code };
     }
-    return code;
+    return { outcome: 'not-saved', code: codeOf(error) };
   }
+}
+
+function codeOf(error: unknown): string {
+  const code = errorCode(error);
+  if (code === undefined) {
+    throw error;
+  }
+  return code;
 }
 
 async function evidenceState(settings: SavedSettings): Promise<EvidenceState> {
@@ -222,18 +276,14 @@ async function evidenceState(settings: SavedSettings): Promise<EvidenceState> {
     return evidence;
   }
   if (evidence.status === 'empty') {
-    return {
-      status: 'archive-gone',
-      expectedArchiveId: expected,
-      message: `The evidence folder ${folder} is empty, but archive ${expected} was kept there. No new archive is created. If the archive is on a drive that is not plugged in, plug it in and try again.`,
-    };
+    return { status: 'archive-gone', expectedArchiveId: expected, message: say.archiveGone(folder, expected) };
   }
   if (evidence.status === 'archive' && evidence.archiveId !== expected) {
     return {
       status: 'different-archive',
       expectedArchiveId: expected,
       foundArchiveId: evidence.archiveId,
-      message: `The evidence folder ${folder} holds archive ${evidence.archiveId}, not archive ${expected}, which was kept there. Nothing was changed.`,
+      message: say.differentArchive(folder, evidence.archiveId, expected),
     };
   }
   return evidence;
@@ -244,21 +294,15 @@ async function evidenceState(settings: SavedSettings): Promise<EvidenceState> {
 async function backupState(folder: string): Promise<BackupState> {
   try {
     if (!(await stat(folder)).isDirectory()) {
-      return { status: 'not-a-folder', message: `The backup folder ${folder} is a file, not a folder.` };
+      return { status: 'not-a-folder', message: say.backupIsFile(folder) };
     }
     await readdir(folder);
     return { status: 'present' };
   } catch (error) {
     const { problem, code } = fileProblem(error);
     if (problem === 'missing') {
-      return {
-        status: 'missing',
-        message: `The backup folder ${folder} cannot be found. If it is on a drive that is not plugged in, plug it in and try again.`,
-      };
+      return { status: 'missing', message: say.backupMissing(folder) };
     }
-    return {
-      status: 'unavailable',
-      message: `The backup folder ${folder} cannot be read (${code}). It may need permission, or be on a drive or share that is not available.`,
-    };
+    return { status: 'unavailable', message: say.backupUnavailable(folder, code) };
   }
 }

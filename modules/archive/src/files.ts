@@ -14,8 +14,10 @@ export type ReplaceSteps = {
 // Writes the whole file under a temporary name beside the target, forces it to
 // disk, then renames it over the target. A reader sees the old file or the new
 // one, never a part-written file, and the old file is never deleted first.
-// Node's rename replaces an existing file. If anything fails, the temporary
-// file is removed and the target is left as it was.
+// Node's rename replaces an existing file. If anything fails before the
+// rename, the temporary file is removed and the target is left as it was. If
+// only the last step fails, after the target was replaced, the error is a
+// ReplacedButNotFlushed, so the caller can say what really happened.
 export async function replaceFile(target: string, contents: string, steps: ReplaceSteps = {}): Promise<void> {
   const folder = path.dirname(target);
   const temporary = path.join(folder, `.${path.basename(target)}.${randomUUID()}.tmp`);
@@ -27,17 +29,28 @@ export async function replaceFile(target: string, contents: string, steps: Repla
     await rm(temporary, { force: true });
     throw error;
   }
-  await syncFolder(folder);
+  try {
+    await syncFolder(folder);
+  } catch (error) {
+    throw new ReplacedButNotFlushed(error);
+  }
 }
 
-// Creates a file that must not exist yet. If a file of that name is already
-// there, it fails with EEXIST and leaves that file as it is.
-export async function createFile(target: string, contents: string): Promise<void> {
-  await writeNewFile(target, contents);
-  await syncFolder(path.dirname(target));
+// The file was replaced, but forcing the folder's list of names to disk then
+// failed. The new contents are in place; they may not survive a crash.
+export class ReplacedButNotFlushed extends Error {
+  readonly code: string;
+  constructor(cause: unknown) {
+    const code = errorCode(cause) ?? 'UNKNOWN';
+    super(`The file was replaced, but the folder could not be flushed to disk (${code}).`, { cause });
+    this.code = code;
+  }
 }
 
-async function writeNewFile(target: string, contents: string): Promise<void> {
+// Creates a file that must not exist yet and forces its contents to disk. If a
+// file of that name is already there, it fails with EEXIST and leaves that file
+// as it is.
+export async function writeNewFile(target: string, contents: string): Promise<void> {
   const handle = await open(target, 'wx');
   try {
     await handle.writeFile(contents, 'utf8');
@@ -49,7 +62,7 @@ async function writeNewFile(target: string, contents: string): Promise<void> {
 
 // Forces the folder's list of names to disk, so a new name survives a crash.
 // Windows does not let a program open a folder to do this.
-async function syncFolder(folder: string): Promise<void> {
+export async function syncFolder(folder: string): Promise<void> {
   if (process.platform === 'win32') {
     return;
   }
@@ -113,8 +126,14 @@ export async function readFirstLine(file: string, maxBytes: number): Promise<Fir
 const MISSING_CODES = new Set(['ENOENT', 'ENOTDIR']);
 
 // No permission (EACCES, EPERM), a link loop (ELOOP), a read-only drive
-// (EROFS), or a drive or share that is not ready or not reachable. On Windows,
-// Node reports some of those last ones as UNKNOWN.
+// (EROFS), a device that fails or is not there (EIO, EBUSY, ENODEV, ENXIO), or
+// a share or network folder that stops answering. The network codes are the
+// ones Node's libuv (the same in Node 24.12.0 and 26) gives for this: on
+// Windows, "network name is no longer available" becomes ECONNRESET, "not
+// connected" ENOTCONN, "connection aborted" ECONNABORTED, "semaphore timeout"
+// ETIMEDOUT, and unreachable hosts and networks EHOSTUNREACH and ENETUNREACH;
+// network mounts on Linux can also give ECONNREFUSED, EHOSTDOWN, ENETDOWN,
+// ENONET and EREMOTEIO. Errors Windows has no mapping for arrive as UNKNOWN.
 const UNAVAILABLE_CODES = new Set([
   'EACCES',
   'EPERM',
@@ -127,6 +146,14 @@ const UNAVAILABLE_CODES = new Set([
   'ETIMEDOUT',
   'EHOSTUNREACH',
   'ENETUNREACH',
+  'ECONNRESET',
+  'ECONNABORTED',
+  'ECONNREFUSED',
+  'ENOTCONN',
+  'EHOSTDOWN',
+  'ENETDOWN',
+  'ENONET',
+  'EREMOTEIO',
   'UNKNOWN',
 ]);
 

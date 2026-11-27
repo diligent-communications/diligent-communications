@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import fsp, { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
-import { test, type TestContext } from 'node:test';
+import { mock, test, type TestContext } from 'node:test';
+import { formatManifestHeader, newManifestHeader, readManifestHeader } from '../../../contracts/manifest-header.ts';
 import { folderStatus, openArchive, readFolders, setFolders } from '../src/archive.ts';
 import { createArchive } from '../src/evidence-folder.ts';
 import { fileProblem } from '../src/files.ts';
+import { folderRefusals, notices, settingsFileMessages } from '../src/messages.ts';
 import { writeSettingsFile } from '../src/settings.ts';
 import { exists, folderLink, linkLoop, newWorkspace, snapshot, type Workspace } from './helpers/workspace.ts';
 
@@ -142,9 +145,9 @@ test('an unknown manifest version is refused without changing anything', async (
   const before = await snapshot(w.evidence);
 
   const result = await openArchive(w.settingsFile);
-  assert.equal(result.outcome, 'unknown-version');
-  assert.ok(result.outcome === 'unknown-version' && result.version === 2);
-  assert.match(result.outcome === 'unknown-version' ? result.message : '', /version 2/);
+  assert.equal(result.outcome, 'unknown-manifest-version');
+  assert.ok(result.outcome === 'unknown-manifest-version' && result.version === 2);
+  assert.match(result.outcome === 'unknown-manifest-version' ? result.message : '', /version 2/);
   assert.deepEqual(await snapshot(w.evidence), before);
 });
 
@@ -191,7 +194,7 @@ async function programReadMe(t: TestContext): Promise<string> {
 
 // No message from this module may advise emptying or deleting a folder.
 function assertNoEmptyingAdvice(message: string): void {
-  assert.doesNotMatch(message, /empty (this|it|the folder)|delete|remove/i);
+  assert.doesNotMatch(message, /\bempty (this|it|that|the|your)\b|delet|remov|clear (it|out)/i);
 }
 
 test('a creation that stopped partway is reported as such and left alone', async (t) => {
@@ -205,7 +208,9 @@ test('a creation that stopped partway is reported as such and left alone', async
     'while writing the manifest': async (folder) => {
       for (const name of ['originals', 'decisions', 'receipts']) await mkdir(path.join(folder, name));
       await writeFile(path.join(folder, 'READ-ME.txt'), readMe);
-      await writeFile(path.join(folder, 'manifest.jsonl'), '{"line":"header","manifest_version":1,"archive_id":"3f2b8c1e-7d');
+      // Cut off inside the creation time, past the archive ID.
+      const line = formatManifestHeader(newManifestHeader('3f2b8c1e-7d4a-4f6b-9a2e-5c1d0e8f7a6b', new Date(0)));
+      await writeFile(path.join(folder, 'manifest.jsonl'), line.slice(0, line.length - 8));
     },
     'with an empty manifest': async (folder) => {
       for (const name of ['originals', 'decisions', 'receipts']) await mkdir(path.join(folder, name));
@@ -222,7 +227,7 @@ test('a creation that stopped partway is reported as such and left alone', async
     assert.equal(result.outcome === 'not-an-archive' ? result.reason : result.outcome, 'unfinished-creation', name);
     const message = result.outcome === 'not-an-archive' ? result.message : '';
     assert.match(message, /stopped partway/);
-    assert.match(message, /Choose a new empty folder/);
+    assert.match(message, /choose a new empty folder/);
     assertNoEmptyingAdvice(message);
     assert.deepEqual(await snapshot(w.evidence), before, name);
   }
@@ -332,13 +337,23 @@ test('creating never replaces a file that appeared after the folder was found em
     const w = await newWorkspace(t);
     await writeFile(path.join(w.evidence, name), 'arrived in the meantime');
     const result = await createArchive(w.evidence);
-    assert.equal(result.outcome, 'creation-stopped', name);
-    assert.match(result.outcome === 'creation-stopped' ? result.message : '', /stopped partway/);
+    // A person's file is now there, so the folder is not a stopped creation.
+    assert.equal(result.outcome, 'creation-incomplete', name);
+    assert.match(result.outcome === 'creation-incomplete' ? result.message : '', /did not complete/);
     assert.equal(await readFile(path.join(w.evidence, name), 'utf8'), 'arrived in the meantime', name);
     if (name === 'READ-ME.txt') {
       assert.equal(await exists(path.join(w.evidence, 'manifest.jsonl')), false);
     }
   }
+});
+
+test('a creation that fails partway with only its own leftovers is a stopped creation', async (t) => {
+  const w = await newWorkspace(t);
+  // Something made the manifest name, empty, just before this creation did.
+  await writeFile(path.join(w.evidence, 'manifest.jsonl'), '');
+  const result = await createArchive(w.evidence);
+  assert.equal(result.outcome, 'creation-stopped');
+  assert.equal(await readFile(path.join(w.evidence, 'manifest.jsonl'), 'utf8'), '');
 });
 
 test('a missing saved evidence folder is reported and never replaced by a new empty archive', async (t) => {
@@ -533,11 +548,100 @@ test('only the file system problems it names are treated as unavailable', () => 
   const failure = (code: string) => Object.assign(new Error(code), { code });
   assert.deepEqual(fileProblem(failure('ENOENT')), { problem: 'missing', code: 'ENOENT' });
   assert.deepEqual(fileProblem(failure('ENOTDIR')), { problem: 'missing', code: 'ENOTDIR' });
-  for (const code of ['EACCES', 'EPERM', 'ELOOP', 'EIO', 'UNKNOWN']) {
+  for (const code of [
+    'EACCES', 'EPERM', 'ELOOP', 'EIO', 'UNKNOWN',
+    // A share or network folder that stops answering.
+    'ECONNRESET', 'ENOTCONN', 'ECONNABORTED', 'ECONNREFUSED', 'EHOSTDOWN', 'ENETDOWN', 'ENONET', 'EREMOTEIO', 'ETIMEDOUT',
+  ]) {
     assert.deepEqual(fileProblem(failure(code)), { problem: 'unavailable', code });
   }
   // A fault in the program is passed on, not reported as an unreadable folder.
   for (const error of [failure('ERR_INVALID_ARG_TYPE'), failure('EEXIST'), new Error('not from the file system')]) {
     assert.throws(() => fileProblem(error), (thrown) => thrown === error);
   }
+});
+
+// Makes the file system answer for one folder the way a share that stopped
+// answering does, using Node's own test mocks. Nothing on disk is touched.
+async function withShareFailure<T>(folder: string, code: string, run: () => Promise<T>): Promise<T> {
+  const fail = () => Promise.reject(Object.assign(new Error(`made-up ${code}`), { code }));
+  const original = { stat: fsp.stat, readdir: fsp.readdir };
+  const stats = mock.method(fsp, 'stat', ((target: string, ...rest: unknown[]) =>
+    target === folder ? fail() : (original.stat as (...args: unknown[]) => unknown)(target, ...rest)) as typeof fsp.stat);
+  const lists = mock.method(fsp, 'readdir', ((target: string, ...rest: unknown[]) =>
+    target === folder ? fail() : (original.readdir as (...args: unknown[]) => unknown)(target, ...rest)) as typeof fsp.readdir);
+  syncBuiltinESMExports();
+  try {
+    return await run();
+  } finally {
+    stats.mock.restore();
+    lists.mock.restore();
+    syncBuiltinESMExports();
+  }
+}
+
+test('a share that stops answering is unavailable, and never hides the other folder', async (t) => {
+  const w = await newWorkspace(t);
+  await created(w);
+  for (const code of ['ECONNRESET', 'ENOTCONN', 'ECONNABORTED', 'EHOSTDOWN', 'ENETDOWN']) {
+    const backup = await withShareFailure(w.backup, code, () => folderStatus(w.settingsFile));
+    assert.equal(backup.outcome === 'found' ? backup.backup.status : undefined, 'unavailable', code);
+    assert.equal(backup.outcome === 'found' ? backup.evidence.status : undefined, 'archive', code);
+
+    const evidence = await withShareFailure(w.evidence, code, () => folderStatus(w.settingsFile));
+    assert.equal(evidence.outcome === 'found' ? evidence.evidence.status : undefined, 'unavailable', code);
+    assert.equal(evidence.outcome === 'found' ? evidence.backup.status : undefined, 'present', code);
+
+    const opened = await withShareFailure(w.evidence, code, () => openArchive(w.settingsFile));
+    assert.equal(opened.outcome, 'unavailable', code);
+  }
+});
+
+test('a fully written archive whose last flush fails is reported as created, with a notice (Linux)', async (t) => {
+  if (process.platform === 'win32') {
+    t.skip('Windows has no folder flush step, and ignores these permission bits on folders.');
+    return;
+  }
+  if (process.getuid?.() === 0) {
+    t.skip('The system administrator account can read any folder.');
+    return;
+  }
+  const w = await newWorkspace(t);
+  // Write and search permission, but not read: files can be made, and the
+  // folder cannot be opened to flush it.
+  await chmod(w.evidence, 0o300);
+  let result: Awaited<ReturnType<typeof createArchive>>;
+  try {
+    result = await createArchive(w.evidence);
+  } finally {
+    await chmod(w.evidence, 0o755);
+  }
+  assert.equal(result.outcome, 'created');
+  assert.match(result.outcome === 'created' ? (result.notice ?? '') : '', /fully written/);
+  const status = await withFolders(w).then(() => folderStatus(w.settingsFile));
+  assert.equal(status.outcome === 'found' ? status.evidence.status : undefined, 'archive');
+});
+
+test('no message the archive can return advises emptying or deleting a folder', () => {
+  const sample = (fn: (...args: string[]) => string) => fn('X', 'Y', 'Z');
+  const all = { ...settingsFileMessages, ...folderRefusals, ...notices };
+  assert.equal(
+    Object.keys(all).length,
+    Object.keys(settingsFileMessages).length + Object.keys(folderRefusals).length + Object.keys(notices).length,
+  );
+  for (const [name, fn] of Object.entries(all)) {
+    assertNoEmptyingAdvice(sample(fn as (...args: string[]) => string));
+    assert.ok(sample(fn as (...args: string[]) => string).length > 0, name);
+  }
+  // Every refusal about a folder suggests a new empty one.
+  for (const [name, fn] of Object.entries(folderRefusals)) {
+    const text = sample(fn as (...args: string[]) => string);
+    assert.match(text, /new empty folder/, name);
+  }
+  // The manifest's own message about a newer version, as the archive returns it.
+  const newer = readManifestHeader('{"line":"header","manifest_version":2,"archive_id":"x","created_at":"2026-01-01T00:00:00.000Z"}');
+  assert.ok(newer.outcome === 'unknown-version');
+  const text = folderRefusals.unknownManifestVersion(newer.outcome === 'unknown-version' ? newer.message : '');
+  assertNoEmptyingAdvice(text);
+  assert.match(text, /new empty folder/);
 });

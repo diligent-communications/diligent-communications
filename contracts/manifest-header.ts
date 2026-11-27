@@ -91,3 +91,33 @@ function isUtcTime(text: string): boolean {
   const time = new Date(text);
   return !Number.isNaN(time.getTime()) && time.toISOString().slice(0, 19) === text.slice(0, 19);
 }
+
+// The shape of a version 1 header line, without its line end, built from the
+// formatter above. "#" stands for a character of a random archive ID and "~"
+// for a character of a UTC time; neither appears in the fixed text.
+const ID_MARK = '#';
+const TIME_MARK = '~';
+const HEADER_SHAPE = formatManifestHeader({
+  line: 'header',
+  manifest_version: MANIFEST_VERSION,
+  archive_id: ID_MARK.repeat(36),
+  created_at: TIME_MARK.repeat(new Date(0).toISOString().length),
+}).trimEnd();
+
+// Whether the text could be the start of a version 1 header line this
+// program writes, cut off before its line end. Empty text counts.
+export function isStartOfManifestHeader(text: string): boolean {
+  if (text.length > HEADER_SHAPE.length) {
+    return false;
+  }
+  for (let i = 0; i < text.length; i += 1) {
+    const shape = HEADER_SHAPE[i];
+    const char = text[i] ?? '';
+    const fits =
+      shape === ID_MARK ? /[0-9a-f-]/.test(char) : shape === TIME_MARK ? /[0-9TZ:.-]/.test(char) : char === shape;
+    if (!fits) {
+      return false;
+    }
+  }
+  return true;
+}

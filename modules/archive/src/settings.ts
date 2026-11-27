@@ -2,9 +2,11 @@
 // must meet before it is saved. The settings file is local to this computer and
 // is never put in the archive or a backup.
 
-import { mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { copyFile, mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { errorCode, fileProblem, replaceFile, type ReplaceSteps } from './files.ts';
+import { folderRefusals as say, notices, settingsFileMessages as settingsSay } from './messages.ts';
 
 export const SETTINGS_VERSION = 1;
 
@@ -23,9 +25,9 @@ export type SavedSettings = {
 export type SettingsRead =
   | ({ outcome: 'found' } & SavedSettings)
   | { outcome: 'not-set'; message: string }
-  | { outcome: 'unknown-version'; version: number; message: string }
-  | { outcome: 'damaged'; message: string }
-  | { outcome: 'unavailable'; message: string };
+  | { outcome: 'settings-unknown-version'; version: number; message: string }
+  | { outcome: 'settings-damaged'; message: string }
+  | { outcome: 'settings-unavailable'; message: string };
 
 export async function readSettingsFile(settingsFile: string): Promise<SettingsRead> {
   let text: string;
@@ -34,14 +36,11 @@ export async function readSettingsFile(settingsFile: string): Promise<SettingsRe
   } catch (error) {
     const { problem, code } = fileProblem(error);
     if (problem === 'missing') {
-      return { outcome: 'not-set', message: 'The evidence and backup folders have not been chosen yet.' };
+      return { outcome: 'not-set', message: settingsSay.notSet() };
     }
-    return { outcome: 'unavailable', message: `The folder settings file ${settingsFile} cannot be read (${code}).` };
+    return { outcome: 'settings-unavailable', message: settingsSay.settingsUnavailable(settingsFile, code) };
   }
-  const damaged: SettingsRead = {
-    outcome: 'damaged',
-    message: `The folder settings file ${settingsFile} cannot be read. Choose the evidence and backup folders again.`,
-  };
+  const damaged: SettingsRead = { outcome: 'settings-damaged', message: settingsSay.settingsDamaged(settingsFile) };
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -58,9 +57,9 @@ export async function readSettingsFile(settingsFile: string): Promise<SettingsRe
   }
   if (version !== SETTINGS_VERSION) {
     return {
-      outcome: 'unknown-version',
+      outcome: 'settings-unknown-version',
       version,
-      message: `The folder settings file is version ${version}. This program reads only version ${SETTINGS_VERSION}, so it leaves the file as it is.`,
+      message: settingsSay.settingsNewer(String(version), String(SETTINGS_VERSION)),
     };
   }
   const { evidence_folder: evidenceFolder, backup_folder: backupFolder, archive_id: archiveId } = record;
@@ -91,10 +90,30 @@ export async function writeSettingsFile(
   await replaceFile(settingsFile, `${JSON.stringify(record, null, 2)}\n`, steps);
 }
 
+// Keeps a copy of a damaged settings file beside it before it is replaced:
+// "<name>.damaged", or "<name>.damaged-2" and so on when that name is taken.
+// A file already at a name is never overwritten. Returns the name used.
+export async function keepDamagedSettings(settingsFile: string): Promise<string> {
+  for (let n = 1; n <= 100; n += 1) {
+    const kept = n === 1 ? `${settingsFile}.damaged` : `${settingsFile}.damaged-${n}`;
+    try {
+      await copyFile(settingsFile, kept, constants.COPYFILE_EXCL);
+      return kept;
+    } catch (error) {
+      if (errorCode(error) !== 'EEXIST') {
+        throw error;
+      }
+    }
+  }
+  throw Object.assign(new Error(`No free name to keep ${settingsFile} under.`), { code: 'EEXIST' });
+}
+
 export type FolderRefusal = {
   outcome: 'refused';
   reason:
     | 'not-full-path'
+    | 'settings-unavailable'
+    | 'settings-damaged'
     | 'missing'
     | 'not-a-folder'
     | 'unavailable'
@@ -108,7 +127,7 @@ export type FolderRefusal = {
   message: string;
 };
 
-export type FolderWarning = { kind: 'same-drive'; message: string };
+export type FolderWarning = { kind: 'same-drive' | 'settings-not-flushed'; message: string };
 
 export type CheckedFolders = {
   outcome: 'checked';
@@ -141,7 +160,7 @@ export async function checkFolderPair(
   ];
   for (const [name, location] of named) {
     if (!isFullPath(location)) {
-      return refuse('not-full-path', `The ${name} must be a full path, starting from a drive or the top folder. Got: "${location}".`);
+      return refuse('not-full-path', say.notFullPath(name, location));
     }
     // Refused before the disk is touched at all.
     if (isDriveRoot(path.resolve(location))) {
@@ -152,13 +171,13 @@ export async function checkFolderPair(
   for (const [name, location] of named) {
     const found = await lookup.findFolder(location);
     if (found.kind === 'missing') {
-      return refuse('missing', `The ${name} ${location} cannot be found. Choose a folder that exists.`);
+      return refuse('missing', say.folderMissing(name, location));
     }
     if (found.kind === 'not-a-folder') {
-      return refuse('not-a-folder', `The ${name} ${location} is a file, not a folder.`);
+      return refuse('not-a-folder', say.notAFolder(name, location));
     }
     if (found.kind === 'unavailable') {
-      return refuse('unavailable', `The ${name} ${location} cannot be read (${found.code}). It may need permission, or be on a drive or share that is not available.`);
+      return refuse('unavailable', say.folderUnavailable(name, location, found.code));
     }
     if (isDriveRoot(found.place.location)) {
       return driveRootRefusal(name, found.place.location);
@@ -167,15 +186,15 @@ export async function checkFolderPair(
   }
   const [evidence, backup] = real as [Place, Place];
   if (await isSamePlace(evidence, backup)) {
-    return refuse('same-folder', `The evidence folder and the backup folder are the same folder (${evidence.location} and ${backup.location}). Choose two separate folders.`);
+    return refuse('same-folder', say.sameFolder(evidence.location, backup.location));
   }
   if ((await isInsidePlace(evidence, backup)) || (await isInsidePlace(backup, evidence))) {
-    return refuse('nested', `One folder is inside the other (${evidence.location} and ${backup.location}). Choose two separate folders.`);
+    return refuse('nested', say.nested(evidence.location, backup.location));
   }
   const settings = await existingPlace(settingsFile);
   for (const folder of real) {
     if (settings !== null && ((await isSamePlace(settings, folder)) || (await isInsidePlace(settings, folder)))) {
-      return refuse('settings-inside', `The folder settings are kept at ${settingsFile}, which is inside ${folder.location}. They must stay outside both folders.`);
+      return refuse('settings-inside', say.settingsInside(settingsFile, folder.location));
     }
   }
   return {
@@ -192,12 +211,7 @@ export function driveWarnings(evidenceDevice: bigint, backupDevice: bigint): Fol
   if (evidenceDevice !== backupDevice) {
     return [];
   }
-  return [
-    {
-      kind: 'same-drive',
-      message: 'The evidence folder and the backup folder are on the same drive. If that drive fails, both can be lost.',
-    },
-  ];
+  return [{ kind: 'same-drive', message: notices.sameDrive() }];
 }
 
 export function refuse(reason: FolderRefusal['reason'], message: string): FolderRefusal {
@@ -205,7 +219,7 @@ export function refuse(reason: FolderRefusal['reason'], message: string): Folder
 }
 
 function driveRootRefusal(name: string, location: string): FolderRefusal {
-  return refuse('drive-root', `The ${name} cannot be the top of a drive (${location}). Choose or make a folder on it.`);
+  return refuse('drive-root', say.driveRoot(name, location));
 }
 
 // A full path names its drive or top folder. On Windows, "\folder" (relative

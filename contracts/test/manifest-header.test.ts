@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   formatManifestHeader,
   newManifestHeader,
+  isStartOfManifestHeader,
   readManifestHeader,
 } from '../manifest-header.ts';
 
@@ -53,4 +54,16 @@ test('a line that is not a valid version 1 header is refused', () => {
     const result = readManifestHeader(line);
     assert.equal(result.outcome, 'not-a-header', line);
   }
+});
+
+test('the start of a header line is recognised, cut off anywhere before its line end', () => {
+  const line = formatManifestHeader(newManifestHeader(sampleId, new Date(Date.UTC(2026, 0, 2, 3, 4, 5, 6)))).trimEnd();
+  for (let length = 0; length <= line.length; length += 1) {
+    assert.equal(isStartOfManifestHeader(line.slice(0, length)), true, line.slice(0, length));
+  }
+  assert.equal(isStartOfManifestHeader(`${line}\n`), false, 'a finished line is not a cut-off one');
+  assert.equal(isStartOfManifestHeader('{"line":"entry"'), false);
+  assert.equal(isStartOfManifestHeader(line.replace('2026', '2O26')), false, 'a letter where the time has a digit');
+  assert.equal(isStartOfManifestHeader(line.replace(sampleId, sampleId.toUpperCase())), false, 'an ID in capitals');
+  assert.equal(isStartOfManifestHeader('made-up notes'), false);
 });

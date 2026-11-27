@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, link, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, link, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
@@ -345,8 +345,8 @@ test('settings with a newer version are reported and never rewritten', async (t)
   await writeFile(w.settingsFile, newer);
 
   const read = await readFolders(w.settingsFile);
-  assert.equal(read.outcome, 'unknown-version');
-  assert.match(read.outcome === 'unknown-version' ? read.message : '', /version 2/);
+  assert.equal(read.outcome, 'settings-unknown-version');
+  assert.match(read.outcome === 'settings-unknown-version' ? read.message : '', /version 2/);
 
   const set = await setPair(w, w.evidence, w.backup);
   assert.equal(set.outcome === 'refused' ? set.reason : undefined, 'newer-settings');
@@ -365,7 +365,7 @@ test('a damaged settings file is reported', async (t) => {
     '[]',
   ]) {
     await writeFile(w.settingsFile, damaged);
-    assert.equal((await readFolders(w.settingsFile)).outcome, 'damaged', damaged);
+    assert.equal((await readFolders(w.settingsFile)).outcome, 'settings-damaged', damaged);
   }
 });
 
@@ -471,7 +471,142 @@ test('settings that cannot be written are reported, not thrown', async (t) => {
   const blocker = path.join(w.root, 'local-data');
   await writeFile(blocker, 'made-up text');
   const result = await setPair(w, w.evidence, w.backup);
-  assert.equal(result.outcome, 'not-saved');
-  assert.match(result.outcome === 'not-saved' ? result.message : '', /could not be saved/);
+  assert.equal(result.outcome, 'settings-not-saved');
+  assert.match(result.outcome === 'settings-not-saved' ? result.message : '', /could not be saved/);
   assert.equal(await readFile(blocker, 'utf8'), 'made-up text');
+});
+
+test('a damaged settings file is reported and nothing is written unless replacing it is chosen', async (t) => {
+  const w = await newWorkspace(t);
+  await mkdir(path.dirname(w.settingsFile));
+  const damaged = '{"settings_version":1,';
+  await writeFile(w.settingsFile, damaged);
+  const refused = await setPair(w, w.evidence, w.backup);
+  assert.equal(refused.outcome === 'refused' ? refused.reason : refused.outcome, 'settings-damaged');
+  assert.equal(await readFile(w.settingsFile, 'utf8'), damaged);
+  assert.deepEqual(await readdir(path.dirname(w.settingsFile)), ['archive-settings.json']);
+});
+
+test('replacing a damaged settings file keeps it beside the new one and never overwrites a kept copy', async (t) => {
+  const w = await newWorkspace(t);
+  await mkdir(path.dirname(w.settingsFile));
+  await writeFile(w.settingsFile, 'first damaged');
+  const first = await setFolders(w.settingsFile, { evidenceFolder: w.evidence, backupFolder: w.backup }, { replaceDamagedSettings: true });
+  assert.equal(first.outcome, 'saved');
+  assert.equal(first.outcome === 'saved' ? first.keptDamagedSettingsAs : undefined, `${w.settingsFile}.damaged`);
+  assert.equal(await readFile(`${w.settingsFile}.damaged`, 'utf8'), 'first damaged');
+  assert.equal((await readFolders(w.settingsFile)).outcome, 'found');
+
+  // Damaged again: the name already used is taken, so the next one is used.
+  await writeFile(w.settingsFile, 'second damaged');
+  const second = await setFolders(w.settingsFile, { evidenceFolder: w.evidence, backupFolder: w.backup }, { replaceDamagedSettings: true });
+  assert.equal(second.outcome === 'saved' ? second.keptDamagedSettingsAs : undefined, `${w.settingsFile}.damaged-2`);
+  assert.equal(await readFile(`${w.settingsFile}.damaged`, 'utf8'), 'first damaged');
+  assert.equal(await readFile(`${w.settingsFile}.damaged-2`, 'utf8'), 'second damaged');
+});
+
+test('the old settings file is never deleted before the rename', async (t) => {
+  const w = await newWorkspace(t);
+  const target = path.join(w.root, 'target.json');
+  await writeFile(target, 'old contents');
+  // The temporary file vanishes, so the rename itself fails.
+  await assert.rejects(replaceFile(target, 'new contents', { beforeRename: (temporary) => rm(temporary) }));
+  assert.equal(await readFile(target, 'utf8'), 'old contents');
+});
+
+test('a saved evidence folder that cannot be looked at is compared by path text', async (t) => {
+  const w = await newWorkspace(t);
+  await setPair(w, w.evidence, w.backup);
+  assert.equal((await openArchive(w.settingsFile)).outcome, 'opened');
+  // The remembered folder is unplugged, and another folder is chosen.
+  await rename(w.evidence, path.join(w.root, 'unplugged'));
+  const other = path.join(w.root, 'other-evidence');
+  await mkdir(other);
+  assert.equal((await setPair(w, other, w.backup)).outcome, 'saved');
+  const read = await readFolders(w.settingsFile);
+  assert.equal(read.outcome === 'found' ? read.archiveId : undefined, null);
+});
+
+test('setting the folders never calls the remains of a remembered archive a stopped creation', async (t) => {
+  const w = await newWorkspace(t);
+  await setPair(w, w.evidence, w.backup);
+  assert.equal((await openArchive(w.settingsFile)).outcome, 'opened');
+  // Only the manifest is gone: what is left looks like creation leftovers.
+  await rm(path.join(w.evidence, 'manifest.jsonl'));
+  const settingsBefore = await readFile(w.settingsFile, 'utf8');
+  const result = await setPair(w, w.evidence, w.backup);
+  assert.equal(result.outcome === 'refused' ? result.reason : result.outcome, 'evidence-not-empty');
+  assert.doesNotMatch(result.outcome === 'refused' ? result.message : '', /stopped partway/);
+  assert.match(result.outcome === 'refused' ? result.message : '', /no archive manifest/);
+  assert.equal(await readFile(w.settingsFile, 'utf8'), settingsBefore);
+});
+
+test('file identity catches the same folder, or one inside the other, under made-up spellings', async (t) => {
+  const w = await newWorkspace(t);
+  const inner = path.join(w.evidence, 'inner');
+  await mkdir(inner);
+  const evidencePlace = await realFolder(w.evidence);
+  assert.equal(evidencePlace.kind, 'folder');
+  if (evidencePlace.kind !== 'folder') return;
+  // A made-up spelling that shares nothing with the real path but its identity.
+  const spelling = path.join(w.root, 'made-up-spelling');
+  const madeUp = (location: string): FoundFolder => ({
+    kind: 'folder',
+    place: { location: spelling, dev: evidencePlace.place.dev, id: evidencePlace.place.id },
+  });
+  const lookup = (stand: string) => ({
+    findFolder: async (location: string): Promise<FoundFolder> => (location === stand ? madeUp(location) : realFolder(location)),
+  });
+  const same = await checkFolderPair(w.settingsFile, { evidenceFolder: w.evidence, backupFolder: spelling }, lookup(spelling));
+  assert.equal(same.outcome === 'refused' ? same.reason : same.outcome, 'same-folder');
+  const nested = await checkFolderPair(w.settingsFile, { evidenceFolder: spelling, backupFolder: inner }, lookup(spelling));
+  assert.equal(nested.outcome === 'refused' ? nested.reason : nested.outcome, 'nested');
+});
+
+test('a remembered evidence folder saved again under another spelling keeps its ID, by file identity', async (t) => {
+  const w = await newWorkspace(t);
+  await setPair(w, w.evidence, w.backup);
+  const opened = await openArchive(w.settingsFile);
+  const id = opened.outcome === 'opened' ? opened.archive.archiveId : '';
+  // The saved location becomes a link inside the test folder that leads to
+  // the same folder, so the two paths share no text.
+  const spelling = path.join(w.root, 'other-spelling');
+  await folderLink(w, w.evidence, spelling);
+  await writeSettingsFile(w.settingsFile, { locations: { evidenceFolder: spelling, backupFolder: w.backup }, archiveId: id });
+  for (const name of await readdir(w.evidence)) {
+    await rm(path.join(w.evidence, name), { recursive: true });
+  }
+  assert.equal((await setPair(w, w.evidence, w.backup)).outcome, 'saved');
+  const read = await readFolders(w.settingsFile);
+  assert.equal(read.outcome === 'found' ? read.archiveId : undefined, id);
+  assert.equal((await openArchive(w.settingsFile)).outcome, 'archive-gone');
+});
+
+test('settings replaced but not flushed are saved with a warning, never "not changed" (Linux)', async (t) => {
+  if (onWindows) {
+    t.skip('Windows has no folder flush step, and ignores these permission bits on folders.');
+    return;
+  }
+  if (process.getuid?.() === 0) {
+    t.skip('The system administrator account can read any folder.');
+    return;
+  }
+  const w = await newWorkspace(t);
+  await setPair(w, w.evidence, w.backup);
+  const other = path.join(w.root, 'other-backup');
+  await mkdir(other);
+  // Write and search permission, but not read: the file can be replaced, and
+  // the folder cannot be opened to flush it.
+  const settingsFolder = path.dirname(w.settingsFile);
+  await chmod(settingsFolder, 0o300);
+  let result: Awaited<ReturnType<typeof setFolders>>;
+  try {
+    result = await setPair(w, w.evidence, other);
+  } finally {
+    await chmod(settingsFolder, 0o700);
+  }
+  assert.equal(result.outcome, 'saved');
+  assert.deepEqual(result.outcome === 'saved' ? result.warnings.map((warning) => warning.kind) : [], ['same-drive', 'settings-not-flushed']);
+  const read = await readFolders(w.settingsFile);
+  assert.equal(read.outcome === 'found' ? read.locations.backupFolder : undefined, other);
 });
