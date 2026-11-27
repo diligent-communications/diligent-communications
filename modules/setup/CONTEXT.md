@@ -1,6 +1,6 @@
 ---
 build_step: 1
-consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/command-list.md","../../contracts/query-list.md","../../contracts/connection-status.md"]
+consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/command-list.md","../../contracts/query-list.md","../../contracts/connection-status.md","../../contracts/capture-progress.md","../../contracts/mail-commands.md"]
 produces: ["First-run setup flow"]
 ---
 # setup — Guide first run
@@ -13,11 +13,13 @@ produces: ["First-run setup flow"]
 - Reference: [Command list](../../contracts/command-list.md)
 - Reference: [Query list](../../contracts/query-list.md)
 - Reference: [Connection status](../../contracts/connection-status.md)
+- Reference: [Capture progress](../../contracts/capture-progress.md)
+- Reference: [Mail commands](../../contracts/mail-commands.md)
 
 ## Process
 
 1. Own the first-run flow. Its first form is a terminal tool. The tool uses only commands for changes and queries for reads. The in-app Setup screen belongs to app and calls the same commands.
-2. Ask the person for the evidence folder and a separate backup folder, then set both locations through commands. Archive keeps them as local settings outside the evidence folder and out of backups. Use commands to connect the mailbox and to start a capture when the person asks, including a later catch-up. A capture is started only by a person. Use queries to show the folder choice, connection status, and capture and restore progress.
+2. Ask the person for the evidence folder and a separate backup folder, then set both locations through commands. Archive keeps them as local settings outside the evidence folder and out of backups. Use commands to connect the mailbox and to start a capture when the person asks, including a later catch-up. Tell commands the asker is a person. When the person stops a run, pass that stop to commands. Use queries to show the folder choice, connection status, and capture and restore progress. The progress result is the capture progress shape, or the named answer the query list gives when there is no record.
 3. In step 1, setup requests backups and restores through commands. When restoring, show the backup list that commands returns as the first part of the restore preview, not through queries. Let the person pick a backup, show that backup's preview, and ask the person to confirm.
 4. When a restore needs a new empty folder, ask the person for one and set it through commands. While a restore is unfinished, capture and other archive writes are blocked. Retrying that restore and setting the folder locations are not blocked, so the person can always pick a new empty folder. A restore copies beside the destination and moves the copy into place only when it is complete, so a stopped copy never leaves the destination partly filled. A leftover from a stopped copy is reported and left alone.
 5. Show the preview and command receipt that commands returns.
@@ -28,4 +30,4 @@ produces: ["First-run setup flow"]
 
 ## Check
 
-A second person starts with a fresh install and reaches first capture without help. They use the terminal tool, which reaches the archive and the mailbox only through commands and queries, and a later catch-up uses the same commands.
+A second person starts with a fresh install and reaches first capture without help. They use the terminal tool, which reaches the archive and the mailbox only through commands and queries, and a later catch-up uses the same commands. The tool tells commands the asker is a person, and a stop is passed to commands. The progress shown is the capture progress record, or `none-recorded` when no run has been recorded.

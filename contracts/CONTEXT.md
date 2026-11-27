@@ -51,6 +51,10 @@ The published package layout and file information that let another app take an e
 
 [command-list.md](command-list.md)
 
+### Mail commands
+
+[mail-commands.md](mail-commands.md)
+
 ### Query list
 
 [query-list.md](query-list.md)

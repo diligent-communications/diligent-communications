@@ -47,7 +47,6 @@ flowchart TD
     folder4 --> folder2
     folder5 --> folder14
     folder5 --> folder2
-    folder6 --> folder2
     folder6 --> folder8
     folder7 --> folder10
     folder7 --> folder14
