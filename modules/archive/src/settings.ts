@@ -59,7 +59,7 @@ export async function readSettingsFile(settingsFile: string): Promise<SettingsRe
     return {
       outcome: 'settings-unknown-version',
       version,
-      message: settingsSay.settingsNewer(String(version), String(SETTINGS_VERSION)),
+      message: settingsSay.settingsNewer(settingsFile, String(version), String(SETTINGS_VERSION)),
     };
   }
   const { evidence_folder: evidenceFolder, backup_folder: backupFolder, archive_id: archiveId } = record;
@@ -210,17 +210,17 @@ export async function checkFolderPair(
     outcome: 'checked',
     locations: { evidenceFolder: evidence.location, backupFolder: backup.location },
     evidencePlace: evidence,
-    warnings: driveWarnings(evidence.dev, backup.dev),
+    warnings: driveWarnings(evidence, backup),
   };
 }
 
 // Two folders on one drive could both be lost if that drive fails. Drives are
 // compared by the device number the file system reports for each folder.
-export function driveWarnings(evidenceDevice: bigint, backupDevice: bigint): FolderWarning[] {
-  if (evidenceDevice !== backupDevice) {
+export function driveWarnings(evidence: Pick<Place, 'dev' | 'location'>, backup: Pick<Place, 'dev' | 'location'>): FolderWarning[] {
+  if (evidence.dev !== backup.dev) {
     return [];
   }
-  return [{ kind: 'same-drive', message: notices.sameDrive() }];
+  return [{ kind: 'same-drive', message: notices.sameDrive(evidence.location, backup.location) }];
 }
 
 export function refuse(reason: FolderRefusal['reason'], message: string): FolderRefusal {

@@ -19,7 +19,7 @@ type OriginalRefusal<Outcome extends string> = { outcome: Outcome; message: stri
 export type OpenWriterResult =
   | { outcome: 'writer-opened'; writer: OriginalWriter }
   | (BadManifest & { message: string })
-  | OriginalRefusal<'archive-in-use' | 'lock-unavailable' | 'manifest-unavailable' | 'different-archive'>;
+  | OriginalRefusal<'archive-in-use' | 'lock-unavailable' | 'manifest-unavailable' | 'different-archive' | 'evidence-missing'>;
 
 export type SaveOriginalResult =
   | { outcome: 'saved-original'; recordId: string; message: string; notice?: string }
@@ -36,9 +36,10 @@ export async function openArchiveWriter(archive: ArchiveInfo): Promise<OpenWrite
   if (lock.outcome === 'lock-unavailable') return { outcome: lock.outcome, message: say.lockUnavailable(archive.archiveId, lock.detail) };
 
   let keepLock = false;
+  let folder: string | undefined;
   let manifest = path.join(archive.folder, MANIFEST_FILE);
   try {
-    const folder = await realpath(archive.folder);
+    folder = await realpath(archive.folder);
     manifest = path.join(folder, MANIFEST_FILE);
     const loaded = await loadManifest(manifest, archive.archiveId);
     if (loaded.outcome === 'bad-manifest') return { ...loaded, message: say.badManifest(manifest, loaded) };
@@ -49,7 +50,11 @@ export async function openArchiveWriter(archive: ArchiveInfo): Promise<OpenWrite
     keepLock = true;
     return { outcome: 'writer-opened', writer };
   } catch (error) {
-    return { outcome: 'manifest-unavailable', message: say.manifestUnavailable(manifest, systemFailure(error)) };
+    const code = systemFailure(error);
+    if (folder === undefined && (code === 'ENOENT' || code === 'ENOTDIR')) {
+      return { outcome: 'evidence-missing', message: evidenceMessages.evidenceMissing(archive.folder) };
+    }
+    return { outcome: 'manifest-unavailable', message: say.manifestUnavailable(manifest, code) };
   } finally {
     if (!keepLock) await lock.close();
   }

@@ -5,7 +5,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
 import { mock, test } from 'node:test';
 import { promisify } from 'node:util';
-import { openArchive, readFolders, setFolders } from '../src/archive.ts';
+import { folderStatus, openArchive, readFolders, setFolders } from '../src/archive.ts';
 import { replaceFile } from '../src/files.ts';
 import { checkFolderPair, driveWarnings, isDriveRoot, isSameFolder, realFolder, writeSettingsFile, type FoundFolder } from '../src/settings.ts';
 import { exists, folderLink, linkLoop, newWorkspace, type Workspace } from './helpers/workspace.ts';
@@ -282,11 +282,15 @@ test('both folders on the same drive give a warning, not a refusal', async (t) =
   const warnings = result.outcome === 'saved' ? result.warnings : [];
   assert.deepEqual(warnings.map((warning) => warning.kind), ['same-drive']);
   assert.match(warnings[0]?.message ?? '', /same drive/);
+  assert.ok(warnings[0]?.message.includes(w.evidence));
+  assert.ok(warnings[0]?.message.includes(w.backup));
 });
 
 test('the same-drive warning compares the two device numbers', () => {
-  assert.deepEqual(driveWarnings(7n, 7n).map((warning) => warning.kind), ['same-drive']);
-  assert.deepEqual(driveWarnings(7n, 8n), []);
+  const evidence = { dev: 7n, location: '/fixture/evidence' };
+  const backup = { dev: 7n, location: '/fixture/backup' };
+  assert.deepEqual(driveWarnings(evidence, backup).map((warning) => warning.kind), ['same-drive']);
+  assert.deepEqual(driveWarnings(evidence, { ...backup, dev: 8n }), []);
 });
 
 test('the settings file is versioned and holds the locations and the remembered archive ID', async (t) => {
@@ -360,9 +364,13 @@ test('settings with a newer version are reported and never rewritten', async (t)
   const read = await readFolders(w.settingsFile);
   assert.equal(read.outcome, 'settings-unknown-version');
   assert.match(read.outcome === 'settings-unknown-version' ? read.message : '', /version 2/);
+  assert.ok(read.outcome === 'settings-unknown-version' && read.message.includes(w.settingsFile));
+  assert.deepEqual(await folderStatus(w.settingsFile), read);
+  assert.deepEqual(await openArchive(w.settingsFile), read);
 
   const set = await setPair(w, w.evidence, w.backup);
   assert.equal(set.outcome === 'refused' ? set.reason : undefined, 'newer-settings');
+  assert.ok(set.outcome === 'refused' && set.message.includes(w.settingsFile));
   assert.equal(await readFile(w.settingsFile, 'utf8'), newer);
 });
 

@@ -11,8 +11,8 @@ export const settingsFileMessages = {
   notSet: (file: string) => `The folder settings file ${file} cannot be found.`,
   settingsUnavailable: (file: string, code: string) => `The folder settings file ${file} cannot be read (${code}).`,
   settingsDamaged: (file: string) => `The folder settings file ${file} cannot be understood. It was left as it is.`,
-  settingsNewer: (version: string, known: string) =>
-    `The folder settings file is version ${version}. This program reads only version ${known}, so it left the file as it is.`,
+  settingsNewer: (file: string, version: string, known: string) =>
+    `The folder settings file ${file} is version ${version}. This program reads only version ${known}, so it left the file as it is.`,
   settingsNotSaved: (file: string, code: string) =>
     `The folder settings could not be saved at ${file} (${code}). The settings file was not changed.`,
 };
@@ -121,8 +121,8 @@ export const originalMessages = {
 
 // Notices that come with a result that succeeded.
 export const notices = {
-  sameDrive: () =>
-    'The evidence folder and the backup folder are on the same drive. If that drive fails, both can be lost.',
+  sameDrive: (evidence: string, backup: string) =>
+    `The evidence folder ${evidence} and the backup folder ${backup} are on the same drive. If that drive fails, both can be lost.`,
   settingsNotFlushed: (file: string, code: string) =>
     `The folder settings file ${file} was replaced, but forcing it to disk then failed (${code}). The new settings are in place, but are not known to be on disk.`,
   createdStepFailed: (folder: string, step: string, code: string) =>

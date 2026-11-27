@@ -644,47 +644,79 @@ test('a fully written archive whose last flush fails is reported as created, wit
   assert.equal(status.outcome === 'found' ? status.evidence.status : undefined, 'archive');
 });
 
-test('no message the archive can return gives advice, and each names the right folder or file', () => {
-  const call = (fn: unknown, ...args: string[]) => (fn as (...a: string[]) => string)(...args);
-  const groups: [Record<string, unknown>, (text: string, name: string) => void][] = [
-    [settingsFileMessages, (text, name) => assert.match(text, /folder settings|have not been chosen/, name)],
-    [evidenceMessages, (text, name) => {
-      assert.match(text, /evidence folder/, name);
-      assert.doesNotMatch(text, /backup/, name);
-    }],
-    [backupMessages, (text, name) => {
-      assert.match(text, /backup folder/, name);
-      assert.doesNotMatch(text, /evidence/, name);
-    }],
-    [bothFoldersMessages, (text, name) => assert.match(text, /folder/, name)],
-    [notices, (text, name) => assert.ok(text.length > 0, name)],
-  ];
-  let counted = 0;
-  for (const [group, check] of groups) {
-    for (const [name, fn] of Object.entries(group)) {
-      const text = call(fn, '/made/up/place', 'MADE-UP', 'MADE-UP-2');
-      assertNoAdvice(text);
-      check(text, name);
-      counted += 1;
-    }
-  }
-  // Messages about one folder of the pair name that folder, and no other.
-  for (const [name, fn] of Object.entries(pairMessages)) {
-    const backup = call(fn, 'backup folder', '/made/up/place', 'MADE-UP');
-    assertNoAdvice(backup);
-    assert.match(backup, /backup folder/, name);
-    assert.doesNotMatch(backup, /evidence/, name);
-    const evidence = call(fn, 'evidence folder', '/made/up/place', 'MADE-UP');
-    assert.doesNotMatch(evidence, /backup/, name);
-    counted += 1;
-  }
-  const all = [settingsFileMessages, evidenceMessages, backupMessages, bothFoldersMessages, notices, pairMessages];
-  assert.equal(counted, all.reduce((sum, group) => sum + Object.keys(group).length, 0));
-
-  // The manifest's own message about a newer version, as the archive returns it.
+test('every folder result and notice names the relevant path and gives no advice', () => {
+  const file = '/fixture/settings.json';
+  const evidence = '/fixture/evidence';
+  const backup = '/fixture/backup';
+  const code = 'EIO';
   const newer = readManifestHeader('{"line":"header","manifest_version":2,"archive_id":"x","created_at":"2026-01-01T00:00:00.000Z"}');
   assert.ok(newer.outcome === 'unknown-version');
-  assertNoAdvice(evidenceMessages.unknownManifestVersion(newer.outcome === 'unknown-version' ? newer.message : '', '/made/up'));
+  type MessageAndPaths = [string, ...string[]];
+  const settings = {
+    notSet: [settingsFileMessages.notSet(file), file],
+    settingsUnavailable: [settingsFileMessages.settingsUnavailable(file, code), file],
+    settingsDamaged: [settingsFileMessages.settingsDamaged(file), file],
+    settingsNewer: [settingsFileMessages.settingsNewer(file, '2', '1'), file],
+    settingsNotSaved: [settingsFileMessages.settingsNotSaved(file, code), file],
+  } satisfies Record<keyof typeof settingsFileMessages, MessageAndPaths>;
+  const evidenceResults = {
+    evidenceNotUsable: [evidenceMessages.evidenceNotUsable(evidenceMessages.noManifest(evidence)), evidence],
+    evidenceMissing: [evidenceMessages.evidenceMissing(evidence), evidence],
+    evidenceUnavailable: [evidenceMessages.evidenceUnavailable(evidence, code), evidence],
+    evidenceIsFile: [evidenceMessages.evidenceIsFile(evidence), evidence],
+    unknownManifestVersion: [evidenceMessages.unknownManifestVersion(newer.message, evidence), evidence],
+    badHeader: [evidenceMessages.badHeader('Unreadable header.', evidence), evidence],
+    badFirstLine: [evidenceMessages.badFirstLine(evidence, 'is incomplete'), evidence],
+    noManifest: [evidenceMessages.noManifest(evidence), evidence],
+    stoppedCreation: [evidenceMessages.stoppedCreation(evidence), evidence],
+    archiveGone: [evidenceMessages.archiveGone(evidence, 'old-id'), evidence],
+    differentArchive: [evidenceMessages.differentArchive(evidence, 'new-id', 'old-id'), evidence],
+    wentMissing: [evidenceMessages.wentMissing(evidence), evidence],
+    notCreated: [evidenceMessages.notCreated(evidence, code), evidence],
+    creationStopped: [evidenceMessages.creationStopped(evidence, code), evidence],
+    creationIncomplete: [evidenceMessages.creationIncomplete(evidence, code), evidence],
+    creationUnchecked: [evidenceMessages.creationUnchecked(evidence, code, 'EACCES'), evidence],
+  } satisfies Record<keyof typeof evidenceMessages, MessageAndPaths>;
+  const backupResults = {
+    backupMissing: [backupMessages.backupMissing(backup), backup],
+    backupIsFile: [backupMessages.backupIsFile(backup), backup],
+    backupUnavailable: [backupMessages.backupUnavailable(backup, code), backup],
+  } satisfies Record<keyof typeof backupMessages, MessageAndPaths>;
+  const both = {
+    sameFolder: [bothFoldersMessages.sameFolder(evidence, backup), evidence, backup],
+    nested: [bothFoldersMessages.nested(evidence, backup), evidence, backup],
+    settingsInside: [bothFoldersMessages.settingsInside(file, 'backup folder', backup), file, backup],
+  } satisfies Record<keyof typeof bothFoldersMessages, MessageAndPaths>;
+  const warnings = {
+    sameDrive: [notices.sameDrive(evidence, backup), evidence, backup],
+    settingsNotFlushed: [notices.settingsNotFlushed(file, code), file],
+    createdStepFailed: [notices.createdStepFailed(evidence, 'flushing the manifest file', code), evidence],
+    notRemembered: [notices.notRemembered('The archive was opened', file, code), file],
+  } satisfies Record<keyof typeof notices, MessageAndPaths>;
+  for (const group of [settings, evidenceResults, backupResults, both, warnings]) {
+    for (const [name, [message, ...paths]] of Object.entries(group)) {
+      assertNoAdvice(message);
+      for (const target of paths) assert.ok(message.includes(target), name);
+    }
+  }
+  for (const [name, [message]] of Object.entries(evidenceResults)) {
+    assert.match(message, /evidence folder/, name);
+    assert.doesNotMatch(message, /backup/, name);
+  }
+  for (const [name, [message]] of Object.entries(backupResults)) {
+    assert.match(message, /backup folder/, name);
+    assert.doesNotMatch(message, /evidence/, name);
+  }
+  for (const [role, target, other] of [
+    ['evidence folder', evidence, 'backup'], ['backup folder', backup, 'evidence'],
+  ] as const) {
+    for (const [name, format] of Object.entries(pairMessages)) {
+      const message = format(role, target, code);
+      assertNoAdvice(message);
+      assert.ok(message.includes(role) && message.includes(target), name);
+      assert.ok(!message.includes(other), name);
+    }
+  }
 });
 
 test('every original writer message identifies its file, folder, record ID or archive ID and gives no advice', () => {

@@ -198,6 +198,21 @@ test('a missing evidence folder is reported as missing when checking the manifes
   assert.deepEqual(await snapshot(w.root), before);
 });
 
+test('opening for writing reports a missing evidence folder by its path', async (t) => {
+  const w = await archiveFor(t);
+  const moved = path.join(w.root, 'moved-evidence');
+  await fsp.rename(w.evidence, moved);
+  const before = await snapshot(w.root);
+  const result = await openArchiveWriter(w.archive);
+  if (result.outcome === 'writer-opened') await result.writer.close();
+  assert.deepEqual(result, {
+    outcome: 'evidence-missing', message: `The evidence folder ${w.evidence} cannot be found.`,
+  });
+  assert.deepEqual(await snapshot(w.root), before);
+  await fsp.rename(moved, w.evidence);
+  await writerFor(t, w.archive);
+});
+
 const otherEntry = (record_id = 'fixture-decision', file = 'decisions/fixture.json') => ({
   line: 'entry', kind: 'decision', record_id, path: file, record_version: 1,
   size_bytes: 0, sha256: digest(''), archived_at: '2026-01-01T00:00:00Z',
@@ -736,6 +751,30 @@ test('opening waits for the listener to be ready before it starts reading the ma
     syncBuiltinESMExports();
   }
   assert.equal(openedManifest, true);
+});
+
+test('a system error after writing the complete line reports held and stops the writer', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const record = captured('complete line write error');
+  const result = await withFileHandle(w.manifest, canAppend, (handle) => {
+    const write = handle.writeFile.bind(handle);
+    handle.writeFile = async (...args) => {
+      await write(...args);
+      throw Object.assign(new Error('synthetic append error'), { code: 'EIO' });
+    };
+  }, () => writer.saveOriginal(record));
+  assert.ok(result.outcome === 'saved-original');
+  assert.equal(result.recordId, digest(record.source_id));
+  assert.match(result.notice ?? '', /appending the manifest entry \(EIO\).*writer has stopped/);
+  const before = await snapshot(w.root);
+  const later = await writer.saveOriginal(record);
+  assert.ok(later.outcome === 'writer-stopped');
+  assert.equal(later.step, 'appending the manifest entry');
+  assert.deepEqual(await snapshot(w.root), before);
+  await writer.close();
+  const reopened = await writerFor(t, w.archive);
+  assert.equal((await reopened.saveOriginal(record)).outcome, 'already-held');
 });
 
 for (const [method, step] of [['sync', 'flushing the manifest'], ['close', 'closing the manifest']] as const) {
