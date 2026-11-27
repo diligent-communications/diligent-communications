@@ -92,7 +92,6 @@ function makeWriter(
   async function save(record: CapturedRecord, payload: Buffer): Promise<SaveOriginalResult> {
     let step = 'checking the manifest';
     let appendStarted = false;
-    let trimming = false;
     let entry: OriginalEntry | undefined;
     let added: Checkpoint | undefined;
     const id = sha256(record.source_id);
@@ -115,11 +114,9 @@ function makeWriter(
         const tail = await openManifest(manifest, 'truncate');
         try {
           if (!(await manifestMatches(manifest, tail, checkpoint))) return await changed(step);
-          trimming = true;
           await tail.truncate(checkpoint.completeSize);
           checkpoint = { ...checkpoint, size: checkpoint.completeSize, suffix: checkpoint.lastLine };
           await tail.sync();
-          trimming = false;
         } finally {
           await tail.close();
         }
@@ -146,25 +143,27 @@ function makeWriter(
         await append.sync();
         step = 'checking the appended entry';
         if (!(await manifestMatches(manifest, append, added))) return await changedAfterAppend(entry, added, step);
-        step = 'closing the manifest';
       } finally {
-        await append.close();
+        try {
+          await append.close();
+        } catch (error) {
+          step = 'closing the manifest';
+          throw error;
+        }
       }
       return saved(entry, added);
     } catch (error) {
+      const onManifest = step !== 'placing the original file';
+      if (onManifest) stopAt(step);
       const code = systemFailure(error);
-      if (code === 'MANIFEST_REPLACED' || (step !== 'placing the original file' &&
-          (code === 'ENOENT' || code === 'ENOTDIR' || code === 'NOT_REGULAR_FILE'))) {
-        if (appendStarted && entry && added) return changedAfterAppend(entry, added, step);
-        return changed(step);
-      }
       if (appendStarted && entry && added) {
         const status = await readBack(added);
         if (status === 'unchanged') return saved(entry, added, say.appendFailure(id, step, code));
-        if (status === 'entry-present') return heldAfterChange(entry, added, step);
-        stopAt(step);
+        if (status === 'entry-present') return saved(entry, added, say.heldAfterChange(id, manifest, { step, code }));
       }
-      if (trimming) stopAt(step);
+      if (onManifest && (code === 'MANIFEST_REPLACED' || code === 'ENOENT' || code === 'ENOTDIR' || code === 'NOT_REGULAR_FILE')) {
+        return changed(step);
+      }
       return { outcome: 'save-unavailable', message: say.saveFailed(id, step, code) };
     }
   }
@@ -187,12 +186,8 @@ function makeWriter(
   }
 
   async function changedAfterAppend(entry: OriginalEntry, added: Checkpoint, step: string): Promise<SaveOriginalResult> {
-    if (await readBack(added) !== 'unconfirmed') return heldAfterChange(entry, added, step);
-    return changed(step);
-  }
-
-  function heldAfterChange(entry: OriginalEntry, added: Checkpoint, step: string): SaveOriginalResult {
     stopAt(step);
+    if (await readBack(added) === 'unconfirmed') return changed(step);
     return saved(entry, added, say.heldAfterChange(entry.record_id, manifest));
   }
 

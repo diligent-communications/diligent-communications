@@ -359,6 +359,93 @@ test('an outside append after a complete entry reports held and stops the writer
   assert.equal((await restarted.saveOriginal(record)).outcome, 'already-held');
 });
 
+test('a flush failure with an outside append keeps the complete entry and reports both events', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const record = captured('two events');
+  const result = await withFileHandle(w.manifest, canAppend, (handle) => {
+    handle.sync = async () => {
+      await appendFile(w.manifest, entryText(otherEntry()));
+      throw Object.assign(new Error('failed flush'), { code: 'EIO' });
+    };
+  }, () => writer.saveOriginal(record));
+  assert.ok(result.outcome === 'saved-original');
+  assert.equal(result.recordId, digest(record.source_id));
+  assert.match(result.notice ?? '', /flushing the manifest \(EIO\)/);
+  assert.match(result.notice ?? '', /changed afterwards and the writer has stopped/);
+  const stopped = await writer.saveOriginal(record);
+  assert.ok(stopped.outcome === 'writer-stopped');
+  assert.equal(stopped.step, 'flushing the manifest');
+});
+
+for (const flushFails of [false, true]) {
+  test(`a missing entry is never reported as held after ${flushFails ? 'a flush error' : 'the post-write check'}`, async (t) => {
+    const w = await archiveFor(t);
+    const header = await readFile(w.manifest);
+    const writer = await writerFor(t, w.archive);
+    const record = captured('removed entry');
+    const result = await withFileHandle(w.manifest, canAppend, (handle) => {
+      handle.sync = async () => {
+        await writeFile(w.manifest, header);
+        if (flushFails) throw Object.assign(new Error('failed flush'), { code: 'EIO' });
+      };
+    }, () => writer.saveOriginal(record));
+    assert.equal(result.outcome, flushFails ? 'save-unavailable' : 'manifest-changed');
+    assert.deepEqual(await readFile(w.manifest), header);
+    const stopped = await writer.saveOriginal(record);
+    assert.ok(stopped.outcome === 'writer-stopped');
+    assert.equal(stopped.step, flushFails ? 'flushing the manifest' : 'checking the appended entry');
+  });
+}
+
+for (const lineEnd of ['preceding', 'trailing'] as const) {
+  test(`matching bytes without the ${lineEnd} line end do not report a held entry`, async (t) => {
+    const w = await archiveFor(t);
+    const header = await readFile(w.manifest);
+    const writer = await writerFor(t, w.archive);
+    const result = await withFileHandle(w.manifest, canAppend, (handle) => {
+      handle.sync = async () => {
+        const line = (await readFile(w.manifest)).subarray(header.length);
+        const ending = lineEnd === 'preceding' ? Buffer.concat([Buffer.from('unfinished'), line]) :
+          Buffer.concat([Buffer.from(entryText(otherEntry())), line.subarray(0, -1)]);
+        await writeFile(w.manifest, Buffer.concat([header, ending]));
+      };
+    }, () => writer.saveOriginal(captured('not a complete line')));
+    assert.equal(result.outcome, 'manifest-changed');
+    assert.equal((await writer.saveOriginal(captured('later'))).outcome, 'writer-stopped');
+  });
+}
+
+test('refused records leave an outside manifest change unchecked and the writer active', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  await appendFile(w.manifest, entryText(otherEntry()));
+  const before = await snapshot(w.root);
+  let manifestChecks = 0;
+  const open = fsp.open;
+  const lstat = fsp.lstat;
+  const mocked = mock.method(fsp, 'open', async (file: string, flags: string | number) => {
+    if (file === w.manifest) manifestChecks += 1;
+    return open(file, flags);
+  });
+  const observedStat = mock.method(fsp, 'lstat', (...args: Parameters<typeof fsp.lstat>) => {
+    if (args[0] === w.manifest) manifestChecks += 1;
+    return Reflect.apply(lstat, fsp, args);
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.equal((await writer.saveOriginal(null)).outcome, 'invalid-record');
+    assert.equal((await writer.saveOriginal({ record_version: 2 })).outcome, 'unknown-record-version');
+    assert.equal(manifestChecks, 0);
+  } finally {
+    mocked.mock.restore();
+    observedStat.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.deepEqual(await snapshot(w.root), before);
+  assert.equal((await writer.saveOriginal(captured('valid afterward'))).outcome, 'manifest-changed');
+});
+
 test('the manifest is rechecked immediately before removing an unfinished tail', async (t) => {
   const w = await archiveFor(t);
   const header = await readFile(w.manifest, 'utf8');
@@ -375,10 +462,10 @@ test('the manifest is rechecked immediately before removing an unfinished tail',
 });
 
 test('program faults during manifest I/O are raised unchanged', async (t) => {
-  const w = await archiveFor(t);
-  const writer = await writerFor(t, w.archive);
   const open = fsp.open;
   for (const fault of [new Error('program fault'), Object.assign(new TypeError('bad argument'), { code: 'ERR_INVALID_ARG_TYPE' })]) {
+    const w = await archiveFor(t);
+    const writer = await writerFor(t, w.archive);
     const mocked = mock.method(fsp, 'open', async (file: string, flags: string | number) => {
       if (file === w.manifest) throw fault;
       return open(file, flags);
@@ -390,7 +477,113 @@ test('program faults during manifest I/O are raised unchanged', async (t) => {
       mocked.mock.restore();
       syncBuiltinESMExports();
     }
+    const later = await writer.saveOriginal(captured('later'));
+    assert.ok(later.outcome === 'writer-stopped');
+    assert.equal(later.step, 'checking the manifest');
   }
+});
+
+for (const method of ['truncate', 'sync'] as const) {
+  test(`a failed tail ${method === 'sync' ? 'flush' : 'truncate'} stops the writer`, async (t) => {
+    const w = await archiveFor(t);
+    const header = await readFile(w.manifest, 'utf8');
+    await appendFile(w.manifest, '{unfinished');
+    const writer = await writerFor(t, w.archive);
+    const result = await withFileHandle(w.manifest, (flags) => flags === fsp.constants.O_RDWR, (handle) => {
+      handle[method] = async () => { throw Object.assign(new Error('tail I/O error'), { code: 'EIO' }); };
+    }, () => writer.saveOriginal(captured('tail failure')));
+    assert.equal(result.outcome, 'save-unavailable');
+    assert.equal(await readFile(w.manifest, 'utf8'), method === 'truncate' ? header + '{unfinished' : header);
+    assert.deepEqual(await readdir(path.join(w.evidence, 'originals')), []);
+    const later = await writer.saveOriginal(captured('later'));
+    assert.ok(later.outcome === 'writer-stopped');
+    assert.equal(later.step, 'removing the unfinished manifest tail');
+  });
+}
+
+test('a program fault after writing manifest bytes is raised and stops the writer', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const fault = new Error('append program fault');
+  const record = captured('fault after bytes written');
+  await assert.rejects(withFileHandle(w.manifest, canAppend, (handle) => {
+    const write = handle.writeFile.bind(handle);
+    handle.writeFile = async (...args) => {
+      await write(...args);
+      throw fault;
+    };
+  }, () => writer.saveOriginal(record)), (error) => error === fault);
+  assert.match(await readFile(w.manifest, 'utf8'), new RegExp(digest(record.source_id)));
+  const stopped = await writer.saveOriginal(record);
+  assert.ok(stopped.outcome === 'writer-stopped');
+  assert.equal(stopped.step, 'appending the manifest entry');
+});
+
+test('a program fault opening the manifest is raised and releases the lock', async (t) => {
+  const w = await archiveFor(t);
+  const fault = new Error('open program fault');
+  await assert.rejects(withFileHandle(w.manifest, () => true, () => { throw fault; }, async () => {
+    const opened = await openArchiveWriter(w.archive);
+    if (opened.outcome === 'writer-opened') await opened.writer.close();
+  }), (error) => error === fault);
+  await writerFor(t, w.archive);
+});
+
+test('a program fault comparing a repeat is raised unchanged', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const record = captured('comparison fault');
+  assert.equal((await writer.saveOriginal(record)).outcome, 'saved-original');
+  const file = originalPath(w.evidence, record.source_id, '.txt');
+  const fault = new Error('comparison program fault');
+  const original = fsp.readFile;
+  const mocked = mock.method(fsp, 'readFile', async (...args: Parameters<typeof fsp.readFile>) => {
+    if (args[0] === file) throw fault;
+    return Reflect.apply(original, fsp, args);
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(writer.saveOriginal(record), (error) => error === fault);
+  } finally {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+  }
+});
+
+test('a program fault opening the lock is raised unchanged', async (t) => {
+  const w = await archiveFor(t);
+  const fault = new Error('listen program fault');
+  const create = net.createServer;
+  const mocked = mock.method(net, 'createServer', () => {
+    const server = create();
+    mock.method(server, 'listen', () => { throw fault; });
+    return server;
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(openArchiveWriter(w.archive), (error) => error === fault);
+  } finally {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+  }
+});
+
+test('a program fault reading back after a flush error is raised and the writer stays stopped', async (t) => {
+  const w = await archiveFor(t);
+  const writer = await writerFor(t, w.archive);
+  const fault = new Error('readback program fault');
+  const record = captured('cannot confirm an append');
+  let flushFailed = false;
+  await assert.rejects(withFileHandle(w.manifest, () => true, (handle) => {
+    if (flushFailed) throw fault;
+    handle.sync = async () => {
+      flushFailed = true;
+      throw Object.assign(new Error('failed flush'), { code: 'EIO' });
+    };
+  }, () => writer.saveOriginal(record)), (error) => error === fault);
+  const stopped = await writer.saveOriginal(record);
+  assert.ok(stopped.outcome === 'writer-stopped');
+  assert.equal(stopped.step, 'flushing the manifest');
 });
 
 test('an unsupported endpoint refuses the writing session before the evidence folder is checked', async (t) => {
@@ -545,30 +738,32 @@ test('opening waits for the listener to be ready before it starts reading the ma
   assert.equal(openedManifest, true);
 });
 
-test('a complete entry remains held when its flush reports an error', async (t) => {
-  const w = await archiveFor(t);
-  const writer = await writerFor(t, w.archive);
-  const record = captured('flush error');
-  const open = fsp.open;
-  const mocked = mock.method(fsp, 'open', async (file: string, flags: string | number) => {
-    const handle = await open(file, flags);
-    if (file === w.manifest && typeof flags === 'number' && (flags & fsp.constants.O_APPEND) !== 0) {
-      handle.sync = async () => { throw Object.assign(new Error('synthetic write error'), { code: 'EIO' }); };
-    }
-    return handle;
-  });
-  syncBuiltinESMExports();
-  try {
-    const result = await writer.saveOriginal(record);
+for (const [method, step] of [['sync', 'flushing the manifest'], ['close', 'closing the manifest']] as const) {
+  test(`a complete entry remains held and the writer stops after an error ${step}`, async (t) => {
+    const w = await archiveFor(t);
+    const writer = await writerFor(t, w.archive);
+    const record = captured('manifest error');
+    const result = await withFileHandle(w.manifest, canAppend, (handle) => {
+      const run = handle[method].bind(handle);
+      handle[method] = async () => {
+        await run();
+        throw Object.assign(new Error('synthetic manifest error'), { code: 'EIO' });
+      };
+    }, () => writer.saveOriginal(record));
     assert.ok(result.outcome === 'saved-original');
-    assert.match(result.notice ?? '', /flushing the manifest \(EIO\)/);
-    assert.equal((await writer.saveOriginal(record)).outcome, 'already-held');
+    assert.ok(result.notice?.includes(`${step} (EIO)`));
+    assert.match(result.notice ?? '', /the writer has stopped/);
+    const before = await snapshot(w.root);
+    const later = await writer.saveOriginal(record);
+    assert.ok(later.outcome === 'writer-stopped');
+    assert.equal(later.step, step);
+    assert.deepEqual(await snapshot(w.root), before);
     assert.equal((await readFile(w.manifest, 'utf8')).trimEnd().split('\n').length, 2);
-  } finally {
-    mocked.mock.restore();
-    syncBuiltinESMExports();
-  }
-});
+    await writer.close();
+    const reopened = await writerFor(t, w.archive);
+    assert.equal((await reopened.saveOriginal(record)).outcome, 'already-held');
+  });
+}
 
 test('when a held original cannot be read, the repeat reports only that and writes nothing', async (t) => {
   const w = await archiveFor(t);
@@ -654,6 +849,30 @@ test('directory names are flushed before indexing a new original or removing a k
     observedUnlink.mock.restore();
     syncBuiltinESMExports();
   }
+});
+
+test('the record subfolder is flushed before indexing an adopted leftover', {
+  skip: process.platform === 'win32' ? 'Windows has no directory flush step' : false,
+}, async (t) => {
+  const w = await archiveFor(t);
+  const record = captured('adopt directory flush');
+  const file = originalPath(w.evidence, record.source_id, '.txt');
+  const shard = path.dirname(file);
+  await mkdir(shard);
+  await writeFile(file, record.payload);
+  const header = await readFile(w.manifest);
+  const writer = await writerFor(t, w.archive);
+  let flushed = false;
+  const result = await withFileHandle(shard, (flags) => flags === 'r', (handle) => {
+    const sync = handle.sync.bind(handle);
+    handle.sync = async () => {
+      assert.deepEqual(await readFile(w.manifest), header);
+      await sync();
+      flushed = true;
+    };
+  }, () => writer.saveOriginal(record));
+  assert.equal(result.outcome, 'saved-original');
+  assert.equal(flushed, true);
 });
 
 test('an exact matching leftover can be adopted while other endings with the same hash are kept', async (t) => {

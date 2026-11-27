@@ -110,9 +110,11 @@ export const originalMessages = {
   stemInUse: (id: string) => `Another manifest entry uses the file name stem for original ${id}.`,
   saved: (id: string) => `Original ${id} was saved.`,
   appendFailure: (id: string, step: string, detail: string) =>
-    `The entry for original ${id} is complete. An error occurred while ${step} (${detail}).`,
-  heldAfterChange: (id: string, file: string) =>
-    `The entry for original ${id} is complete. The manifest ${file} changed afterwards and the writer has stopped.`,
+    `The entry for original ${id} is complete. An error occurred while ${step} (${detail}) and the writer has stopped.`,
+  heldAfterChange: (id: string, file: string, failure?: { step: string; code: string }) => {
+    const error = failure ? ` An error occurred while ${failure.step} (${failure.code}).` : '';
+    return `The entry for original ${id} is complete.${error} The manifest ${file} changed afterwards and the writer has stopped.`;
+  },
   stopped: (file: string, step: string) =>
     `The writer for manifest ${file} has stopped after an earlier problem while ${step}.`,
 };
