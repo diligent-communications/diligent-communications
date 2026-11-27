@@ -141,7 +141,7 @@ export type CreateResult =
 // - If the very first step fails, this call wrote nothing: the folder may be
 //   missing, read-only or unreadable, or another open may have started there.
 // - If this call's own header line is fully in place when a later step fails
-//   (flushing or closing the manifest, or flushing the folder), the archive is
+//   (writing, flushing or closing the manifest, or flushing the folder), the archive is
 //   complete: it is reported as created, with a notice naming that step.
 // - Otherwise the folder is looked at again. Only if it holds nothing but this
 //   creation's leftovers is it a stopped creation; if it holds anything else,
@@ -170,7 +170,12 @@ export async function createArchive(folder: string): Promise<CreateResult> {
       return { outcome: 'not-created', message: say.notCreated(folder, code) };
     }
     if (header !== undefined && (await holdsExactly(manifest, formatManifestHeader(header)))) {
-      const step = failedStep(error) === 'close' ? 'closing the manifest file' : 'flushing the manifest file';
+      const step = {
+        write: 'writing the manifest file',
+        flush: 'flushing the manifest file',
+        close: 'closing the manifest file',
+        open: 'opening the manifest file',
+      }[failedStep(error) ?? 'open'];
       return { outcome: 'created', archive: infoOf(folder, header), notice: notices.createdStepFailed(folder, step, code) };
     }
     const left = await leftoversOnly(folder);

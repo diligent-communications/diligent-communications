@@ -24,6 +24,7 @@ import {
 } from './settings.ts';
 
 export type { ArchiveInfo, FolderLocations, FolderRefusal, FolderWarning, SettingsRead };
+export { openArchiveWriter, type OpenWriterResult, type OriginalWriter, type SaveOriginalResult } from './append-original.ts';
 
 type NotFound = Exclude<SettingsRead, { outcome: 'found' }>;
 

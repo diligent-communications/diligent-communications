@@ -44,6 +44,8 @@ Version 1:
 
 A source ID is exact text: capitals, spaces and every other character count, and nothing is trimmed or folded. It is unique across the whole archive, not only within one kind of capture.
 
+In TypeScript, the payload is a `Uint8Array`. The code form and reader are in [captured-record.ts](captured-record.ts).
+
 ### Archive manifest
 
 The index of everything in the evidence folder: originals, saved decisions and action receipts. It is a text file with one JSON record per line, added to only at the end.
@@ -62,6 +64,8 @@ Version 1. The first line is a header: `line: "header"`, `manifest_version: 1`, 
 | `source_id`, `source_kind`, `media_type`, `captured_at` | Originals only |
 
 The archive refuses a source ID the manifest already holds.
+
+The code forms and readers are in [manifest-header.ts](manifest-header.ts) and [manifest-entry.ts](manifest-entry.ts).
 
 ### Saved decision
 

@@ -1,0 +1,17 @@
+From: sender@example.com
+To: reader@example.com
+Subject: Sample package
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="sample-boundary"
+
+--sample-boundary
+Content-Type: text/plain; charset=utf-8
+
+A made-up message with an attachment.
+--sample-boundary
+Content-Type: application/octet-stream; name="sample.bin"
+Content-Disposition: attachment; filename="sample.bin"
+Content-Transfer-Encoding: base64
+
+AP8NCg==
+--sample-boundary--

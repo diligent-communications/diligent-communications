@@ -1,6 +1,8 @@
 // The first line of the archive manifest, as described under "Archive manifest"
 // in contracts/CONTEXT.md. Version 1.
 
+import { isUtcTime } from './record-fields.ts';
+
 export const MANIFEST_VERSION = 1;
 
 export type ManifestHeader = {
@@ -81,15 +83,6 @@ export function readManifestHeader(line: string): ManifestHeaderResult {
 
 function notAHeader(message: string): ManifestHeaderResult {
   return { outcome: 'not-a-header', message };
-}
-
-// A time written as UTC, such as 2026-01-02T03:04:05.006Z, naming a real date.
-function isUtcTime(text: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(text)) {
-    return false;
-  }
-  const time = new Date(text);
-  return !Number.isNaN(time.getTime()) && time.toISOString().slice(0, 19) === text.slice(0, 19);
 }
 
 // The shape of a version 1 header line, without its line end, built from the

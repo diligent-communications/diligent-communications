@@ -12,6 +12,7 @@ import {
   bothFoldersMessages,
   evidenceMessages,
   notices,
+  originalMessages,
   pairMessages,
   settingsFileMessages,
 } from '../src/messages.ts';
@@ -456,6 +457,11 @@ test('a backup folder that is missing, not a folder, or cannot be read is report
   assert.equal(await statusOf(), 'present');
   await rm(w.backup, { recursive: true });
   assert.equal(await statusOf(), 'missing');
+  const missing = await folderStatus(w.settingsFile);
+  assert.equal(
+    missing.outcome === 'found' && missing.backup.status === 'missing' ? missing.backup.message : undefined,
+    `The backup folder ${w.backup} cannot be found.`,
+  );
   await writeFile(w.backup, 'made-up text');
   assert.equal(await statusOf(), 'not-a-folder');
   await rm(w.backup);
@@ -465,7 +471,12 @@ test('a backup folder that is missing, not a folder, or cannot be read is report
 
 test('folder status reports present and valid, empty, missing, or not an archive', async (t) => {
   const w = await newWorkspace(t);
-  assert.equal((await folderStatus(w.settingsFile)).outcome, 'not-set');
+  const unset = await folderStatus(w.settingsFile);
+  assert.equal(unset.outcome, 'not-set');
+  assert.equal(
+    unset.outcome === 'not-set' ? unset.message : undefined,
+    `The folder settings file ${w.settingsFile} cannot be found.`,
+  );
   assert.equal((await openArchive(w.settingsFile)).outcome, 'not-set');
   assert.deepEqual(await readdir(w.evidence), []);
 
@@ -647,6 +658,7 @@ test('no message the archive can return gives advice, and each names the right f
     }],
     [bothFoldersMessages, (text, name) => assert.match(text, /folder/, name)],
     [notices, (text, name) => assert.ok(text.length > 0, name)],
+    [originalMessages, (text, name) => assert.ok(text.length > 0, name)],
   ];
   let counted = 0;
   for (const [group, check] of groups) {
@@ -667,7 +679,7 @@ test('no message the archive can return gives advice, and each names the right f
     assert.doesNotMatch(evidence, /backup/, name);
     counted += 1;
   }
-  const all = [settingsFileMessages, evidenceMessages, backupMessages, bothFoldersMessages, notices, pairMessages];
+  const all = [settingsFileMessages, evidenceMessages, backupMessages, bothFoldersMessages, notices, originalMessages, pairMessages];
   assert.equal(counted, all.reduce((sum, group) => sum + Object.keys(group).length, 0));
 
   // The manifest's own message about a newer version, as the archive returns it.
@@ -676,19 +688,22 @@ test('no message the archive can return gives advice, and each names the right f
   assertNoAdvice(evidenceMessages.unknownManifestVersion(newer.outcome === 'unknown-version' ? newer.message : '', '/made/up'));
 });
 
-// Makes opening a file of this name hand back a handle whose flush or close
+// Makes opening this file hand back a handle whose write, flush or close
 // fails after the contents are written, using Node's own test mocks. The
 // file is still written and closed for real, inside the test's folder.
-async function withFileStepFailure<T>(name: string, step: 'sync' | 'close', run: () => Promise<T>): Promise<T> {
+async function withFileStepFailure<T>(file: string, step: 'writeFile' | 'sync' | 'close', run: () => Promise<T>): Promise<T> {
   const original = fsp.open;
   const fail = () => Object.assign(new Error(`made-up ${step} failure`), { code: 'EIO' });
   const opens = mock.method(fsp, 'open', (async (target: string, ...rest: unknown[]) => {
     const handle = await (original as (...args: unknown[]) => Promise<fsp.FileHandle>)(target, ...rest);
-    if (path.basename(String(target)) !== name) {
+    if (target !== file) {
       return handle;
     }
     return {
-      writeFile: (...args: unknown[]) => (handle.writeFile as (...a: unknown[]) => Promise<void>)(...args),
+      writeFile: async (...args: unknown[]) => {
+        await (handle.writeFile as (...a: unknown[]) => Promise<void>)(...args);
+        if (step === 'writeFile') throw fail();
+      },
       sync: async () => {
         if (step === 'sync') throw fail();
         await handle.sync();
@@ -708,22 +723,28 @@ async function withFileStepFailure<T>(name: string, step: 'sync' | 'close', run:
   }
 }
 
-test('an archive whose header line is fully written is created, with a notice, when flushing or closing the manifest fails', async (t) => {
-  for (const [step, words] of [['sync', 'flushing the manifest file'], ['close', 'closing the manifest file']] as const) {
+test('opening reports creation with the actual failed step when the full header can be read back', async (t) => {
+  for (const [step, words] of [
+    ['writeFile', 'writing the manifest file'],
+    ['sync', 'flushing the manifest file'],
+    ['close', 'closing the manifest file'],
+  ] as const) {
     const w = await newWorkspace(t);
-    const result = await withFileStepFailure('manifest.jsonl', step, () => createArchive(w.evidence));
-    assert.equal(result.outcome, 'created', step);
-    assert.match(result.outcome === 'created' ? (result.notice ?? '') : '', new RegExp(`fully written, but ${words}`), step);
-    assertNoAdvice(result.outcome === 'created' ? (result.notice ?? '') : '');
-    const manifest = await readFile(path.join(w.evidence, 'manifest.jsonl'), 'utf8');
-    assert.equal(JSON.parse(manifest).archive_id, result.outcome === 'created' ? result.archive.archiveId : '');
+    await withFolders(w);
+    const file = path.join(w.evidence, 'manifest.jsonl');
+    const result = await withFileStepFailure(file, step, () => openArchive(w.settingsFile));
+    assert.equal(result.outcome, 'opened', step);
+    assert.ok(result.outcome === 'opened' && result.created);
+    assert.match(result.notice ?? '', new RegExp(`fully written, but ${words}`), step);
+    assertNoAdvice(result.notice ?? '');
+    assert.equal(JSON.parse(await readFile(file, 'utf8')).archive_id, result.archive.archiveId);
   }
 });
 
 test('a creation that fails when the folder cannot be read again says only that', async (t) => {
   const w = await newWorkspace(t);
   // Writing the read-me fails, and the folder then stops answering.
-  const result = await withFileStepFailure('READ-ME.txt', 'sync', () =>
+  const result = await withFileStepFailure(path.join(w.evidence, 'READ-ME.txt'), 'sync', () =>
     withShareFailure(path.join(w.evidence), 'ECONNRESET', async () => {
       // The record folders are made before the share fails.
       return createArchive(w.evidence);
@@ -732,7 +753,7 @@ test('a creation that fails when the folder cannot be read again says only that'
   assert.equal(result.outcome, 'creation-unchecked');
   const message = result.outcome === 'creation-unchecked' ? result.message : '';
   assert.match(message, /could not be read afterwards \(ECONNRESET\)/);
-  assert.doesNotMatch(message, /holds|leftovers|stopped partway|something else/);
+  assert.doesNotMatch(message, /holds|leftovers|stopped partway|something else|did not complete/);
   assertNoAdvice(message);
 });
 

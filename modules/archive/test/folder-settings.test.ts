@@ -146,14 +146,15 @@ test('a folder reached through a link is saved as its real location', async (t) 
 
 test('the settings file must stay outside both folders', async (t) => {
   const w = await newWorkspace(t);
-  for (const settingsFile of [
-    path.join(w.evidence, 'archive-settings.json'),
-    path.join(w.backup, 'local-data', 'archive-settings.json'),
-  ]) {
-    await assertRefused(
-      await setFolders(settingsFile, { evidenceFolder: w.evidence, backupFolder: w.backup }),
-      'settings-inside',
-      settingsFile,
+  for (const [name, folder, settingsFile] of [
+    ['evidence folder', w.evidence, path.join(w.evidence, 'archive-settings.json')],
+    ['backup folder', w.backup, path.join(w.backup, 'local-data', 'archive-settings.json')],
+  ] as const) {
+    const result = await setFolders(settingsFile, { evidenceFolder: w.evidence, backupFolder: w.backup });
+    await assertRefused(result, 'settings-inside', settingsFile);
+    assert.equal(
+      result.outcome === 'refused' ? result.message : undefined,
+      `The folder settings file ${settingsFile} is inside the chosen ${name} ${folder}.`,
     );
   }
   // Through a link, too.
@@ -174,6 +175,17 @@ test('both folders must already exist; nothing is created in their place', async
   await assertRefused(await setPair(w, gone, w.backup), 'missing', w.settingsFile);
   await assertRefused(await setPair(w, w.evidence, gone), 'missing', w.settingsFile);
   assert.equal(await exists(gone), false);
+});
+
+test('a missing backup refusal names the backup folder and its path', async (t) => {
+  const w = await newWorkspace(t);
+  const backup = path.join(w.root, 'absent-backup');
+  const result = await setPair(w, w.evidence, backup);
+  await assertRefused(result, 'missing', w.settingsFile);
+  assert.equal(
+    result.outcome === 'refused' ? result.message : undefined,
+    `The backup folder ${backup} cannot be found.`,
+  );
 });
 
 test('a file is not accepted as either folder', async (t) => {

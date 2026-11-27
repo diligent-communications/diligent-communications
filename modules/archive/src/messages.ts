@@ -6,7 +6,7 @@
 
 // Messages about the folder settings file.
 export const settingsFileMessages = {
-  notSet: () => 'The evidence and backup folders have not been chosen yet.',
+  notSet: (file: string) => `The folder settings file ${file} cannot be found.`,
   settingsUnavailable: (file: string, code: string) => `The folder settings file ${file} cannot be read (${code}).`,
   settingsDamaged: (file: string) => `The folder settings file ${file} cannot be understood. It was left as it is.`,
   settingsNewer: (version: string, known: string) =>
@@ -32,8 +32,8 @@ export const bothFoldersMessages = {
     `The evidence folder and the backup folder are the same folder (${evidence} and ${backup}).`,
   nested: (evidence: string, backup: string) =>
     `Of the evidence folder and the backup folder, one is inside the other (${evidence} and ${backup}).`,
-  settingsInside: (file: string, folder: string) =>
-    `The folder settings file ${file} is inside the chosen folder ${folder}, not outside both folders.`,
+  settingsInside: (file: string, name: string, folder: string) =>
+    `The folder settings file ${file} is inside the chosen ${name} ${folder}.`,
 };
 
 // Messages about the evidence folder.
@@ -64,7 +64,7 @@ export const evidenceMessages = {
   creationIncomplete: (folder: string, code: string) =>
     `Creating an archive in the evidence folder ${folder} did not complete (${code}), and the folder now holds something else as well. Nothing was replaced, and everything in it was left as it is.`,
   creationUnchecked: (folder: string, code: string, readCode: string) =>
-    `Creating an archive in the evidence folder ${folder} did not complete (${code}), and the folder could not be read afterwards (${readCode}). Nothing was replaced.`,
+    `An error occurred while creating an archive in the evidence folder ${folder} (${code}). The folder could not be read afterwards (${readCode}). Nothing was replaced.`,
 };
 
 // Messages about the backup folder.
@@ -72,6 +72,27 @@ export const backupMessages = {
   backupMissing: (folder: string) => `The backup folder ${folder} cannot be found.`,
   backupIsFile: (folder: string) => `The backup folder ${folder} is a file, not a folder.`,
   backupUnavailable: (folder: string, code: string) => `The backup folder ${folder} cannot be read (${code}).`,
+};
+
+export const originalMessages = {
+  inUse: (folder: string) => `The archive in the evidence folder ${folder} is open for writing.`,
+  lockUnavailable: (folder: string, detail: string) =>
+    `The write lock for the archive in the evidence folder ${folder} could not be opened (${detail}).`,
+  badManifest: (file: string, line: number) => `Line ${line} of the manifest ${file} is invalid or unsupported.`,
+  manifestUnavailable: (file: string, detail: string) => `The manifest ${file} could not be opened for this archive (${detail}).`,
+  manifestChanged: (file: string) => `The manifest ${file} changed while the archive was open for writing.`,
+  invalidRecord: () => 'The captured record does not match version 1.',
+  unknownRecordVersion: (version: number) => `The captured record is version ${version}. This program reads version 1.`,
+  closed: (folder: string) => `The archive in the evidence folder ${folder} is closed for writing.`,
+  held: (id: string, bytesDiffer: boolean) =>
+    `Record ${id} is already held.${bytesDiffer ? ' The incoming bytes differ from the stored original.' : ''}`,
+  comparisonUnavailable: (id: string, file: string, detail: string) =>
+    `Record ${id} is already held. Its original ${file} could not be read for comparison (${detail}).`,
+  saveFailed: (folder: string, step: string, detail: string) =>
+    `Saving an original in the evidence folder ${folder} encountered an error while ${step} (${detail}).`,
+  saved: (id: string) => `Original ${id} was saved.`,
+  appendFailure: (file: string, step: string, detail: string) =>
+    `The entry is complete in ${file}. An error occurred while ${step} (${detail}).`,
 };
 
 // Notices that come with a result that succeeded.

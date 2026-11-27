@@ -36,7 +36,7 @@ export async function readSettingsFile(settingsFile: string): Promise<SettingsRe
   } catch (error) {
     const { problem, code } = fileProblem(error);
     if (problem === 'missing') {
-      return { outcome: 'not-set', message: settingsSay.notSet() };
+      return { outcome: 'not-set', message: settingsSay.notSet(settingsFile) };
     }
     return { outcome: 'settings-unavailable', message: settingsSay.settingsUnavailable(settingsFile, code) };
   }
@@ -201,9 +201,9 @@ export async function checkFolderPair(
     return refuse('nested', both.nested(evidence.location, backup.location));
   }
   const settings = await existingPlace(settingsFile);
-  for (const folder of real) {
+  for (const [name, folder] of [['evidence folder', evidence], ['backup folder', backup]] as const) {
     if (settings !== null && ((await isSamePlace(settings, folder)) || (await isInsidePlace(settings, folder)))) {
-      return refuse('settings-inside', both.settingsInside(settingsFile, folder.location));
+      return refuse('settings-inside', both.settingsInside(settingsFile, name, folder.location));
     }
   }
   return {
