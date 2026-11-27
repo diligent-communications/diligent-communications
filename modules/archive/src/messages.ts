@@ -1,80 +1,87 @@
 // Every message the archive's folder operations can return to a person, in one
-// place. No message advises emptying or deleting a folder. Every refusal about
-// a folder suggests choosing a new empty folder instead.
+// place. A message says what the program found, and names the folder or file
+// it is about. It gives no advice: what to do next is for the surface that
+// shows the result, which can see the whole situation. A message never claims
+// something the program has not checked.
 
-const NEW_FOLDER = 'You can choose a new empty folder for the evidence instead.';
-
-// Messages about the settings file itself. They are about the program's own
-// file, not a folder the person chose, so they do not suggest a new folder.
+// Messages about the folder settings file.
 export const settingsFileMessages = {
   notSet: () => 'The evidence and backup folders have not been chosen yet.',
   settingsUnavailable: (file: string, code: string) => `The folder settings file ${file} cannot be read (${code}).`,
-  settingsDamaged: (file: string) =>
-    `The folder settings file ${file} cannot be understood, so it is left as it is. To replace it, set the folders again and choose to replace the damaged settings; the damaged file is then kept beside the new one under another name.`,
+  settingsDamaged: (file: string) => `The folder settings file ${file} cannot be understood. It was left as it is.`,
   settingsNewer: (version: string, known: string) =>
-    `The folder settings file is version ${version}. This program reads only version ${known}, so it leaves the file as it is. Update the program before changing the folders.`,
+    `The folder settings file is version ${version}. This program reads only version ${known}, so it left the file as it is.`,
   settingsNotSaved: (file: string, code: string) =>
     `The folder settings could not be saved at ${file} (${code}). The settings file was not changed.`,
 };
 
-// Refusals and problems about a folder the person chose.
-export const folderRefusals = {
+// Messages about a folder in the chosen pair. `name` is "evidence folder" or
+// "backup folder".
+export const pairMessages = {
   notFullPath: (name: string, location: string) =>
-    `The ${name} must be a full path, starting from a drive or the top folder. Got: "${location}". ${NEW_FOLDER}`,
-  folderMissing: (name: string, location: string) =>
-    `The ${name} ${location} cannot be found. Only a folder that exists can be chosen. ${NEW_FOLDER}`,
-  notAFolder: (name: string, location: string) => `The ${name} ${location} is a file, not a folder. ${NEW_FOLDER}`,
-  folderUnavailable: (name: string, location: string, code: string) =>
-    `The ${name} ${location} cannot be read (${code}). It may need permission, or be on a drive or share that is not available. ${NEW_FOLDER}`,
-  driveRoot: (name: string, location: string) => `The ${name} cannot be the top of a drive (${location}). ${NEW_FOLDER}`,
-  sameFolder: (a: string, b: string) =>
-    `The evidence folder and the backup folder are the same folder (${a} and ${b}). They must be two separate folders. ${NEW_FOLDER}`,
-  nested: (a: string, b: string) =>
-    `One folder is inside the other (${a} and ${b}). They must be two separate folders. ${NEW_FOLDER}`,
-  settingsInside: (file: string, folder: string) =>
-    `The folder settings are kept at ${file}, which is inside ${folder}. They must stay outside both folders. ${NEW_FOLDER}`,
-  evidenceNotUsable: (detail: string) =>
-    `The evidence folder must be a new empty folder or one that already holds an archive. ${detail}`,
-  evidenceMissing: (folder: string) =>
-    `The evidence folder ${folder} cannot be found. If it is on a drive that is not plugged in, plug it in and try again. ${NEW_FOLDER}`,
-  evidenceUnavailable: (folder: string, code: string) =>
-    `The evidence folder ${folder} cannot be read (${code}). It may need permission, or be on a drive or share that is not available. ${NEW_FOLDER}`,
-  evidenceIsFile: (folder: string) => `${folder} is a file, not a folder. ${NEW_FOLDER}`,
-  unknownManifestVersion: (detail: string) => `${detail} ${NEW_FOLDER}`,
-  badHeader: (detail: string, folder: string) => `${detail} Folder: ${folder}. Nothing in it was changed. ${NEW_FOLDER}`,
-  badFirstLine: (folder: string, why: string) =>
-    `The first line of the manifest in ${folder} ${why}, so it is not a valid archive. Nothing in it was changed. ${NEW_FOLDER}`,
-  noManifest: (folder: string) =>
-    `${folder} holds other files and no archive manifest, so it is not an archive. Nothing in it was changed. ${NEW_FOLDER}`,
-  stoppedCreation: (folder: string) =>
-    `Creating an archive in ${folder} stopped partway, and the folder is left as it is. ${NEW_FOLDER}`,
-  archiveGone: (folder: string, expected: string) =>
-    `The evidence folder ${folder} is empty, but archive ${expected} was kept there. No new archive is created. If the archive is on a drive that is not plugged in, plug it in and try again. ${NEW_FOLDER}`,
-  differentArchive: (folder: string, found: string, expected: string) =>
-    `The evidence folder ${folder} holds archive ${found}, not archive ${expected}, which was kept there. Nothing was changed. ${NEW_FOLDER}`,
-  wentMissing: (folder: string) =>
-    `The evidence folder ${folder} went missing before the archive was created. Nothing was created. ${NEW_FOLDER}`,
-  notCreated: (folder: string, code: string) =>
-    `No archive was created in ${folder} (${code}), and nothing was written. The folder may be read-only, or another copy of the program may be creating an archive there. ${NEW_FOLDER}`,
-  creationStopped: (folder: string, code: string) =>
-    `Creating an archive in ${folder} stopped partway (${code}). Nothing was replaced, and what was written is left as it is. ${NEW_FOLDER}`,
-  creationIncomplete: (folder: string, code: string) =>
-    `Creating an archive in ${folder} did not complete (${code}), and the folder now holds something else as well. Nothing was replaced, and everything in it is left as it is. ${NEW_FOLDER}`,
-  backupMissing: (folder: string) =>
-    `The backup folder ${folder} cannot be found. If it is on a drive that is not plugged in, plug it in and try again. ${NEW_FOLDER}`,
-  backupIsFile: (folder: string) => `The backup folder ${folder} is a file, not a folder. ${NEW_FOLDER}`,
-  backupUnavailable: (folder: string, code: string) =>
-    `The backup folder ${folder} cannot be read (${code}). It may need permission, or be on a drive or share that is not available. ${NEW_FOLDER}`,
+    `The ${name} "${location}" is not a full path from a drive or the top folder.`,
+  folderMissing: (name: string, location: string) => `The ${name} ${location} cannot be found.`,
+  notAFolder: (name: string, location: string) => `The ${name} ${location} is a file, not a folder.`,
+  folderUnavailable: (name: string, location: string, code: string) => `The ${name} ${location} cannot be read (${code}).`,
+  driveRoot: (name: string, location: string) => `The ${name} is the top of a drive (${location}).`,
 };
 
-// Notices that come with a result that succeeded, or partly succeeded.
+// Messages that are about both folders, or about the settings file and a folder.
+export const bothFoldersMessages = {
+  sameFolder: (evidence: string, backup: string) =>
+    `The evidence folder and the backup folder are the same folder (${evidence} and ${backup}).`,
+  nested: (evidence: string, backup: string) =>
+    `Of the evidence folder and the backup folder, one is inside the other (${evidence} and ${backup}).`,
+  settingsInside: (file: string, folder: string) =>
+    `The folder settings file ${file} is inside the chosen folder ${folder}, not outside both folders.`,
+};
+
+// Messages about the evidence folder.
+export const evidenceMessages = {
+  evidenceNotUsable: (detail: string) => `The evidence folder is neither empty nor an archive. ${detail}`,
+  evidenceMissing: (folder: string) => `The evidence folder ${folder} cannot be found.`,
+  evidenceUnavailable: (folder: string, code: string) => `The evidence folder ${folder} cannot be read (${code}).`,
+  evidenceIsFile: (folder: string) => `The evidence folder ${folder} is a file, not a folder.`,
+  unknownManifestVersion: (detail: string, folder: string) => `In the evidence folder ${folder}: ${detail}`,
+  badHeader: (detail: string, folder: string) =>
+    `In the evidence folder ${folder}: ${detail} It is not a valid archive, and nothing in it was changed.`,
+  badFirstLine: (folder: string, why: string) =>
+    `The first line of the manifest in the evidence folder ${folder} ${why}, so it is not a valid archive. Nothing in it was changed.`,
+  noManifest: (folder: string) =>
+    `The evidence folder ${folder} holds other files and no archive manifest, so it is not an archive. Nothing in it was changed.`,
+  stoppedCreation: (folder: string) =>
+    `The evidence folder ${folder} holds only the start of an archive whose creation stopped partway. It was left as it is.`,
+  archiveGone: (folder: string, expected: string) =>
+    `The evidence folder ${folder} is empty, but archive ${expected} was kept there. No new archive was created.`,
+  differentArchive: (folder: string, found: string, expected: string) =>
+    `The evidence folder ${folder} holds archive ${found}, not archive ${expected}, which was kept there. Nothing was changed.`,
+  wentMissing: (folder: string) =>
+    `The evidence folder ${folder} went missing before the archive was created. Nothing was created.`,
+  notCreated: (folder: string, code: string) =>
+    `No archive was created in the evidence folder ${folder} (${code}), and nothing was written.`,
+  creationStopped: (folder: string, code: string) =>
+    `Creating an archive in the evidence folder ${folder} stopped partway (${code}). Nothing was replaced, and what was written was left as it is.`,
+  creationIncomplete: (folder: string, code: string) =>
+    `Creating an archive in the evidence folder ${folder} did not complete (${code}), and the folder now holds something else as well. Nothing was replaced, and everything in it was left as it is.`,
+  creationUnchecked: (folder: string, code: string, readCode: string) =>
+    `Creating an archive in the evidence folder ${folder} did not complete (${code}), and the folder could not be read afterwards (${readCode}). Nothing was replaced.`,
+};
+
+// Messages about the backup folder.
+export const backupMessages = {
+  backupMissing: (folder: string) => `The backup folder ${folder} cannot be found.`,
+  backupIsFile: (folder: string) => `The backup folder ${folder} is a file, not a folder.`,
+  backupUnavailable: (folder: string, code: string) => `The backup folder ${folder} cannot be read (${code}).`,
+};
+
+// Notices that come with a result that succeeded.
 export const notices = {
   sameDrive: () =>
     'The evidence folder and the backup folder are on the same drive. If that drive fails, both can be lost.',
   settingsNotFlushed: (file: string, code: string) =>
-    `The folder settings at ${file} were replaced, but forcing them to disk then failed (${code}). The new settings are in place, but may not survive a crash.`,
-  createdNotFlushed: (folder: string, code: string) =>
-    `The archive in ${folder} was fully written, but forcing the folder to disk then failed (${code}). It may not survive a crash.`,
+    `The folder settings file ${file} was replaced, but forcing it to disk then failed (${code}). The new settings are in place, but are not known to be on disk.`,
+  createdStepFailed: (folder: string, step: string, code: string) =>
+    `The archive in the evidence folder ${folder} was fully written, but ${step} then failed (${code}). It is not known to be on disk.`,
   notRemembered: (what: string, file: string, code: string) =>
-    `${what}, but its ID could not be remembered in ${file} (${code}). Opening it again tries once more.`,
+    `${what}, but its ID could not be saved in the folder settings file ${file} (${code}).`,
 };

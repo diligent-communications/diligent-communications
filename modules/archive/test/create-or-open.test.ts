@@ -7,7 +7,14 @@ import { formatManifestHeader, newManifestHeader, readManifestHeader } from '../
 import { folderStatus, openArchive, readFolders, setFolders } from '../src/archive.ts';
 import { createArchive } from '../src/evidence-folder.ts';
 import { fileProblem } from '../src/files.ts';
-import { folderRefusals, notices, settingsFileMessages } from '../src/messages.ts';
+import {
+  backupMessages,
+  bothFoldersMessages,
+  evidenceMessages,
+  notices,
+  pairMessages,
+  settingsFileMessages,
+} from '../src/messages.ts';
 import { writeSettingsFile } from '../src/settings.ts';
 import { exists, folderLink, linkLoop, newWorkspace, snapshot, type Workspace } from './helpers/workspace.ts';
 
@@ -192,9 +199,14 @@ async function programReadMe(t: TestContext): Promise<string> {
   return readFile(path.join(other.evidence, 'READ-ME.txt'), 'utf8');
 }
 
-// No message from this module may advise emptying or deleting a folder.
-function assertNoEmptyingAdvice(message: string): void {
-  assert.doesNotMatch(message, /\bempty (this|it|that|the|your)\b|delet|remov|clear (it|out)/i);
+// No message from this module may give advice: what to do next belongs to the
+// surface that shows the result.
+function assertNoAdvice(message: string): void {
+  assert.doesNotMatch(
+    message,
+    /\b(choose|chose|pick|select|empty (this|it|that|the|your)|delete|remove|reconnect|plug it|try again|update|instead|you can|you should|should|must|please)\b|\breplace (it|the|this)\b/i,
+    message,
+  );
 }
 
 test('a creation that stopped partway is reported as such and left alone', async (t) => {
@@ -227,8 +239,7 @@ test('a creation that stopped partway is reported as such and left alone', async
     assert.equal(result.outcome === 'not-an-archive' ? result.reason : result.outcome, 'unfinished-creation', name);
     const message = result.outcome === 'not-an-archive' ? result.message : '';
     assert.match(message, /stopped partway/);
-    assert.match(message, /choose a new empty folder/);
-    assertNoEmptyingAdvice(message);
+    assertNoAdvice(message);
     assert.deepEqual(await snapshot(w.evidence), before, name);
   }
 });
@@ -280,7 +291,7 @@ test('a person\'s files are never called a stopped creation', async (t) => {
     const before = await snapshot(w.evidence);
     const result = await openArchive(w.settingsFile);
     assert.equal(result.outcome === 'not-an-archive' ? result.reason : result.outcome, reason, name);
-    assertNoEmptyingAdvice(result.outcome === 'not-an-archive' ? result.message : '');
+    assertNoAdvice(result.outcome === 'not-an-archive' ? result.message : '');
     assert.deepEqual(await snapshot(w.evidence), before, name);
   }
 });
@@ -293,7 +304,7 @@ test('with a remembered archive ID, the remains of an archive are never called a
   const before = await snapshot(w.evidence);
   const result = await openArchive(w.settingsFile);
   assert.equal(result.outcome === 'not-an-archive' ? result.reason : result.outcome, 'no-manifest');
-  assertNoEmptyingAdvice(result.outcome === 'not-an-archive' ? result.message : '');
+  assertNoAdvice(result.outcome === 'not-an-archive' ? result.message : '');
   assert.deepEqual(await snapshot(w.evidence), before);
 
   await writeFile(path.join(w.evidence, 'manifest.jsonl'), '{"line":"head');
@@ -534,7 +545,7 @@ test('an archive created when its ID cannot be remembered says so, and the next 
   if (result.outcome !== 'opened') return;
   assert.equal(result.created, true);
   assert.equal(result.remembered, false);
-  assert.match(result.remembered ? '' : result.message, /created, but its ID could not be remembered/);
+  assert.match(result.remembered ? '' : result.message, /was created, but its ID could not be saved/);
   const before = await readFolders(w.settingsFile);
   assert.equal(before.outcome === 'found' ? before.archiveId : undefined, null);
 
@@ -622,26 +633,132 @@ test('a fully written archive whose last flush fails is reported as created, wit
   assert.equal(status.outcome === 'found' ? status.evidence.status : undefined, 'archive');
 });
 
-test('no message the archive can return advises emptying or deleting a folder', () => {
-  const sample = (fn: (...args: string[]) => string) => fn('X', 'Y', 'Z');
-  const all = { ...settingsFileMessages, ...folderRefusals, ...notices };
-  assert.equal(
-    Object.keys(all).length,
-    Object.keys(settingsFileMessages).length + Object.keys(folderRefusals).length + Object.keys(notices).length,
-  );
-  for (const [name, fn] of Object.entries(all)) {
-    assertNoEmptyingAdvice(sample(fn as (...args: string[]) => string));
-    assert.ok(sample(fn as (...args: string[]) => string).length > 0, name);
+test('no message the archive can return gives advice, and each names the right folder or file', () => {
+  const call = (fn: unknown, ...args: string[]) => (fn as (...a: string[]) => string)(...args);
+  const groups: [Record<string, unknown>, (text: string, name: string) => void][] = [
+    [settingsFileMessages, (text, name) => assert.match(text, /folder settings|have not been chosen/, name)],
+    [evidenceMessages, (text, name) => {
+      assert.match(text, /evidence folder/, name);
+      assert.doesNotMatch(text, /backup/, name);
+    }],
+    [backupMessages, (text, name) => {
+      assert.match(text, /backup folder/, name);
+      assert.doesNotMatch(text, /evidence/, name);
+    }],
+    [bothFoldersMessages, (text, name) => assert.match(text, /folder/, name)],
+    [notices, (text, name) => assert.ok(text.length > 0, name)],
+  ];
+  let counted = 0;
+  for (const [group, check] of groups) {
+    for (const [name, fn] of Object.entries(group)) {
+      const text = call(fn, '/made/up/place', 'MADE-UP', 'MADE-UP-2');
+      assertNoAdvice(text);
+      check(text, name);
+      counted += 1;
+    }
   }
-  // Every refusal about a folder suggests a new empty one.
-  for (const [name, fn] of Object.entries(folderRefusals)) {
-    const text = sample(fn as (...args: string[]) => string);
-    assert.match(text, /new empty folder/, name);
+  // Messages about one folder of the pair name that folder, and no other.
+  for (const [name, fn] of Object.entries(pairMessages)) {
+    const backup = call(fn, 'backup folder', '/made/up/place', 'MADE-UP');
+    assertNoAdvice(backup);
+    assert.match(backup, /backup folder/, name);
+    assert.doesNotMatch(backup, /evidence/, name);
+    const evidence = call(fn, 'evidence folder', '/made/up/place', 'MADE-UP');
+    assert.doesNotMatch(evidence, /backup/, name);
+    counted += 1;
   }
+  const all = [settingsFileMessages, evidenceMessages, backupMessages, bothFoldersMessages, notices, pairMessages];
+  assert.equal(counted, all.reduce((sum, group) => sum + Object.keys(group).length, 0));
+
   // The manifest's own message about a newer version, as the archive returns it.
   const newer = readManifestHeader('{"line":"header","manifest_version":2,"archive_id":"x","created_at":"2026-01-01T00:00:00.000Z"}');
   assert.ok(newer.outcome === 'unknown-version');
-  const text = folderRefusals.unknownManifestVersion(newer.outcome === 'unknown-version' ? newer.message : '');
-  assertNoEmptyingAdvice(text);
-  assert.match(text, /new empty folder/);
+  assertNoAdvice(evidenceMessages.unknownManifestVersion(newer.outcome === 'unknown-version' ? newer.message : '', '/made/up'));
+});
+
+// Makes opening a file of this name hand back a handle whose flush or close
+// fails after the contents are written, using Node's own test mocks. The
+// file is still written and closed for real, inside the test's folder.
+async function withFileStepFailure<T>(name: string, step: 'sync' | 'close', run: () => Promise<T>): Promise<T> {
+  const original = fsp.open;
+  const fail = () => Object.assign(new Error(`made-up ${step} failure`), { code: 'EIO' });
+  const opens = mock.method(fsp, 'open', (async (target: string, ...rest: unknown[]) => {
+    const handle = await (original as (...args: unknown[]) => Promise<fsp.FileHandle>)(target, ...rest);
+    if (path.basename(String(target)) !== name) {
+      return handle;
+    }
+    return {
+      writeFile: (...args: unknown[]) => (handle.writeFile as (...a: unknown[]) => Promise<void>)(...args),
+      sync: async () => {
+        if (step === 'sync') throw fail();
+        await handle.sync();
+      },
+      close: async () => {
+        await handle.close();
+        if (step === 'close') throw fail();
+      },
+    };
+  }) as typeof fsp.open);
+  syncBuiltinESMExports();
+  try {
+    return await run();
+  } finally {
+    opens.mock.restore();
+    syncBuiltinESMExports();
+  }
+}
+
+test('an archive whose header line is fully written is created, with a notice, when flushing or closing the manifest fails', async (t) => {
+  for (const [step, words] of [['sync', 'flushing the manifest file'], ['close', 'closing the manifest file']] as const) {
+    const w = await newWorkspace(t);
+    const result = await withFileStepFailure('manifest.jsonl', step, () => createArchive(w.evidence));
+    assert.equal(result.outcome, 'created', step);
+    assert.match(result.outcome === 'created' ? (result.notice ?? '') : '', new RegExp(`fully written, but ${words}`), step);
+    assertNoAdvice(result.outcome === 'created' ? (result.notice ?? '') : '');
+    const manifest = await readFile(path.join(w.evidence, 'manifest.jsonl'), 'utf8');
+    assert.equal(JSON.parse(manifest).archive_id, result.outcome === 'created' ? result.archive.archiveId : '');
+  }
+});
+
+test('a creation that fails when the folder cannot be read again says only that', async (t) => {
+  const w = await newWorkspace(t);
+  // Writing the read-me fails, and the folder then stops answering.
+  const result = await withFileStepFailure('READ-ME.txt', 'sync', () =>
+    withShareFailure(path.join(w.evidence), 'ECONNRESET', async () => {
+      // The record folders are made before the share fails.
+      return createArchive(w.evidence);
+    }),
+  );
+  assert.equal(result.outcome, 'creation-unchecked');
+  const message = result.outcome === 'creation-unchecked' ? result.message : '';
+  assert.match(message, /could not be read afterwards \(ECONNRESET\)/);
+  assert.doesNotMatch(message, /holds|leftovers|stopped partway|something else/);
+  assertNoAdvice(message);
+});
+
+test('an archive ID saved while the settings folder cannot be flushed is remembered, with a notice (Linux)', async (t) => {
+  if (process.platform === 'win32') {
+    t.skip('Windows has no folder flush step, and ignores these permission bits on folders.');
+    return;
+  }
+  if (process.getuid?.() === 0) {
+    t.skip('The system administrator account can read any folder.');
+    return;
+  }
+  const w = await newWorkspace(t);
+  await withFolders(w);
+  const settingsFolder = path.dirname(w.settingsFile);
+  // Write and search permission, but not read.
+  await chmod(settingsFolder, 0o300);
+  let result: Awaited<ReturnType<typeof openArchive>>;
+  try {
+    result = await openArchive(w.settingsFile);
+  } finally {
+    await chmod(settingsFolder, 0o700);
+  }
+  assert.equal(result.outcome, 'opened');
+  assert.ok(result.outcome === 'opened' && result.remembered);
+  assert.match(result.outcome === 'opened' && result.remembered ? (result.rememberNotice ?? '') : '', /was replaced, but forcing it to disk then failed/);
+  const read = await readFolders(w.settingsFile);
+  assert.equal(read.outcome === 'found' ? read.archiveId : undefined, result.outcome === 'opened' ? result.archive.archiveId : '');
 });

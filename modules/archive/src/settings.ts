@@ -3,10 +3,10 @@
 // is never put in the archive or a backup.
 
 import { constants } from 'node:fs';
-import { copyFile, mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises';
+import { copyFile, mkdir, open, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { errorCode, fileProblem, replaceFile, type ReplaceSteps } from './files.ts';
-import { folderRefusals as say, notices, settingsFileMessages as settingsSay } from './messages.ts';
+import { errorCode, fileProblem, replaceFile, syncFolder, type ReplaceSteps } from './files.ts';
+import { bothFoldersMessages as both, notices, pairMessages as say, settingsFileMessages as settingsSay } from './messages.ts';
 
 export const SETTINGS_VERSION = 1;
 
@@ -98,12 +98,21 @@ export async function keepDamagedSettings(settingsFile: string): Promise<string>
     const kept = n === 1 ? `${settingsFile}.damaged` : `${settingsFile}.damaged-${n}`;
     try {
       await copyFile(settingsFile, kept, constants.COPYFILE_EXCL);
-      return kept;
     } catch (error) {
       if (errorCode(error) !== 'EEXIST') {
         throw error;
       }
+      continue;
     }
+    // The copy is forced to disk before the original is replaced.
+    const handle = await open(kept, 'r+');
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await syncFolder(path.dirname(kept));
+    return kept;
   }
   throw Object.assign(new Error(`No free name to keep ${settingsFile} under.`), { code: 'EEXIST' });
 }
@@ -186,15 +195,15 @@ export async function checkFolderPair(
   }
   const [evidence, backup] = real as [Place, Place];
   if (await isSamePlace(evidence, backup)) {
-    return refuse('same-folder', say.sameFolder(evidence.location, backup.location));
+    return refuse('same-folder', both.sameFolder(evidence.location, backup.location));
   }
   if ((await isInsidePlace(evidence, backup)) || (await isInsidePlace(backup, evidence))) {
-    return refuse('nested', say.nested(evidence.location, backup.location));
+    return refuse('nested', both.nested(evidence.location, backup.location));
   }
   const settings = await existingPlace(settingsFile);
   for (const folder of real) {
     if (settings !== null && ((await isSamePlace(settings, folder)) || (await isInsidePlace(settings, folder)))) {
-      return refuse('settings-inside', say.settingsInside(settingsFile, folder.location));
+      return refuse('settings-inside', both.settingsInside(settingsFile, folder.location));
     }
   }
   return {

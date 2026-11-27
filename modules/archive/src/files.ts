@@ -49,15 +49,42 @@ export class ReplacedButNotFlushed extends Error {
 
 // Creates a file that must not exist yet and forces its contents to disk. If a
 // file of that name is already there, it fails with EEXIST and leaves that file
-// as it is.
+// as it is. A failure while flushing or closing the file carries `step`, so the
+// caller can say which step failed after the contents were written.
 export async function writeNewFile(target: string, contents: string): Promise<void> {
   const handle = await open(target, 'wx');
   try {
     await handle.writeFile(contents, 'utf8');
-    await handle.sync();
-  } finally {
-    await handle.close();
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    throw error;
   }
+  try {
+    await handle.sync();
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    throw withStep(error, 'flush');
+  }
+  try {
+    await handle.close();
+  } catch (error) {
+    throw withStep(error, 'close');
+  }
+}
+
+export type FileStep = 'flush' | 'close';
+
+function withStep(error: unknown, step: FileStep): unknown {
+  if (typeof error === 'object' && error !== null) {
+    Object.assign(error, { step });
+  }
+  return error;
+}
+
+// The step a writeNewFile failure came from, if it was flushing or closing.
+export function failedStep(error: unknown): FileStep | undefined {
+  const step = (error as { step?: unknown } | undefined)?.step;
+  return step === 'flush' || step === 'close' ? step : undefined;
 }
 
 // Forces the folder's list of names to disk, so a new name survives a crash.

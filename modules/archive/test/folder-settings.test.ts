@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chmod, link, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import fsp, { chmod, link, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import { promisify } from 'node:util';
 import { openArchive, readFolders, setFolders } from '../src/archive.ts';
 import { replaceFile } from '../src/files.ts';
-import { checkFolderPair, driveWarnings, isDriveRoot, realFolder, writeSettingsFile, type FoundFolder } from '../src/settings.ts';
+import { checkFolderPair, driveWarnings, isDriveRoot, isSameFolder, realFolder, writeSettingsFile, type FoundFolder } from '../src/settings.ts';
 import { exists, folderLink, linkLoop, newWorkspace, type Workspace } from './helpers/workspace.ts';
 
 const onWindows = process.platform === 'win32';
@@ -609,4 +610,65 @@ test('settings replaced but not flushed are saved with a warning, never "not cha
   assert.deepEqual(result.outcome === 'saved' ? result.warnings.map((warning) => warning.kind) : [], ['same-drive', 'settings-not-flushed']);
   const read = await readFolders(w.settingsFile);
   assert.equal(read.outcome === 'found' ? read.locations.backupFolder : undefined, other);
+});
+
+test('when file identity cannot be used, the same path text counts as the same folder', async (t) => {
+  const w = await newWorkspace(t);
+  // The saved folder cannot be looked at, and the chosen place has no file
+  // number, so only the path text is left to compare.
+  const saved = path.join(w.root, 'not-there');
+  assert.equal(await isSameFolder(saved, { location: saved, dev: 1n, id: null }), true);
+  assert.equal(await isSameFolder(saved, { location: path.join(w.root, 'elsewhere'), dev: 1n, id: null }), false);
+});
+
+test('choosing to replace damaged settings does not replace settings of a newer version', async (t) => {
+  const w = await newWorkspace(t);
+  await mkdir(path.dirname(w.settingsFile));
+  const newer = '{"settings_version":2,"evidence_folder":"made-up","backup_folder":"made-up"}\n';
+  await writeFile(w.settingsFile, newer);
+  const result = await setFolders(w.settingsFile, { evidenceFolder: w.evidence, backupFolder: w.backup }, { replaceDamagedSettings: true });
+  assert.equal(result.outcome === 'refused' ? result.reason : result.outcome, 'newer-settings');
+  assert.equal(await readFile(w.settingsFile, 'utf8'), newer);
+  assert.deepEqual(await readdir(path.dirname(w.settingsFile)), ['archive-settings.json']);
+});
+
+test('the kept copy of a damaged settings file is flushed before the original is replaced', async (t) => {
+  const w = await newWorkspace(t);
+  await mkdir(path.dirname(w.settingsFile));
+  await writeFile(w.settingsFile, 'damaged');
+  const kept = `${w.settingsFile}.damaged`;
+  // Records, through Node's own test mocks, each flush of the kept copy and
+  // each rename onto the settings file. The real calls still run.
+  const events: string[] = [];
+  const original = { open: fsp.open, rename: fsp.rename };
+  const opens = mock.method(fsp, 'open', (async (target: string, ...rest: unknown[]) => {
+    const handle = await (original.open as (...args: unknown[]) => Promise<fsp.FileHandle>)(target, ...rest);
+    if (String(target) !== kept) {
+      return handle;
+    }
+    return {
+      sync: async () => {
+        await handle.sync();
+        events.push('kept copy flushed');
+      },
+      close: () => handle.close(),
+    };
+  }) as typeof fsp.open);
+  const renames = mock.method(fsp, 'rename', (async (from: string, to: string) => {
+    await (original.rename as (a: string, b: string) => Promise<void>)(from, to);
+    if (String(to) === w.settingsFile) {
+      events.push('settings replaced');
+    }
+  }) as typeof fsp.rename);
+  syncBuiltinESMExports();
+  try {
+    const result = await setFolders(w.settingsFile, { evidenceFolder: w.evidence, backupFolder: w.backup }, { replaceDamagedSettings: true });
+    assert.equal(result.outcome, 'saved');
+  } finally {
+    opens.mock.restore();
+    renames.mock.restore();
+    syncBuiltinESMExports();
+  }
+  assert.deepEqual(events, ['kept copy flushed', 'settings replaced']);
+  assert.equal(await readFile(kept, 'utf8'), 'damaged');
 });

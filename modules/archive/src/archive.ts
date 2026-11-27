@@ -8,7 +8,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { createArchive, inspectEvidenceFolder, type ArchiveInfo, type EvidenceStatus } from './evidence-folder.ts';
 import { errorCode, fileProblem, ReplacedButNotFlushed } from './files.ts';
-import { folderRefusals as say, notices, settingsFileMessages as settingsSay } from './messages.ts';
+import { backupMessages, evidenceMessages as say, notices, settingsFileMessages as settingsSay } from './messages.ts';
 import {
   checkFolderPair,
   isSameFolder,
@@ -154,7 +154,7 @@ export async function folderStatus(settingsFile: string): Promise<FolderStatus> 
 export type OpenResult =
   | ({ outcome: 'opened'; created: boolean; archive: ArchiveInfo; notice?: string } & Remembered)
   | {
-      outcome: 'missing' | 'unavailable' | 'not-created' | 'creation-stopped' | 'creation-incomplete';
+      outcome: 'missing' | 'unavailable' | 'not-created' | 'creation-stopped' | 'creation-incomplete' | 'creation-unchecked';
       folder: string;
       message: string;
     }
@@ -237,7 +237,7 @@ async function remember(
   if (saved.outcome === 'replaced-not-flushed') {
     return { remembered: true, rememberNotice: notices.settingsNotFlushed(settingsFile, saved.code) };
   }
-  const what = created ? 'The archive was created' : 'The archive was opened';
+  const what = `The archive in the evidence folder ${archive.folder} was ${created ? 'created' : 'opened'}`;
   return { remembered: false, message: notices.notRemembered(what, settingsFile, saved.code) };
 }
 
@@ -294,15 +294,15 @@ async function evidenceState(settings: SavedSettings): Promise<EvidenceState> {
 async function backupState(folder: string): Promise<BackupState> {
   try {
     if (!(await stat(folder)).isDirectory()) {
-      return { status: 'not-a-folder', message: say.backupIsFile(folder) };
+      return { status: 'not-a-folder', message: backupMessages.backupIsFile(folder) };
     }
     await readdir(folder);
     return { status: 'present' };
   } catch (error) {
     const { problem, code } = fileProblem(error);
     if (problem === 'missing') {
-      return { status: 'missing', message: say.backupMissing(folder) };
+      return { status: 'missing', message: backupMessages.backupMissing(folder) };
     }
-    return { status: 'unavailable', message: say.backupUnavailable(folder, code) };
+    return { status: 'unavailable', message: backupMessages.backupUnavailable(folder, code) };
   }
 }

@@ -9,9 +9,10 @@ import {
   isStartOfManifestHeader,
   newManifestHeader,
   readManifestHeader,
+  type ManifestHeader,
 } from '../../../contracts/manifest-header.ts';
-import { errorCode, fileProblem, readFirstLine, syncFolder, writeNewFile } from './files.ts';
-import { folderRefusals as say, notices } from './messages.ts';
+import { errorCode, failedStep, fileProblem, readFirstLine, syncFolder, writeNewFile } from './files.ts';
+import { evidenceMessages as say, notices } from './messages.ts';
 
 export const MANIFEST_FILE = 'manifest.jsonl';
 export const READ_ME_FILE = 'READ-ME.txt';
@@ -77,7 +78,7 @@ async function inspect(folder: string, options: InspectOptions): Promise<Evidenc
         status: 'not-an-archive',
         reason: 'unknown-version',
         version: header.version,
-        message: say.unknownManifestVersion(header.message),
+        message: say.unknownManifestVersion(header.message, folder),
       };
     }
     return { status: 'not-an-archive', reason: 'bad-header', message: say.badHeader(header.message, folder) };
@@ -125,7 +126,10 @@ async function onlyCreationLeftovers(folder: string, names: string[]): Promise<b
 
 export type CreateResult =
   | { outcome: 'created'; archive: ArchiveInfo; notice?: string }
-  | { outcome: 'missing' | 'not-created' | 'creation-stopped' | 'creation-incomplete'; message: string };
+  | {
+      outcome: 'missing' | 'not-created' | 'creation-stopped' | 'creation-incomplete' | 'creation-unchecked';
+      message: string;
+    };
 
 // Writes a new archive into a folder the caller has found empty. Nothing is
 // ever replaced: each folder and file is created only if nothing of that name
@@ -133,16 +137,19 @@ export type CreateResult =
 // something that opens as an archive. Folders are made one level at a time, so
 // an evidence folder that has gone missing is never made again.
 //
-// If the very first step fails, this call wrote nothing, and that is what it
-// reports: the folder may be missing, read-only or unreadable, or another
-// open may have just started creating there. If a later step fails, the folder
-// is looked at again: only if it holds nothing but this creation's leftovers
-// is it a stopped creation; otherwise the creation did not complete. If only
-// the last flush fails, after the manifest is fully written, the archive is
-// complete and that is reported with a notice.
+// What a failure is reported as:
+// - If the very first step fails, this call wrote nothing: the folder may be
+//   missing, read-only or unreadable, or another open may have started there.
+// - If this call's own header line is fully in place when a later step fails
+//   (flushing or closing the manifest, or flushing the folder), the archive is
+//   complete: it is reported as created, with a notice naming that step.
+// - Otherwise the folder is looked at again. Only if it holds nothing but this
+//   creation's leftovers is it a stopped creation; if it holds anything else,
+//   the creation did not complete; if it cannot be read, only that is said.
 export async function createArchive(folder: string): Promise<CreateResult> {
+  const manifest = path.join(folder, MANIFEST_FILE);
   let started = false;
-  let header;
+  let header: ManifestHeader | undefined;
   try {
     for (const name of RECORD_FOLDERS) {
       await mkdir(path.join(folder, name));
@@ -150,7 +157,7 @@ export async function createArchive(folder: string): Promise<CreateResult> {
     }
     await writeNewFile(path.join(folder, READ_ME_FILE), READ_ME);
     header = newManifestHeader(randomUUID(), new Date());
-    await writeNewFile(path.join(folder, MANIFEST_FILE), formatManifestHeader(header));
+    await writeNewFile(manifest, formatManifestHeader(header));
   } catch (error) {
     const code = errorCode(error);
     if (code === undefined) {
@@ -162,12 +169,19 @@ export async function createArchive(folder: string): Promise<CreateResult> {
       }
       return { outcome: 'not-created', message: say.notCreated(folder, code) };
     }
-    if (await leftoversOnly(folder)) {
+    if (header !== undefined && (await holdsExactly(manifest, formatManifestHeader(header)))) {
+      const step = failedStep(error) === 'close' ? 'closing the manifest file' : 'flushing the manifest file';
+      return { outcome: 'created', archive: infoOf(folder, header), notice: notices.createdStepFailed(folder, step, code) };
+    }
+    const left = await leftoversOnly(folder);
+    if (left.readable === false) {
+      return { outcome: 'creation-unchecked', message: say.creationUnchecked(folder, code, left.code) };
+    }
+    if (left.only) {
       return { outcome: 'creation-stopped', message: say.creationStopped(folder, code) };
     }
     return { outcome: 'creation-incomplete', message: say.creationIncomplete(folder, code) };
   }
-  const archive = { folder, archiveId: header.archive_id, createdAt: header.created_at };
   try {
     await syncFolder(folder);
   } catch (error) {
@@ -175,20 +189,41 @@ export async function createArchive(folder: string): Promise<CreateResult> {
     if (code === undefined) {
       throw error;
     }
-    return { outcome: 'created', archive, notice: notices.createdNotFlushed(folder, code) };
+    return {
+      outcome: 'created',
+      archive: infoOf(folder, header),
+      notice: notices.createdStepFailed(folder, 'flushing the evidence folder', code),
+    };
   }
-  return { outcome: 'created', archive };
+  return { outcome: 'created', archive: infoOf(folder, header) };
 }
 
-// The leftovers test, for a folder that may no longer be readable.
-async function leftoversOnly(folder: string): Promise<boolean> {
+function infoOf(folder: string, header: ManifestHeader): ArchiveInfo {
+  return { folder, archiveId: header.archive_id, createdAt: header.created_at };
+}
+
+// Whether the file holds exactly this text. Any problem reading it means no.
+async function holdsExactly(file: string, text: string): Promise<boolean> {
   try {
-    return await onlyCreationLeftovers(folder, await readdir(folder));
+    return (await readFile(file, 'utf8')) === text;
   } catch (error) {
     if (errorCode(error) === undefined) {
       throw error;
     }
     return false;
+  }
+}
+
+// The leftovers test, for a folder that may no longer be readable.
+async function leftoversOnly(folder: string): Promise<{ readable: true; only: boolean } | { readable: false; code: string }> {
+  try {
+    return { readable: true, only: await onlyCreationLeftovers(folder, await readdir(folder)) };
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === undefined) {
+      throw error;
+    }
+    return { readable: false, code };
   }
 }
 
