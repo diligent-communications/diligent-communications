@@ -30,7 +30,7 @@ It never holds a Google sign-in, it never writes the database, and it never keep
 
 A command is an operation: `diligent <operation> --<input> <value>`. Run it from the repository root as `node modules/cli/src/bin.ts`, or as `diligent` after `npm link`.
 
-1. The operation's name and inputs come from the [operations list](../operations/CONTEXT.md). An unknown operation or input is refused here and nothing is sent. Nothing typed on the line is ever said or printed back, because it could be a secret typed in the wrong place.
+1. The operation's name and inputs come from the [operations list](../operations/CONTEXT.md). An unknown operation or input is refused here and nothing is sent. What was typed is never said or printed back where it could be a secret typed in the wrong place: not an input's value, not a name the list does not hold, and not an address that is refused. One typed thing is said back: an address the command line accepted, which is a scheme, name and port and nothing more, when the install there does not answer.
 2. A secret input is never a command-line argument. It is asked for without being shown, or read as one line from a pipe. One given as an argument is refused and nothing is sent. An optional secret is asked for when it is named without a value, such as `--code` or `--current`.
 3. For an operation that takes a request ID, one is made up unless `--request_id` gives one. Give the same one again to repeat safely.
 4. The call goes to the install as the [host](../host/CONTEXT.md) describes, with the session as a cookie. An install's address is its scheme, name and port. A plain `http://` address is refused unless it is this PC's own, before a secret is asked for, so neither a session nor a typed password travels in the clear. A redirect is an error and is never followed.
@@ -53,7 +53,7 @@ The command line stays signed in as the person, once per device. The limit that 
 | It prints what the operation returned and adds nothing of its own | "it prints what the operation returned" |
 | A secret is never a command-line argument | "a secret is never a command-line argument" |
 | With no answer it prints nothing and ends with 1 | "when there is no answer to print" |
-| Nothing typed on the line is said or printed back | "nothing typed on the line is ever said or printed back" |
+| No value, unknown name or refused address typed on the line is said or printed back. An accepted address is, when it does not answer | "nothing typed on the line that could be a secret is ever said or printed back", and "when there is no answer to print" for the address |
 | A session is sent only to the address that issued it, and dropped when the address changes | "a session is sent only to the address that issued it" |
 | A new address is remembered only after it answers as an install | "a new address is remembered only after it answers as an install" |
 | A plain `http://` address is refused unless it is this PC's own | "a plain http address is refused" |
@@ -68,6 +68,6 @@ Draft. The local bridge an agent can start, `diligent mcp`, is not written. The 
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 8,300 tokens, just above the 8,000-token guide for one read, because it reads the host contract whole.
+- Counted as characters divided by four, this contract with its references and working files is about 8,700 tokens, just above the 8,000-token guide for one read, because it reads the host contract whole.
 - On Windows the session file is protected by the PC account's own folder, not by a rule on the file.
 - Typing a secret at a keyboard without it being shown is not covered by a test, because a test has no keyboard. The piped line is.

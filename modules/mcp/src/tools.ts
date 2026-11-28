@@ -80,8 +80,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // refused was trying to make. The handler runs a tool call from one request,
 // or from each request in an array of up to 100, so both are read here. A
 // tool call is a request: it names the protocol's version, carries an ID and
-// the method `tools/call`, and names its tool. Anything else is not one, and
-// a body that cannot be understood calls nothing.
+// the method `tools/call`, and names its tool. That holds in the protocol's
+// older form and in its newer one. Anything else is not one, and a body that
+// cannot be understood calls nothing.
 export function toolsCalledIn(body: string): string[] {
   let request: unknown;
   try {

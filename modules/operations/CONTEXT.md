@@ -49,7 +49,7 @@ What is recorded, one [activity line](../../contracts/CONTEXT.md#activity-line) 
 
 - Every call to an operation that changes something, by a caller with a sign-in, whatever the answer. That covers every change and every refused attempt at one.
 - A call that proved the person by itself: a successful `sign_in`, or `password_set` with a set-up code, as `you`.
-- The one try that starts a password lock, when it is wrong, as `diligent`. A stranger's other wrong tries leave no line, so a stranger cannot fill the record.
+- A stranger's wrong try that starts a password lock, as `diligent`: one line for one lock. A stranger's other wrong tries leave no line, so a stranger cannot fill the record. A lock started by a signed-in caller's wrong try, the current password in `password_set` included, has no `diligent` line. It is that caller's refused change, recorded under that caller by the first rule here, as `locked_out`.
 - A read leaves no line. Nor does a repeat that returns a kept answer.
 
 ### Outputs
@@ -64,7 +64,7 @@ What is recorded, one [activity line](../../contracts/CONTEXT.md#activity-line) 
 | Hard rule | Test |
 | --- | --- |
 | One door, three ways in: the same call gives the same answer whichever way it comes ([rule 3](../../map/target.md#rules-every-part-keeps)) | `test/three-ways.test.ts` |
-| Every change, and every refused change by a known caller, leaves exactly one line under the right name, and a read leaves none ([rule 4](../../map/target.md#rules-every-part-keeps)) | `test/three-ways.test.ts`, and [access](../access/CONTEXT.md)'s tests for the lock line |
+| Every change, and every refused change by a known caller, leaves exactly one line under the right name, and a read leaves none ([rule 4](../../map/target.md#rules-every-part-keeps)) | `test/three-ways.test.ts`. For who a lock is recorded under, [access](../access/CONTEXT.md)'s `test/sign-in.test.ts`: "a wrong password is refused" for a stranger's, and "a lock started by a signed-in caller's wrong try" |
 | A repeat is safe ([rule 5](../../map/target.md#rules-every-part-keeps)) | `test/repeat.test.ts` |
 | `sign_in`, `sign_out` and `password_set` take no request ID, so no answer of theirs is kept | `test/door.test.ts`: "the levels, request IDs and named results" |
 | Every answer is a named result with a description that says what was found, never what to do ([rule 9](../../map/target.md#rules-every-part-keeps)) | `test/door.test.ts`: "an answer that is not one of the named results", "a refusal says what was found" |
@@ -79,5 +79,5 @@ Draft. The operations of the parts that are not built yet join the list with the
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 8,400 tokens, just above the 8,000-token guide for one read, because it reads the access and store contracts whole.
+- Counted as characters divided by four, this contract with its references and working files is about 8,600 tokens, just above the 8,000-token guide for one read, because it reads the access and store contracts whole.
 - A kept answer is kept for 30 days in the plan. Nothing removes one yet: see [store](../store/CONTEXT.md).

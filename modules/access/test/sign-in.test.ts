@@ -213,6 +213,36 @@ test('a wrong current password counts toward the lock, and a borrowed session ca
   assert.equal((await device.call('whoami')).result, 'you');
 });
 
+test("a lock started by a signed-in caller's wrong try is recorded as that caller's refused change, with no line by the install", async () => {
+  const who = (entries: ActivityEntry[], operation: string): string[][] =>
+    entries.filter((entry) => entry.operation === operation).map((entry) => [entry.who, entry.result]);
+  const wrongThenLocked = [['you', 'locked_out'], ...Array.from({ length: WRONG_TRIES - 1 }, () => ['you', 'wrong_password'])];
+
+  // Through the current password in `password_set`.
+  const changing = await withPassword();
+  for (let tries = 1; tries < WRONG_TRIES; tries += 1) {
+    assert.equal((await changing.device.call('password_set', { current: madeUp('guess'), password: madeUp('password') })).result, 'wrong_password');
+  }
+  assert.equal((await changing.device.call('password_set', { current: madeUp('guess'), password: madeUp('password') })).result, 'locked_out');
+  let entries = await activity(changing.device);
+  // Newest first: the try that started the lock, the wrong tries before it,
+  // and the first password.
+  assert.deepEqual(who(entries, 'password_set'), [...wrongThenLocked, ['you', 'set']]);
+  assert.deepEqual(entries.filter((entry) => entry.who === 'diligent'), []);
+  // The lock is the same lock: it stops a stranger's sign-in too.
+  assert.equal((await screen(changing.install).call('sign_in', { password: changing.password })).result, 'locked_out');
+
+  // Through `sign_in` from a device that is already signed in.
+  const signingIn = await withPassword();
+  for (let tries = 1; tries < WRONG_TRIES; tries += 1) {
+    assert.equal((await signingIn.device.call('sign_in', { password: madeUp('guess') })).result, 'wrong_password');
+  }
+  assert.equal((await signingIn.device.call('sign_in', { password: madeUp('guess') })).result, 'locked_out');
+  entries = await activity(signingIn.device);
+  assert.deepEqual(who(entries, 'sign_in'), [...wrongThenLocked, ['you', 'signed_in']]);
+  assert.deepEqual(entries.filter((entry) => entry.who === 'diligent'), []);
+});
+
 test('a new set-up code is the way back from a forgotten password: it ends every session and leaves agents as they are', async () => {
   const { install, password, device } = await withPassword();
   const created = await device.call('agent_create', { name: 'sorter', level: 'prepare' });
@@ -247,6 +277,12 @@ test("the session cookie is hidden from page scripts, kept from other sites, and
     assert.ok(attributes.includes(wanted), wanted);
   }
   assert.equal(attributes.includes('secure'), false);
+  const signIn = { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) };
+  // Named here, not read from the code, so the test fails if one is dropped.
+  for (const own of ['localhost', '127.0.0.1', '[::1]']) {
+    const here = await install.arriveAt(`http://${own}:8787/api/sign_in`, signIn);
+    assert.equal(here.headers.getSetCookie()[0]!.toLowerCase().includes('secure'), false, own);
+  }
 
   // On any other address the cookie is marked for HTTPS only.
   const elsewhere = await install.arriveAt('https://diligent.example/api/sign_in', {

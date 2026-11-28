@@ -10,7 +10,9 @@ import type { AgentConnection, CommandLine, Screen } from '../../host/test/helpe
 let install: Install;
 let onScreen: Screen;
 let atCommandLine: CommandLine;
+// The agent connection in each form of the agent protocol.
 let asAgent: AgentConnection;
+let asAgentInNewerForm: AgentConnection;
 let agent: Agent;
 let token: string;
 const password = madeUp('password');
@@ -32,10 +34,12 @@ before(async () => {
   agent = created.agent as Agent;
   token = String(created.token);
   asAgent = await agentConnection(install, token);
+  asAgentInNewerForm = await agentConnection(install, token, 'newer');
 });
 
 after(async () => {
   await asAgent?.close();
+  await asAgentInNewerForm?.close();
   await install?.close();
 });
 
@@ -53,15 +57,17 @@ test('the person gets the same answer to a read from the screen and from the com
   assert.deepEqual(await activity(), before);
 });
 
-test('an agent gets the same answer to a read on the agent connection and on the operation address, and it leaves no record', async () => {
+test('an agent gets the same answer to a read on the agent connection, in either form of the protocol, and on the operation address, and it leaves no record', async () => {
   const before = await activity();
   const onConnection = await asAgent.call('whoami');
+  const inNewerForm = await asAgentInNewerForm.call('whoami');
   const onAddress = await post(install, 'whoami', {}, { authorization: `Bearer ${token}` });
   assert.deepEqual(onConnection, {
     result: 'agent',
     description: 'The caller is the agent "reader", at the level read.',
     agent: { id: agent.id, name: 'reader', level: 'read' },
   });
+  assert.deepEqual(inNewerForm, onConnection);
   assert.deepEqual(onAddress.answer, onConnection);
   assert.deepEqual(await activity(), before);
 });
@@ -81,15 +87,17 @@ test('the same change from the screen and from the command line gives the same r
   await onScreen.call('agent_set', { agent: agent.id, level: 'read' });
 });
 
-test("a change that needs the person is refused the same way on the agent connection and on the operation address, and each refusal leaves one record under the agent's name", async () => {
+test("a change that needs the person is refused the same way on the agent connection, in either form of the protocol, and on the operation address, and each refusal leaves one record under the agent's name", async () => {
   const before = (await activity()).length;
   const onConnection = await asAgent.call('agent_set', { agent: agent.id, level: 'prepare' });
+  const inNewerForm = await asAgentInNewerForm.call('agent_set', { agent: agent.id, level: 'prepare' });
   const onAddress = await post(install, 'agent_set', { request_id: crypto.randomUUID(), agent: agent.id, level: 'prepare' }, { authorization: `Bearer ${token}` });
   assert.equal(onConnection.result, 'not_allowed');
+  assert.deepEqual(inNewerForm, onConnection);
   assert.deepEqual(onAddress.answer, onConnection);
 
   const added = (await activity()).slice(0, -before || undefined);
-  assert.equal(added.length, 2);
+  assert.equal(added.length, 3);
   for (const entry of added) {
     assert.deepEqual({ ...entry, at: '' }, { at: '', who: `agent:${agent.id}`, operation: 'agent_set', on: null, result: 'not_allowed' });
   }
@@ -97,7 +105,8 @@ test("a change that needs the person is refused the same way on the agent connec
   assert.equal((listed.agents as Agent[])[0]?.level, 'read');
 });
 
-test('every operation is offered as a tool on the agent connection', async () => {
+test('every operation is offered as a tool on the agent connection, in either form of the protocol', async () => {
+  assert.deepEqual(await asAgentInNewerForm.toolNames(), await asAgent.toolNames());
   assert.deepEqual((await asAgent.toolNames()).sort(), [
     'activity_list',
     'agent_create',

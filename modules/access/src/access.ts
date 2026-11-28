@@ -197,8 +197,10 @@ export function openAccess(options: { store: Store; setupCode: string | undefine
     async sign_in({ caller, input, now }) {
       const tried = await tryPassword(String(input.password), now);
       if (!tried.right) {
-        // A stranger's wrong try leaves no activity line. The one try that
-        // starts a lock is recorded as the install's own doing.
+        // A stranger's wrong try leaves no activity line, except the one
+        // that starts a lock, which is recorded as the install's own doing.
+        // A signed-in caller's wrong try is that caller's refused change,
+        // here and in `password_set`, and the door records it under them.
         return tried.startedLock && caller.kind === 'nobody' ? { ...tried.outcome, as: 'diligent' } : tried.outcome;
       }
       const begun = await newSession(now);

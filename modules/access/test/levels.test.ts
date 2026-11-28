@@ -52,6 +52,35 @@ test('a caller with no sign-in may call sign_in and password_set and nothing els
   assert.equal((await post(install, 'whoami', {}, { cookie: 'diligent_session=dls_not-a-session-this-install-made' })).answer.result, 'not_signed_in');
 });
 
+test('a request that carries an Authorization header is judged by that header alone, and never by a session cookie it also carries', async () => {
+  const { agent, token } = await newAgent('header', 'read');
+  const cookie = person.setCookies.at(-1)!.split(';')[0]!;
+  assert.equal((await post(install, 'whoami', {}, { cookie })).answer.result, 'you');
+
+  // The scheme is matched without regard to case, and the token wins.
+  for (const scheme of ['Bearer', 'bearer', 'BEARER']) {
+    const answer = (await post(install, 'whoami', {}, { cookie, authorization: `${scheme} ${token}` })).answer;
+    assert.deepEqual([answer.result, (answer.agent as Agent | undefined)?.id], ['agent', agent.id], scheme);
+  }
+
+  // A header that cannot be read, or that names no agent, is no sign-in, with
+  // the person's cookie beside it. Nothing is done as the person.
+  const agents = ((await person.call('agent_list')).agents as Agent[]).length;
+  const unreadable = ['Bearer', 'bearer', `Bearer ${token} more`, `Bearer  ${token}`, `Basic ${token}`, `Token ${token}`, token, 'bearer dla_not-a-token-this-install-made'];
+  for (const authorization of unreadable) {
+    assert.equal((await post(install, 'whoami', {}, { cookie, authorization })).answer.result, 'not_signed_in', authorization);
+    const change = await post(install, 'agent_create', { request_id: crypto.randomUUID(), name: 'made-by-fallback', level: 'read' }, { cookie, authorization });
+    assert.equal(change.answer.result, 'not_signed_in', authorization);
+  }
+  assert.equal(((await person.call('agent_list')).agents as Agent[]).length, agents);
+
+  // The agent connection reads the header the same way.
+  const list = { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }) };
+  const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream' };
+  assert.equal((await install.fetch('/mcp', { ...list, headers: { ...headers, authorization: `bearer ${token}` } })).status, 200);
+  assert.equal((await install.fetch('/mcp', { ...list, headers: { ...headers, cookie, authorization: `Basic ${token}` } })).status, 401);
+});
+
 test('a Read agent may read who it is and is refused every change', async () => {
   const { agent, connection } = await newAgent('reader', 'read');
   assert.equal((await connection.call('whoami')).result, 'agent');

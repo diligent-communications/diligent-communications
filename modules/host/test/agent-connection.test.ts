@@ -10,14 +10,15 @@
 // line too, because no agent may make these changes: `not_allowed`.
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { Agent } from '../../../contracts/agent.ts';
 import { AGENT_CONNECTION_PATH } from '../../mcp/src/address.ts';
 import { MESSAGES_AT_MOST } from '../../mcp/src/tools.ts';
 import { BODY_LIMIT, readBody } from '../src/body.ts';
 import { madeUp, startInstall } from './helpers/local-install.ts';
 import type { Install } from './helpers/local-install.ts';
-import { screen } from './helpers/ways.ts';
+import { agentClient, isNewerForm, newerCall, screen } from './helpers/ways.ts';
+import type { Form } from './helpers/ways.ts';
 
 let install: Install;
 let working: { id: string; token: string };
@@ -124,10 +125,13 @@ after(async () => {
 type Shape = { name: string; sent: () => Sent | Promise<Sent>; changes: string[]; workingStatus?: number };
 
 // The request a real client of the agent protocol sends for one tool call,
-// taken from the client itself, so the newest form of a call is in the table.
-async function asARealClientSendsIt(): Promise<Sent> {
+// taken from the client itself. The client speaks the older form of the
+// protocol unless it is pinned to the newer one, and the handler runs the two
+// on separate paths. So each form is asked for by name, and what the client
+// sent is checked to be in that form.
+async function asARealClientSendsIt(form: Form): Promise<Sent> {
   const bodies: { body: string; headers: Record<string, string> }[] = [];
-  const client = new Client({ name: 'test-agent', version: '1' });
+  const client = agentClient(form);
   const transport = new StreamableHTTPClientTransport(new URL(AGENT_CONNECTION_PATH, install.origin), {
     authProvider: { token: async () => working.token },
     fetch: async (url, init) => {
@@ -145,13 +149,20 @@ async function asARealClientSendsIt(): Promise<Sent> {
   }
   const sent = bodies.find((request) => request.body.includes('"tools/call"'));
   assert.ok(sent, 'the client sent a tool call');
+  assert.equal(isNewerForm(sent), form === 'newer', `the client sent its tool call in the ${form} form`);
   const { authorization: _authorization, 'content-length': _length, ...headers } = sent.headers;
   return { body: sent.body, headers };
 }
 
+// One changing tool call in the newer form, built by hand.
+const newer = (): Sent => newerCall(nextId++, 'agent_set', { request_id: crypto.randomUUID(), agent: 'abc', on: true });
+
 const shapes: Shape[] = [
   { name: 'one tool call', sent: () => ({ body: text(call('agent_set')) }), changes: ['agent_set'] },
-  { name: 'one tool call, as a real client sends it', sent: asARealClientSendsIt, changes: ['agent_set'] },
+  { name: 'one tool call in the older form, as a real client sends it', sent: () => asARealClientSendsIt('older'), changes: ['agent_set'] },
+  // The newer form of the protocol, which the handler runs on its own path.
+  { name: 'one tool call in the newer form, as a real client pinned to it sends it', sent: () => asARealClientSendsIt('newer'), changes: ['agent_set'] },
+  { name: 'one tool call in the newer form, built by hand, with no declared length', sent: () => ({ ...newer(), declared: false }), changes: ['agent_set'] },
   { name: 'an array of one tool call', sent: () => ({ body: text([call('agent_set')]) }), changes: ['agent_set'] },
   {
     name: 'an array mixing a change, a read, a request that is not a tool call, a notice and another change',
@@ -255,9 +266,9 @@ test('a body far over the size limit is never handled: nothing is recorded, and 
 });
 
 test('the reader errs toward recording: a refused request the handler would have turned away for another reason is still recorded', async () => {
-  // The host does not copy the handler's other checks. These two requests
-  // would not run for a working agent, and are recorded for a switched-off
-  // one all the same. More is recorded than was possible, never less.
+  // The host does not copy the handler's other checks. These requests would
+  // not run for a working agent, and are recorded for a switched-off one all
+  // the same. More is recorded than was possible, never less.
   const wrongAccept = await leftBy({ body: text(call('agent_set')), headers: { accept: 'application/json' } });
   assert.deepEqual(wrongAccept.working, []);
   assert.equal(wrongAccept.refused.length, 1);
@@ -265,6 +276,16 @@ test('the reader errs toward recording: a refused request the handler would have
   const withABrokenElement = await leftBy({ body: text([call('agent_set'), 7]) });
   assert.deepEqual(withABrokenElement.working, []);
   assert.equal(withABrokenElement.refused.length, 1);
+
+  // The same in the newer form, which the handler runs only as one request
+  // with its own headers: not without them, and not inside an array.
+  const withoutItsHeaders = await leftBy({ body: newer().body });
+  assert.deepEqual(withoutItsHeaders.working, []);
+  assert.equal(withoutItsHeaders.refused.length, 1);
+
+  const inAnArray = await leftBy({ body: `[${newer().body}]` });
+  assert.deepEqual(inAnArray.working, []);
+  assert.equal(inAnArray.refused.length, 1);
 });
 
 test('a body is read up to the limit and no further, whatever length it declares', async () => {

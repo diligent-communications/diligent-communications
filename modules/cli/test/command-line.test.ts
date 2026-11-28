@@ -198,8 +198,9 @@ test('when there is no answer to print it prints nothing, says why, and ends wit
   assert.equal(await terminal.run(['--install', install.origin, 'agent_set', '--agent']), 1);
   assert.match(terminal.said.at(-1)!, /--agent needs a value/);
   // A port on this PC where nothing is listening.
-  assert.equal(await terminal.run(['--install', 'http://127.0.0.1:9', 'whoami']), 1);
-  assert.match(terminal.said.at(-1)!, /did not answer/);
+  assert.equal(await terminal.run(['--install', 'http://127.0.0.1:9/', 'whoami']), 1);
+  // The address it accepted is the one typed thing it says back.
+  assert.equal(terminal.said.at(-1), 'The install at http://127.0.0.1:9 did not answer.');
   assert.deepEqual(terminal.printed, []);
 
   assert.equal(await terminal.run([]), 1);
@@ -363,7 +364,7 @@ test('a redirect is an error and is never followed, so a password and a session 
   }
 });
 
-test('nothing typed on the line is ever said or printed back, wherever it sits', async () => {
+test('nothing typed on the line that could be a secret is ever said or printed back, wherever it sits', async () => {
   const secret = madeUp('typed-secret');
   const token = `dla_${madeUp('token')}`;
   const lines: string[][] = [

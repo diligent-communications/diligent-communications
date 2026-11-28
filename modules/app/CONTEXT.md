@@ -60,5 +60,5 @@ Draft. The Brief, a matter, a person, settings and the first-run walk are not wr
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 8,200 tokens, just above the 8,000-token guide for one read, because it reads the host contract whole.
+- Counted as characters divided by four, this contract with its references and working files is about 8,500 tokens, just above the 8,000-token guide for one read, because it reads the host contract whole.
 - No test runs the page in a browser. The tests send the request the page's script builds and read the page's HTML.

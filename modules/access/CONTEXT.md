@@ -30,7 +30,7 @@ It never holds a Google sign-in.
 
 ### Process
 
-1. `identify` takes what a request presents, a session or an agent token, and returns the [caller](../../contracts/CONTEXT.md#caller). A request that presents a token is that agent or nobody. It never falls back to a session.
+1. `identify` takes what a request presents, a session or an agent token, and returns the [caller](../../contracts/CONTEXT.md#caller). A request that presents a token is that agent or nobody. It never falls back to a session. What counts as presenting a token is in step 5 of the [host](../host/CONTEXT.md) contract.
 2. The door runs the work of the operations below. Each answer is one of the named results.
 
 Operations, from the [operations table](../../map/target.md#operations). Secret inputs are marked (s).
@@ -69,7 +69,7 @@ The lock stops new sign-ins only: a device that is already signed in keeps worki
 
 **Sessions.** The password is typed once per device. A session ends at `sign_out` on that device, at a password change or reset as above, or by itself after 90 days without use (a proposal). Using it starts the 90 days again.
 
-**Callers with no session.** `sign_in`, and `password_set` with an unused set-up code, are the only operations a caller with no sign-in may call. Both are the person's: an agent sign-in is answered `not_allowed`. Beside them, [host](../host/CONTEXT.md) serves the screen's own files to anyone. Everything else answers `not_signed_in`.
+**Callers with no session.** `sign_in` and `password_set` are the only operations a caller with no sign-in may call. For such a caller `password_set` sets a password only with an unused set-up code. With any other code, or with none, it is answered as the paragraphs above say, never `not_signed_in`. Both operations are the person's: an agent sign-in is answered `not_allowed`. Beside them, [host](../host/CONTEXT.md) serves the screen's own files to anyone. Every other operation answers `not_signed_in`.
 
 **How each sign-in is kept.** The password is kept as a slow hash: scrypt from the runtime's built-in `node:crypto`, with N=32768, r=8, p=3, a 16-byte random salt and a 32-byte result. That is one of the settings OWASP lists for scrypt, and it needs about 32 MB of memory. The settings are stored with the hash, so the cost can change later. A password is 16 to 1,024 characters (16 is a proposal). A session and an agent token are each 32 random bytes from the runtime's own generator, kept as a SHA-256 fingerprint, which is enough for a value that long.
 
@@ -113,5 +113,5 @@ Draft. `device_list` and `device_remove`, and the first-run walk around these op
 
 - What only a real install can show: Cloudflare's free plan allows 10 ms of processor time for a request, and the password hash costs more than that. It runs only in `sign_in` and `password_set`, and it is made before anything is written, so a request cut off there fails whole. Whether the free plan lets it finish, and what to do if it does not, is the owner's decision at the trial.
 - A passkey can be added later. It is not how the person signs in now.
-- Counted as characters divided by four, this contract with its references and working files is about 11,200 tokens, above the 8,000-token guide for one read. Without the working files it is about 4,500.
+- Counted as characters divided by four, this contract with its references and working files is about 11,300 tokens, above the 8,000-token guide for one read. Without the working files it is about 4,600.
 - Rows of sessions that have ended by themselves stay until the clean-out is written.

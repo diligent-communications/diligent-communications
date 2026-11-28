@@ -23,9 +23,19 @@ function json(status: number, answer: Answer, headers: Record<string, string> = 
   });
 }
 
+// The token a request presents, or null when it presents none. A request
+// that carries an `Authorization` header at all presents a token and is judged
+// by that header alone: `Bearer` in any case, then one token. A header that
+// cannot be read that way presents a token no install made, so the request is
+// never judged by a session cookie it also carries.
+const NO_SUCH_TOKEN = '';
+
 function bearer(request: Request): string | null {
-  const match = /^Bearer ([^\s]+)$/.exec(request.headers.get('authorization') ?? '');
-  return match?.[1] ?? null;
+  const header = request.headers.get('authorization');
+  if (header === null) {
+    return null;
+  }
+  return /^Bearer ([^\s]+)$/i.exec(header)?.[1] ?? NO_SUCH_TOKEN;
 }
 
 function sessionCookie(request: Request): string | null {

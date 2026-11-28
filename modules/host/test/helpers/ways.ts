@@ -1,6 +1,6 @@
 // The three ways in, as a test uses them. Each one goes through the real
 // thing: the screen's own request code, the command line's own program, and a
-// real client of the agent protocol.
+// real client of the agent protocol, in either of the protocol's two forms.
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { isAnswer } from '../../../../contracts/operation.ts';
 import type { Answer } from '../../../../contracts/operation.ts';
@@ -147,14 +147,56 @@ export type AgentConnection = Way & {
   close(): Promise<void>;
 };
 
+// The agent protocol has two forms, and the pinned handler runs each on its
+// own path. The older one begins with a handshake. In the newer one, protocol
+// revision 2026-07-28, every request says which revision it is in, in its
+// body and in its headers. The pinned client speaks the older form unless it
+// is told to use the newer.
+export type Form = 'older' | 'newer';
+export const NEWER_FORM = '2026-07-28';
+const ENVELOPE = {
+  'io.modelcontextprotocol/protocolVersion': NEWER_FORM,
+  'io.modelcontextprotocol/clientInfo': { name: 'test-agent', version: '1' },
+  'io.modelcontextprotocol/clientCapabilities': {},
+};
+
+// A real client of the agent protocol that speaks one form and no other.
+export function agentClient(form: Form): Client {
+  return new Client({ name: 'test-agent', version: '1' }, form === 'newer' ? { versionNegotiation: { mode: { pin: NEWER_FORM } } } : {});
+}
+
+// One tool call in the newer form, built by hand: the body and the headers
+// that go with it.
+export function newerCall(id: number, name: string, input: Input): { body: string; headers: Record<string, string> } {
+  return {
+    body: JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: input, _meta: ENVELOPE } }),
+    headers: { 'mcp-protocol-version': NEWER_FORM, 'mcp-method': 'tools/call', 'mcp-name': name },
+  };
+}
+
+// Whether a request is in the newer form: its body and its headers both say so.
+export function isNewerForm(sent: { body: string; headers: Record<string, string> }): boolean {
+  const body = JSON.parse(sent.body) as { params?: { _meta?: Record<string, unknown> } };
+  const inBody = body.params?._meta?.['io.modelcontextprotocol/protocolVersion'] === NEWER_FORM;
+  const inHeaders = sent.headers['mcp-protocol-version'] === NEWER_FORM && sent.headers['mcp-method'] !== undefined;
+  if (inBody !== inHeaders) {
+    throw new Error('The request is half in one form and half in the other.');
+  }
+  return inBody;
+}
+
 // The agent connection: a real client of the agent protocol, presenting the
 // agent's token on every request.
-export async function agentConnection(install: Reachable, token: string): Promise<AgentConnection> {
-  const client = new Client({ name: 'test-agent', version: '1' });
+export async function agentConnection(install: Reachable, token: string, form: Form = 'older'): Promise<AgentConnection> {
+  const client = agentClient(form);
   const transport = new StreamableHTTPClientTransport(new URL(AGENT_CONNECTION_PATH, install.origin), {
     authProvider: { token: async () => token },
   });
   await client.connect(transport);
+  if ((client.getNegotiatedProtocolVersion() === NEWER_FORM) !== (form === 'newer')) {
+    await client.close();
+    throw new Error(`The client did not connect in the ${form} form.`);
+  }
   return {
     async call(operation, input = {}) {
       const result = await client.callTool({ name: operation, arguments: withRequestId(operation, input) });
