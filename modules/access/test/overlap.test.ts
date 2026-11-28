@@ -277,3 +277,33 @@ test('a right password that lands late signs in, and does not clear a lock that 
   assert.equal(next.answer.result, 'locked_out');
   assert.equal(next.answer.until, locking.answer.until);
 });
+
+test('of many tries sent at once, the password is read and checked for only as many as are allowed', async () => {
+  const setup = await setUp();
+  await firstPassword(setup, madeUp('password'));
+  // The same parts, over a store that counts how often the stored password
+  // is read. It is read once for each try that is checked.
+  let checked = 0;
+  const counting: Store = {
+    rows: (sql, ...values) => {
+      if (sql.includes('FROM access_password')) {
+        checked += 1;
+      }
+      return setup.store.rows(sql, ...values);
+    },
+    land: (writes) => setup.store.land(writes),
+    landOne: (write) => setup.store.landOne(write),
+  };
+  const access = openAccess({ store: counting, setupCode: setup.code });
+  const door = openDoor({ store: counting, work: { ...access.work, ...storeWork(counting) } });
+
+  const sent = WRONG_TRIES * 4;
+  const answers = await Promise.all(Array.from({ length: sent }, () => door.run(nobody, 'sign_in', { password: madeUp('guess') })));
+  assert.equal(checked, WRONG_TRIES);
+  assert.equal(answers.filter((ran) => ran.answer.result === 'wrong_password').length, WRONG_TRIES - 1);
+  assert.equal(answers.filter((ran) => ran.answer.result === 'locked_out').length, sent - WRONG_TRIES + 1);
+
+  // A try made during the lock is not checked either.
+  await door.run(nobody, 'sign_in', { password: madeUp('guess') });
+  assert.equal(checked, WRONG_TRIES);
+});

@@ -93,7 +93,7 @@ The lock stops new sign-ins only: a device that is already signed in keeps worki
 | A reset by set-up code signs the calling device in, even while the password is locked | "with the password locked, a reset by set-up code still gets the person in" |
 | Without a code, `password_set` needs the session and the current password | "once a password exists" and "changing the password while signed in" |
 | Wrong tries lock the password, the lock ends by itself, and a signed-in device keeps working | "a wrong password is refused" and "a wrong current password counts toward the lock" |
-| Tries sent at once cannot get past the lock, each raises the count by one, and one lock leaves one line | "wrong tries sent all at once cannot get past the lock", "each wrong try raises the count by one", "wrong current passwords sent all at once" |
+| Tries sent at once cannot get past the lock, each raises the count by one, and one lock leaves one line | "wrong tries sent all at once cannot get past the lock", "each wrong try raises the count by one", "wrong current passwords sent all at once", and `test/overlap.test.ts`: "of many tries sent at once, the password is read and checked for only as many as are allowed" |
 | A late answer never clears or shortens a lock another try started | `test/overlap.test.ts`: "a right password that lands late signs in, and does not clear a lock" |
 | A sign-in that was checking the old password while it was changed or reset starts no session | `test/overlap.test.ts`: the two tests that begin "a sign-in that was checking the old password" |
 | A password change whose session ended, or whose password was replaced, while it was in flight writes nothing | `test/overlap.test.ts`: the three tests about a password change |
@@ -113,5 +113,5 @@ Draft. `device_list` and `device_remove`, and the first-run walk around these op
 
 - What only a real install can show: Cloudflare's free plan allows 10 ms of processor time for a request, and the password hash costs more than that. It runs only in `sign_in` and `password_set`, and it is made before anything is written, so a request cut off there fails whole. Whether the free plan lets it finish, and what to do if it does not, is the owner's decision at the trial.
 - A passkey can be added later. It is not how the person signs in now.
-- Counted as characters divided by four, this contract with its references and working files is about 11,100 tokens, above the 8,000-token guide for one read. Without the working files it is about 4,400.
+- Counted as characters divided by four, this contract with its references and working files is about 11,200 tokens, above the 8,000-token guide for one read. Without the working files it is about 4,500.
 - Rows of sessions that have ended by themselves stay until the clean-out is written.
