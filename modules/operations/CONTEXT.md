@@ -82,5 +82,5 @@ Draft. The operations of the parts that are not built yet join the list with the
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 8,600 tokens, just above the 8,000-token guide for one read, because it reads the access and store contracts whole.
+- Counted as characters divided by four, this contract with its references and working files is about 14,300 tokens, above the 8,000-token guide for one read, because it reads the contracts of the five parts whose operations it lists whole.
 - A kept answer is kept for 30 days in the plan. Nothing removes one yet: see [store](../store/CONTEXT.md).

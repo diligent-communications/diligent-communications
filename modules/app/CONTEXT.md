@@ -69,5 +69,6 @@ Draft. The freshness lines at the top of the Brief, opening the original message
 
 ### Open
 
+- Counted as characters divided by four, this contract with its references and working files is about 23,700 tokens, far above the 8,000-token guide for one read, because the screen's own files are large. Without them it is about 7,600.
 - No test runs the page in a browser. The tests send the request the page's script builds, read the page's HTML and script, and call the script's own functions. What a person sees, the 44-pixel controls, the sheet, Undo, the edits in place and the move were looked at in a browser at phone width, not tested.
 - To look at the screen with the made-up Brief: `node modules/app/test/look.ts` starts a local install that only this PC can reach, with a new password printed for that run. It stops with Ctrl+C, or by itself after an hour.

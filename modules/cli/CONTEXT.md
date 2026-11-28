@@ -68,6 +68,6 @@ Draft. The local bridge an agent can start, `diligent mcp`, is not written. The 
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 8,700 tokens, just above the 8,000-token guide for one read, because it reads the host contract whole.
+- Counted as characters divided by four, this contract with its references and working files is about 10,000 tokens, above the 8,000-token guide for one read, because it reads the host contract whole.
 - On Windows the session file is protected by the PC account's own folder, not by a rule on the file.
 - Typing a secret at a keyboard without it being shown is not covered by a test, because a test has no keyboard. The piped line is.

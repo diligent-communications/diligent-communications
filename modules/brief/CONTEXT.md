@@ -78,7 +78,7 @@ Operations, from the [operations table](../../map/target.md#operations):
 | Each field edited in place changes, adds a history line and is recorded as set by the person | "each field edited in place" |
 | A field given its own value changes nothing, and a bad value is refused | "several fields change in one edit" |
 | A change on a stale copy answers `changed_since` | "a change made on a stale copy" |
-| Changes sent at once never both land on the same copy | "two changes to one matter sent at once" |
+| A change read before another landed is made on the matter as it is now: a state change is never lost, and an edit on the old version answers `changed_since` | `test/overlap.test.ts`: the first two tests, which hold one change just before it lands while another lands. "two changes to one matter sent at once" sends them together |
 | Every change by an agent answers `not_allowed` and is recorded under the agent ([rule 4](../../map/target.md#rules-every-part-keeps)) | "every change by an agent" |
 | Every change by the person leaves one record under the person, on its matter | "each change by the person leaves one record" |
 | Moving a message works, adds a line on both matters, deletes nothing, and refuses a bad move; one message moved twice at once is moved once | [links](../links/CONTEXT.md)' `test/links.test.ts`: the three tests about moving |
@@ -91,5 +91,6 @@ Draft. Sorting creates and updates matters from messages in slice 3, under the [
 
 ### Open
 
+- A change is dated when its call began, as the [door](../operations/CONTEXT.md) gives the time once per call. A change that waited behind another and was made on its second pass can carry an earlier time than the change that landed first, so the history can list the two in the other order.
 - A matter has no time of last activity yet, so "waited longest" is "made earliest". Whether a later message moves a matter is settled with sorting.
-- Counted as characters divided by four, this contract with its references and working files is about 9,500 tokens, above the 8,000-token guide for one read. Without the working files it is about 4,300.
+- Counted as characters divided by four, this contract with its references and working files is about 12,300 tokens, above the 8,000-token guide for one read. Without the working files it is about 6,800.
