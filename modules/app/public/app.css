@@ -1,0 +1,159 @@
+/*
+ * The look starts from GitHub's Primer design tokens. The values below are
+ * copied from @primer/primitives 11.10.0, which is MIT licensed. Its licence
+ * notice is in LICENSE-PRIMER in this part's folder. Nothing here is styled
+ * beyond the tokens.
+ */
+:root {
+  color-scheme: light dark;
+
+  --base-size-4: 0.25rem;
+  --base-size-8: 0.5rem;
+  --base-size-12: 0.75rem;
+  --base-size-16: 1rem;
+  --base-size-24: 1.5rem;
+  --base-text-size-xs: 0.75rem;
+  --base-text-size-sm: 0.875rem;
+  --base-text-size-md: 1rem;
+  --base-text-size-lg: 1.25rem;
+  --base-text-lineHeight-normal: 1.5;
+  --base-text-weight-semibold: 600;
+  --borderRadius-medium: 0.375rem;
+  --borderWidth-thin: 0.0625rem;
+  --control-medium-size: 2rem;
+  --breakpoint-medium: 48rem;
+  --fontStack-system: "Mona Sans VF", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Backtick Fix", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --fontStack-monospace: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+
+  --fgColor-default: #1f2328;
+  --fgColor-muted: #59636e;
+  --fgColor-accent: #0969da;
+  --fgColor-onEmphasis: #ffffff;
+  --bgColor-default: #ffffff;
+  --bgColor-muted: #f6f8fa;
+  --bgColor-accent-emphasis: #0969da;
+  --borderColor-default: #d1d9e0;
+  --borderColor-accent-emphasis: #0969da;
+  --control-bgColor-rest: #f6f8fa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fgColor-default: #f0f6fc;
+    --fgColor-muted: #9198a1;
+    --fgColor-accent: #4493f8;
+    --fgColor-onEmphasis: #ffffff;
+    --bgColor-default: #0d1117;
+    --bgColor-muted: #151b23;
+    --bgColor-accent-emphasis: #1f6feb;
+    --borderColor-default: #3d444d;
+    --borderColor-accent-emphasis: #1f6feb;
+    --control-bgColor-rest: #212830;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font-family: var(--fontStack-system);
+  font-size: var(--base-text-size-sm);
+  line-height: var(--base-text-lineHeight-normal);
+}
+
+main {
+  max-width: var(--breakpoint-medium);
+  margin: 0 auto;
+  padding: var(--base-size-16);
+}
+
+h1 {
+  font-size: var(--base-text-size-lg);
+  font-weight: var(--base-text-weight-semibold);
+}
+
+h2 {
+  font-size: var(--base-text-size-md);
+  font-weight: var(--base-text-weight-semibold);
+  margin: var(--base-size-24) 0 var(--base-size-8);
+}
+
+h3 {
+  font-size: var(--base-text-size-sm);
+  font-weight: var(--base-text-weight-semibold);
+  margin: 0 0 var(--base-size-8);
+}
+
+.muted {
+  color: var(--fgColor-muted);
+}
+
+form {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  padding: var(--base-size-12);
+  margin-bottom: var(--base-size-12);
+}
+
+label {
+  display: block;
+  margin-bottom: var(--base-size-8);
+}
+
+input,
+select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--control-medium-size);
+  margin-top: var(--base-size-4);
+  padding: 0 var(--base-size-8);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font: inherit;
+}
+
+button {
+  min-height: var(--control-medium-size);
+  padding: 0 var(--base-size-12);
+  border: var(--borderWidth-thin) solid var(--borderColor-accent-emphasis);
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font: inherit;
+  font-weight: var(--base-text-weight-semibold);
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: calc(var(--borderWidth-thin) * 2) solid var(--borderColor-accent-emphasis);
+  outline-offset: calc(var(--borderWidth-thin) * 2);
+}
+
+output {
+  display: block;
+  margin-top: var(--base-size-8);
+}
+
+output:empty {
+  display: none;
+}
+
+output strong {
+  font-family: var(--fontStack-monospace);
+}
+
+output pre {
+  overflow-x: auto;
+  margin: var(--base-size-8) 0 0;
+  padding: var(--base-size-8);
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-muted);
+  font-family: var(--fontStack-monospace);
+  font-size: var(--base-text-size-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

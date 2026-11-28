@@ -5,12 +5,24 @@
   "engines": {
     "node": ">=24.12.0"
   },
+  "bin": {
+    "diligent": "modules/cli/src/bin.ts"
+  },
   "scripts": {
+    "pretest": "node -e \"if (require('node:fs').globSync('{modules/*,contracts}/test/**/*.test.ts').length === 0) { console.error('No test files were found, so nothing was tested.'); process.exit(1) }\"",
     "test": "node --test \"modules/*/test/**/*.test.ts\" \"contracts/test/**/*.test.ts\"",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "diligent": "node modules/cli/src/bin.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "agents": "0.34.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261127.1",
+    "@modelcontextprotocol/client": "2.4.0",
     "@types/node": "24.19.4",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "wrangler": "4.169.0"
   }
 }

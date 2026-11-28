@@ -1,1 +1,8 @@
 node_modules/
+
+# Cloudflare's local folder: the local database file and build output.
+.wrangler/
+
+# Cloudflare's local secrets files. The set-up code goes in .dev.vars.
+.dev.vars*
+.env*

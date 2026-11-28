@@ -38,6 +38,23 @@ class MapValidationTests(unittest.TestCase):
         for folder in FOLDERS:
             shutil.copytree(ROOT / folder, root / folder)
 
+    def stub_contracts(self, root):
+        """Put every part's contract in a temporary copy back to its stub form.
+
+        A test that needs a workspace with no reads between parts calls this, so
+        it does not depend on which parts have a written contract. It only ever
+        rewrites the copy: the real workspace is refused.
+        """
+        self.assertNotEqual(root.resolve(), ROOT)
+        for path in sorted((root / "modules").glob("*/CONTEXT.md")):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            step = next(line for line in lines if line.startswith("build_step:"))
+            title = next(line for line in lines if line.startswith("# "))
+            path.write_text(
+                f"---\n{step}\nstatus: draft\nconsumes: []\nproduces: []\n---\n{title}\n",
+                encoding="utf-8",
+            )
+
     def rejects(self, module, original, replacement, message):
         relative = Path("modules") / module / "CONTEXT.md"
         contract = (ROOT / relative).read_text(encoding="utf-8")
@@ -147,6 +164,7 @@ class MapValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             self.copy_workspace(root)
+            self.stub_contracts(root)
             page = root / "modules" / "app" / "inner.md"
             page.write_text("Draft.\n\nSee [store](../store/CONTEXT.md).\n", encoding="utf-8")
             path = root / "modules" / "app" / "CONTEXT.md"
@@ -177,6 +195,7 @@ class MapValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             self.copy_workspace(root)
+            self.stub_contracts(root)
             script = [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py")]
             result = subprocess.run(script, capture_output=True, text=True, encoding="utf-8")
             self.assertEqual(result.returncode, 0, result.stderr)

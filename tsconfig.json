@@ -8,7 +8,8 @@
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
-    "types": ["node"]
+    "skipLibCheck": true,
+    "types": ["node", "@cloudflare/workers-types"]
   },
-  "include": ["modules/**/*.ts", "contracts/**/*.ts"]
+  "include": ["modules/**/*.ts", "contracts/**/*.ts", "worker-configuration.d.ts"]
 }

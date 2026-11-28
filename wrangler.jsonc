@@ -1,0 +1,21 @@
+// Cloudflare's settings file for the one program in this repository.
+// The database is the only binding. On a PC it is one local file.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "diligent",
+  "main": "modules/host/src/worker.ts",
+  "compatibility_date": "2026-11-27",
+  "send_metrics": false,
+  "assets": {
+    "directory": "modules/app/public"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "diligent"
+    }
+  ],
+  "secrets": {
+    "required": ["SETUP_CODE"]
+  }
+}
