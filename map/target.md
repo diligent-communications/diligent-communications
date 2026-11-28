@@ -16,7 +16,7 @@ The [generated map](README.md) points toward the contract a part reads. The pict
 - **D1.** Cloudflare's database. On a PC it is one local file.
 - **MCP.** The open standard agents use to connect to a tool.
 - **Token.** A long secret an agent or the command line shows to prove who it is.
-- **Passkey.** A proposed way to sign in with the phone's fingerprint, face or PIN, and no password. How the person signs in on a phone is still open.
+- **Password.** The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. It is not how the person signs in now.
 
 ## The picture
 
@@ -85,7 +85,7 @@ operations writes its activity rows through store, because only store talks to t
 
 **host.** The running program. It takes each request, sends it to the right place, and runs the schedule. It owns the routes and the timer. It makes no decisions.
 
-**access.** Who is calling. Two kinds of sign-in: the person's, and one per agent (a token with a level, which the person creates and can switch off). It owns sign-ins to Diligent and the list of agents. It never holds a Google sign-in. How the person signs in on a phone is still open; a passkey is proposed.
+**access.** Who is calling. Two kinds of sign-in: the person's, and one per agent (a token with a level, which the person creates and can switch off). The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. It owns sign-ins to Diligent and the list of agents. It never holds a Google sign-in.
 
 **operations.** The one door. It owns the level check, makes repeats safe, and writes the record of who did what. Every part's work is reached through it. It never contains the work itself. The list of operations is the tables below, and the same tables in the part contracts.
 
@@ -178,7 +178,7 @@ Levels: **Read** (see everything), **Prepare** (Read, plus sort and prepare), **
 | sources | `text_add`, `call_add` | The phone app or a file brings in a text or a transcript | Phone or You | `added`, `already_have` |
 | sorting | `sort_status` | Per account: last check, waiting, held, last complete sort, last attempt | Read | `status` |
 | sorting | `sort_start` | Open a sort run, or pick up the caller's own open run | Prepare | `started`, `resumed`, `run_open_elsewhere`, `nothing_waiting` |
-| sorting | `sort_next` | The next few messages to sort. `full` passes the words. `reference` passes only the IDs. Whether an agent is handed a mail's words or only its IDs is still open | Prepare | `messages`, `none_left`, `run_ended` |
+| sorting | `sort_next` | The next few messages to sort. `full` passes the words. `reference` passes only the IDs. Both levels are part of the seam. Use starts at `full` | Prepare | `messages`, `none_left`, `run_ended` |
 | sorting | `sort_record` | Record one message's outcome, with the matter change if it is linked | Prepare | `recorded`, `not_in_run`, `unknown_matter`, `owner_field`, `too_long` |
 | sorting | `sort_finish` | Close the run and return its receipt | Prepare | `receipt` |
 | sorting | `sort_stop` | Stop a run | You, or the agent that owns the run | `receipt` |
@@ -188,7 +188,7 @@ Levels: **Read** (see everything), **Prepare** (Read, plus sort and prepare), **
 | brief | `matter_get` | One matter with its sources, person and history | Read | `matter`, `unknown_matter` |
 | brief | `matter_search` | Find matters, including closed ones | Read | `found` |
 | brief | `matter_edit` | Change title, notes, due date, kind or lane | You | `changed` |
-| brief | `matter_set_state` | Done, Waiting, snooze, dismiss or reopen. Whether an agent may close a finished matter is still open | You | `changed`, `already_so` |
+| brief | `matter_set_state` | Done, Waiting, snooze, dismiss or reopen. Prepare may set `done` when a message being sorted shows the matter is finished. Every other state change stays the person's. The person reopens it with one tap | You, and Prepare for that done | `changed`, `already_so` |
 | links | `link_move_message` | Move a message from one matter to another | You | `moved`, `same_matter` |
 | links | `link_accept_person`, `link_remove_person` | Accept or remove a person on a matter | You | `accepted`, `removed` |
 | links | `matter_merge`, `matter_split` | Join two matters, or part one | You | `merged`, `split` |
@@ -207,12 +207,12 @@ Signing in to Google happens on Google's own page in a browser. That step cannot
 ## Rules that belong to one part
 
 - **sorting.** A source message has one current outcome, and its earlier outcomes stay in its history. One sort run is open at a time. A run with no activity for 30 minutes is treated as stopped. A run's receipt never changes once given. "Last complete sort" for an account moves only when a run ends with nothing left waiting for that account. A message that vanished before it was sorted is recorded as no action, reason "gone before sorting", by Diligent. A run is tied to the connection it began with. The receipt says `complete` only when every listed message is accounted for.
-- **brief.** A matter's ID never changes and is never reused. Every change adds a history line. A new linked message reopens a done matter. A dismissed matter is reopened only by the person.
+- **brief.** A matter's ID never changes and is never reused. Every change adds a history line. A new linked message reopens a done matter. A dismissed matter is reopened only by the person. An agent at Prepare may set `done` when a message being sorted shows the matter is finished, and the history names that agent. Every other state change stays the person's. The person reopens a done matter with one tap. Lines marked Waiting stay visible under a Waiting filter, and details are edited in place. Remembered columns and layout wait for the PC table view.
 - **links.** A message-to-matter link made by sorting is in force at once. A person link proposed by an agent shows as unconfirmed until the person accepts it. A name in a message is not a verified contact.
-- **sources.** A message is identified by its kind, Diligent's own ID for the account, and the provider's own message ID. Reconnecting the same Google account keeps the same account ID. Mail is read from the provider's mail address only. A mailbox that cannot be read is not reachable.
+- **sources.** A message is identified by its kind, Diligent's own ID for the account, and the provider's own message ID. Reconnecting the same Google account keeps the same account ID. Mail is read from the provider's mail address only. A mailbox that cannot be read is not reachable. A newly connected mailbox is sorted back 14 days.
 - **connections.** The lasting states are `connected` and `needs-sign-in`. A sign-in that Google rejects becomes `needs-sign-in` and stays so until the person signs in again. A network failure changes nothing. Mail is read over HTTPS from the provider's mail address only, and a redirect elsewhere is refused. A failure has one name.
 - **effects.** An accepted action is carried out at most once. An unknown outcome is checked with the provider before any retry. An event that invites or notifies someone shows who gets notified before the tap.
-- **access.** A token is shown once and kept only as a fingerprint. An agent that is switched off is refused at once.
+- **access.** The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. A token is shown once and kept only as a fingerprint. An agent that is switched off is refused at once.
 
 ## Shared shapes
 
@@ -272,10 +272,10 @@ On 2026-11-24 Google published the [Workspace AI Tools Addendum](https://workspa
 
 As designed, Diligent reads Gmail through that REST interface. `sort_next` can hand an agent each message at one of two levels:
 
-- **`full`.** Diligent reads the mail from Gmail and passes the words through. This is the design as confirmed.
+- **`full`.** Diligent reads the mail from Gmail and passes the words through. Use starts at `full`.
 - **`reference`.** Diligent passes only the message's IDs. The agent reads the mail through Google's own connection, which Google offers for Gmail ([set-up guide](https://developers.google.com/workspace/guides/configure-mcp-servers)), and records the outcome in Diligent as before.
 
-Whether an agent is handed a mail's words or only its IDs is still open.
+Both levels are part of the seam.
 
 In `reference`, no request to Google is ever made because an agent asked. The Brief, the outcomes, the receipts and the screen are the same either way. The cost of `reference` is set-up: each agent also needs Google's connection for each mailbox, and Google's free tier allows 5,000 such requests a day per project.
 

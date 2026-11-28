@@ -12,9 +12,7 @@ One job: say who is calling, and at what level.
 
 ## What it owns
 
-Sign-ins to this install, and the list of agents. Two kinds of sign-in: the person's, and one token per agent. The person creates a token and can switch it off. A token is shown once and then kept only as a fingerprint.
-
-How the person signs in on a phone is still open; a passkey is proposed.
+Sign-ins to this install, and the list of agents. Two kinds of sign-in: the person's, and one token per agent. The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. It is not this sign-in. The person creates an agent token and can switch it off. A token is shown once and then kept only as a fingerprint.
 
 ## What it never does
 
@@ -36,8 +34,9 @@ An agent that is switched off is refused at once, as `switched_off` from the [do
 ## Hard rules
 
 1. A token is shown once. What is stored is a fingerprint, not the token.
-2. This part never holds a Google sign-in. That stays in connections.
-3. Switching an agent off refuses its next call. It does not erase matters.
+2. The person's password is stored only as a hash. Wrong tries are locked out. It is typed once per device.
+3. This part never holds a Google sign-in. That stays in connections.
+4. Switching an agent off refuses its next call. It does not erase matters.
 
 ## Inputs
 
@@ -57,4 +56,4 @@ An agent that is switched off is refused at once, as `switched_off` from the [do
 
 ## Check
 
-When this part's code is written, a contributor creates an agent, sees the token once, and a later read does not return the token. An agent that is switched off is refused on the next call.
+When this part's code is written, a contributor creates an agent, sees the token once, and a later read does not return the token. A later read does not return the person's password, only a check against the hash. Wrong tries lock out. An agent that is switched off is refused on the next call.

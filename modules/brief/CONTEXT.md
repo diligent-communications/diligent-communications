@@ -26,16 +26,15 @@ It never reads mail and never stores a mail body. It never calls a model. It nev
 | `matter_get` | One matter with its sources, person and history | Read | `matter`, `unknown_matter` |
 | `matter_search` | Find matters, including closed ones | Read | `found` |
 | `matter_edit` | Change title, notes, due date, kind or lane | You | `changed` |
-| `matter_set_state` | Done, Waiting, snooze, dismiss or reopen | You | `changed`, `already_so` |
-
-Whether an agent may close a finished matter is still open.
+| `matter_set_state` | Done, Waiting, snooze, dismiss or reopen. Prepare may set `done` when a message being sorted shows the matter is finished | You, and Prepare for that done | `changed`, `already_so` |
 
 ## Hard rules
 
 1. A matter's ID never changes and is never reused.
 2. Every change adds a history line, including who did it.
-3. A new linked message reopens a done matter. A dismissed matter is reopened only by the person.
-4. A field the person has edited is not overwritten by an agent. The field list is `set_by_you` on the [matter](../../contracts/CONTEXT.md#matter) shape.
+3. A new linked message reopens a done matter. A dismissed matter is reopened only by the person. The person reopens a done matter with one tap.
+4. An agent at Prepare may set `done` only in that sorting case. The history line names the agent. Waiting, snooze, dismiss and every other state change stay the person's.
+5. A field the person has edited is not overwritten by an agent. The field list is `set_by_you` on the [matter](../../contracts/CONTEXT.md#matter) shape.
 
 ## Inputs
 

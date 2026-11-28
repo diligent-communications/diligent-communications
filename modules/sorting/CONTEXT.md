@@ -32,7 +32,7 @@ It never calls a model. It never stores a mail body. It never sends anything. It
 | `held_list` | See held messages | Read | `listed` |
 | `held_release` | Send one held message back to be sorted | You | `released` |
 
-`sort_next` hands each message at one of two levels, a setting. `full` means this install reads the mail and passes the words through. `reference` means it passes only the message's IDs, and the agent reads the mail through Google's own connection. Whether an agent is handed a mail's words or only its IDs is still open.
+`sort_next` hands each message at one of two levels, and both are part of this seam. `full` means this install reads the mail and passes the words through. `reference` means it passes only the message's IDs, and the agent reads the mail through Google's own connection. Use starts at `full`.
 
 `too_long` means a quote or a summary is over the limit on the shared shapes. `owner_field` means the person has edited that field.
 
