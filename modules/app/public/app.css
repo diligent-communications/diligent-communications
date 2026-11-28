@@ -840,6 +840,11 @@ h3 {
   gap: var(--base-size-8);
 }
 
+/* A found matter's state, kind and lane stand apart by the gap alone. */
+.found .meta > span::after {
+  content: none;
+}
+
 /* Settings: the forms of the first slice, as they were. */
 
 [data-view="settings"] {
