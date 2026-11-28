@@ -6,74 +6,82 @@ Every arrow points toward the folder being read. The **Writes to** column below 
 
 All modules may read the [shared shapes](../contracts/CONTEXT.md). Each module contract links the shapes it needs.
 
-See the [target map](target.md) for how the finished application will work.
+See the [target map](target.md) for how the finished application will work. That picture points along a call. This map points toward the contract a part reads.
 
 ```mermaid
 flowchart TD
-    folder1["modules/app"]
-    folder2["modules/archive"]
-    folder3["modules/attachments"]
+    folder1["guides"]
+    folder2["modules/access"]
+    folder3["modules/app"]
     folder4["modules/brief"]
-    folder5["modules/calendar"]
-    folder6["modules/capture"]
-    folder7["modules/commands"]
-    folder8["modules/connections"]
-    folder9["modules/contacts"]
-    folder10["modules/effects"]
-    folder11["modules/mcp"]
-    folder12["modules/queries"]
-    folder13["modules/setup"]
-    folder14["modules/state"]
-    folder1 --> folder12
-    folder1 --> folder7
-    folder10 --> folder14
+    folder5["modules/cli"]
+    folder6["modules/connections"]
+    folder7["modules/effects"]
+    folder8["modules/host"]
+    folder9["modules/links"]
+    folder10["modules/mcp"]
+    folder11["modules/operations"]
+    folder12["modules/people"]
+    folder13["modules/plans"]
+    folder14["modules/sorting"]
+    folder15["modules/sources"]
+    folder16["modules/store"]
+    folder1 --> folder14
+    folder10 --> folder11
     folder10 --> folder8
-    folder11 --> folder12
-    folder11 --> folder7
-    folder12 --> folder10
-    folder12 --> folder14
-    folder12 --> folder2
-    folder12 --> folder3
-    folder12 --> folder4
-    folder12 --> folder5
+    folder11 --> folder16
+    folder12 --> folder11
+    folder12 --> folder16
     folder12 --> folder6
-    folder12 --> folder8
     folder12 --> folder9
-    folder13 --> folder12
-    folder13 --> folder7
-    folder2 --> folder8
-    folder3 --> folder2
+    folder13 --> folder11
+    folder13 --> folder16
+    folder13 --> folder9
+    folder14 --> folder11
+    folder14 --> folder15
+    folder14 --> folder16
+    folder14 --> folder4
+    folder14 --> folder9
+    folder15 --> folder11
+    folder15 --> folder16
+    folder15 --> folder6
+    folder2 --> folder11
+    folder2 --> folder16
+    folder3 --> folder1
+    folder3 --> folder11
+    folder3 --> folder8
+    folder4 --> folder11
     folder4 --> folder14
-    folder4 --> folder2
-    folder5 --> folder14
-    folder5 --> folder2
-    folder6 --> folder8
-    folder7 --> folder10
-    folder7 --> folder14
-    folder7 --> folder2
-    folder7 --> folder3
-    folder7 --> folder4
-    folder7 --> folder5
+    folder4 --> folder16
+    folder4 --> folder9
+    folder5 --> folder11
+    folder5 --> folder8
+    folder6 --> folder11
+    folder6 --> folder16
+    folder7 --> folder11
+    folder7 --> folder16
     folder7 --> folder6
-    folder7 --> folder8
-    folder7 --> folder9
-    folder9 --> folder14
-    folder9 --> folder2
+    folder8 --> folder11
+    folder8 --> folder2
+    folder9 --> folder11
+    folder9 --> folder16
 ```
 
 | Folder contract | Build step | Contract status | Outputs | Writes to |
 | --- | --- | --- | --- | --- |
-| [modules/app](../modules/app/CONTEXT.md) | 2 (proposed) | Draft | Application screens | — |
-| [modules/archive](../modules/archive/CONTEXT.md) | 1 (decided)<br>Storage: 4 (proposed, draft) | Step 1 complete, later lanes draft | Readable originals, Readable saved decisions and receipts, Versioned manifest, Backups and restored records, Evidence folder access, Backup list for commands, Restore preview for commands, Restored decisions and receipts for commands | — |
-| [modules/attachments](../modules/attachments/CONTEXT.md) | 3 (proposed) | Draft | Attachment previews, Attachment export | — |
-| [modules/brief](../modules/brief/CONTEXT.md) | 2 (proposed) | Draft | Source-linked Brief | [state](../modules/state/CONTEXT.md) |
-| [modules/calendar](../modules/calendar/CONTEXT.md) | 4 (proposed) | Draft | Proposed events, Booked event views | [state](../modules/state/CONTEXT.md) |
-| [modules/capture](../modules/capture/CONTEXT.md) | 1 (decided)<br>Mail: 1 (decided), Text: 3 (proposed, draft), Calls: 4 (proposed, draft), Import: 3 (proposed, draft) | Step 1 complete, later lanes draft | Captured records with stable source IDs, Capture outcome for commands | [archive](../modules/archive/CONTEXT.md) |
-| [modules/commands](../modules/commands/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Write command catalog, Write previews, Command receipts, Backup list for setup, Capture and restore progress for state, Restored decisions and receipts for state | [archive](../modules/archive/CONTEXT.md), [capture](../modules/capture/CONTEXT.md), [connections](../modules/connections/CONTEXT.md), [state](../modules/state/CONTEXT.md), [brief](../modules/brief/CONTEXT.md), [effects](../modules/effects/CONTEXT.md) |
-| [modules/connections](../modules/connections/CONTEXT.md) | 1 (decided) | Complete | Account connection status, Authorized connection access | — |
-| [modules/contacts](../modules/contacts/CONTEXT.md) | 3 (proposed) | Draft | Contact links, Contact views | [state](../modules/state/CONTEXT.md) |
-| [modules/effects](../modules/effects/CONTEXT.md) | 4 (proposed) | Draft | External action receipts | [state](../modules/state/CONTEXT.md) |
-| [modules/mcp](../modules/mcp/CONTEXT.md) | 3 (proposed) | Draft | Agent access to commands and queries | — |
-| [modules/queries](../modules/queries/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Query catalog, Read results | — |
-| [modules/setup](../modules/setup/CONTEXT.md) | 1 (decided) | Complete | First-run setup flow | — |
-| [modules/state](../modules/state/CONTEXT.md) | 1 (decided) to 2 (proposed) | Step 1 complete, step 2 draft | Capture and restore progress, Restored workflow state, Restore result for commands, Committed workflow state, Saved decisions and action receipts | [archive](../modules/archive/CONTEXT.md) |
+| [guides](../guides/CONTEXT.md) | — | Draft | Set-up recipes, Sorting guide | — |
+| [modules/access](../modules/access/CONTEXT.md) | 1 (draft) | Draft | Caller and level | — |
+| [modules/app](../modules/app/CONTEXT.md) | 1 (draft) | Draft | Screens and advice | — |
+| [modules/brief](../modules/brief/CONTEXT.md) | 1 (draft) | Draft | Matters | — |
+| [modules/cli](../modules/cli/CONTEXT.md) | 1 (draft) | Draft | Printed results | — |
+| [modules/connections](../modules/connections/CONTEXT.md) | 1 (draft)<br>Mail: 1 (proposed, draft), Sending: 2 (proposed, draft), Calendar and contacts: 6 (proposed, draft) | Draft | Account sign-ins | — |
+| [modules/effects](../modules/effects/CONTEXT.md) | 2 (draft)<br>Reply: 2 (proposed, draft), Text reply: 3 (proposed, draft), Events and contacts: 6 (proposed, draft) | Draft | Prepared actions | — |
+| [modules/host](../modules/host/CONTEXT.md) | 1 (draft) | Draft | Routed requests | — |
+| [modules/links](../modules/links/CONTEXT.md) | 1 (draft)<br>Projects: 5 (proposed, draft) | Draft | Links | — |
+| [modules/mcp](../modules/mcp/CONTEXT.md) | 1 (draft) | Draft | Agent tools | — |
+| [modules/operations](../modules/operations/CONTEXT.md) | 1 (draft) | Draft | Checked calls | — |
+| [modules/people](../modules/people/CONTEXT.md) | 1 (draft)<br>Name on the line: 1 (proposed, draft), The page: 5 (proposed, draft), Google Contacts: 6 (proposed, draft) | Draft | Person pages | — |
+| [modules/plans](../modules/plans/CONTEXT.md) | 5 (draft) | Draft | Projects and goals | — |
+| [modules/sorting](../modules/sorting/CONTEXT.md) | 1 (draft) | Draft | Outcomes and receipts | — |
+| [modules/sources](../modules/sources/CONTEXT.md) | 1 (draft)<br>Mail: 1 (proposed, draft), Text: 3 (proposed, draft), Calls: 4 (proposed, draft) | Draft | Source messages | — |
+| [modules/store](../modules/store/CONTEXT.md) | 1 (draft) | Draft | Stored rows | — |

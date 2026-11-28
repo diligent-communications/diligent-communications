@@ -1,69 +1,56 @@
 ---
-build_step: 1 to 2
+build_step: 1
 status: draft
-consumes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt","../attachments/CONTEXT.md","../brief/CONTEXT.md","../calendar/CONTEXT.md","../contacts/CONTEXT.md","../effects/CONTEXT.md"]
-produces: ["Write command catalog","Write previews","Command receipts","Backup list for setup","Capture and restore progress for state","Restored decisions and receipts for state"]
-writes: ["../archive/CONTEXT.md","../capture/CONTEXT.md","../connections/CONTEXT.md","../state/CONTEXT.md","../brief/CONTEXT.md","../effects/CONTEXT.md"]
+consumes: ["../store/CONTEXT.md","../../contracts/CONTEXT.md#who-did-it"]
+produces: ["Checked calls"]
 ---
-# commands — Preview and make changes
+# operations — The one door
 
-## Step 1 (complete)
+Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes the door. Later pieces add operations in the part that owns them. They do not change a shipped operation without changing its shared shape first.
 
-### Inputs
+One job: every change and every read enters here.
 
-- Working: The capture outcome from capture, the backup list, restore preview, and restored decisions and receipts from archive, and the restore result from state.
-- Reference: [archive](../archive/CONTEXT.md)
-- Reference: [capture](../capture/CONTEXT.md)
-- Reference: [connections](../connections/CONTEXT.md)
-- Reference: [state](../state/CONTEXT.md)
-- Reference: [Command list](../../contracts/CONTEXT.md#command-list)
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
-- Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
+## What it owns
 
-### Process
+The list of operations is the operations named in the other part contracts. This part owns the level check, the request ID, and the record of who did what. It writes that record through [store](../store/CONTEXT.md). It never contains the work itself.
 
-1. Use the evidence folder through archive. At setup's request, set the evidence and backup folder locations in archive, connect the mailbox through connections, and start the first mail capture through capture. Record capture progress in state from the outcome capture returns.
-2. In step 1, run setup's backup and restore requests through archive. Back up to the second folder the person picks. Run restore in the order the command list gives: list, pick, preview that backup, confirm, receipt. Return the backup list from archive to setup as the first part of the restore preview. This is the one stated exception to reads going through queries. If the evidence folder location is neither empty nor a matching retry, setup supplies a new empty folder through the set folder locations command before the preview.
-3. Read the saved decisions and receipts that archive returns and hand them to state. Record restore progress in state and complete the restore only after state reports that it accepted those records. Until then, block capture and other archive writes. Do not block a retry of that restore or setting the folder locations, so the person can always pick a new empty folder. A restore copies beside the destination and moves the copy into place only when it is complete, so a stopped copy never leaves the destination partly filled. A leftover from a stopped copy is reported and left alone.
-4. Show a preview before each write and return a command receipt afterward, as the command list defines. A command receipt is shown to the person and is not saved in the archive.
+## What it never does
 
-### Outputs
+It never calls a model, never stores a mail body, and never sends mail or changes Google. It never tells the caller what to do next.
 
-- Write command catalog
-- Write previews
-- Command receipts
-- Backup list for setup
-- Capture and restore progress for state
-- Restored decisions and receipts for state
-- Handoff: [archive](../archive/CONTEXT.md)
-- Handoff: [capture](../capture/CONTEXT.md)
-- Handoff: [connections](../connections/CONTEXT.md)
-- Handoff: [state](../state/CONTEXT.md)
+## Operations
 
-### Check
+This part adds no operation of its own. A call names an operation from a part contract. The level on that operation is the lowest level that may call it. Levels are Read, Prepare and You. Phone is a caller for the two source operations that say so. Prepare is the most an agent can hold. The same operation, the same level check and the same record are used from the screen, the command line and an agent.
 
-A contributor runs setup, mail capture, backup, and restore with synthetic data. Each write shows a preview and returns a command receipt. Setup receives the backup list as the first part of the restore preview. State receives capture and restore progress and the decisions and receipts returned by archive. Capture and other archive writes are refused until state accepts the restored records.
+A repeat carries a request ID the caller makes up. The same ID with the same input returns the same answer and changes nothing twice. The same ID with a different input returns `request_id_reused`.
 
-## Step 2 (draft)
+Any operation can also return `not_signed_in`, `not_allowed`, `switched_off`, `invalid_input`, `request_id_reused`, `changed_since` or `unavailable`.
 
-### Inputs
+Every result has a name and a plain description that names what it is about. The description says what was found. It never says what to do. The screen gives the advice.
 
-- Working: None in this planning repository.
-- Reference: [attachments](../attachments/CONTEXT.md)
-- Reference: [brief](../brief/CONTEXT.md)
-- Reference: [calendar](../calendar/CONTEXT.md)
-- Reference: [contacts](../contacts/CONTEXT.md)
-- Reference: [effects](../effects/CONTEXT.md)
+## Hard rules
 
-### Process
+1. Results say what was found, never what to do.
+2. A repeat is safe. One operation's changes land together or not at all.
+3. Not reachable, gone and empty are three different results. A part does not use one name for another.
+4. Who did it is `you`, `agent:<id>` or `diligent`, as [Who did it](../../contracts/CONTEXT.md#who-did-it) says.
 
-1. Expand the command list to the remaining working modules. Call brief for review. Record each approval in state before passing an approved external action to effects. Record changes to saved views in state as decisions.
+## Inputs
 
-### Outputs
+- Working: None yet.
+- Reference: [Store](../store/CONTEXT.md)
+- Reference: [Who did it](../../contracts/CONTEXT.md#who-did-it)
 
-- Handoff: [brief](../brief/CONTEXT.md)
-- Handoff: [effects](../effects/CONTEXT.md)
+## Process
 
-### Check
+1. Refuse a caller who is not signed in, whose level is too low, or whose agent is switched off.
+2. If the request ID was used before, return the earlier answer or `request_id_reused`.
+3. Do the named operation in the part that owns it, then record who did it.
 
-A contributor exercises each added write with synthetic data and verifies a preview before the write and a command receipt afterward.
+## Outputs
+
+- Checked calls
+
+## Check
+
+When this part's code is written, a contributor calls one operation twice with the same request ID and the same input and sees one change. A second call with the same ID and a different input returns `request_id_reused`. No result text tells the caller what to do.

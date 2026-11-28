@@ -1,31 +1,110 @@
 ---
-build_step: 3
+build_step: 1
 status: draft
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
-produces: ["Contact links","Contact views"]
-writes: ["../state/CONTEXT.md"]
+consumes: ["../operations/CONTEXT.md","../links/CONTEXT.md","../connections/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#person"]
+produces: ["Person pages"]
 ---
-# contacts — Link communications to people
+# people — A page per person
+
+Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes a name on the Brief line. Piece 5 completes the page. Piece 6 matches Google Contacts. Google Contacts stays the address book.
+
+One job: the light record of a person. No pipelines and no marketing.
+
+## What it owns
+
+Person records, as the [person](../../contracts/CONTEXT.md#person) shape says. The page shows what was said, their open matters and their projects. Those come from links, brief and plans. This part does not copy them into a second store.
+
+## What it never does
+
+It never calls a model. It never stores a mail body. It never becomes the address book. It does not treat a name found in a message as a confirmed person.
+
+## Operations
+
+| Operation | Meaning | Level | Named results |
+| --- | --- | --- | --- |
+| `person_list` | The people | Read | `listed` |
+| `person_get` | One person's page | Read | `person` |
+| `person_edit` | Change the person's record | You | `changed` |
+
+## Hard rules
+
+1. `confirmed` is `yes` only after the person accepts the link.
+2. A Google contact match, when piece 6 adds it, is done through connections. This part never holds that sign-in.
 
 ## Inputs
 
-- Working: None in this planning repository.
-- Reference: [archive](../archive/CONTEXT.md)
-- Reference: [state](../state/CONTEXT.md)
-- Reference: [Captured record](../../contracts/CONTEXT.md#captured-record)
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
+- Working: None yet.
+- Reference: [Operations](../operations/CONTEXT.md)
+- Reference: [Links](../links/CONTEXT.md)
+- Reference: [Connections](../connections/CONTEXT.md)
+- Reference: [Store](../store/CONTEXT.md)
+- Reference: [Person](../../contracts/CONTEXT.md#person)
 
 ## Process
 
-1. Link mail, texts, and calls to a person while preserving links to originals.
-2. Record merges and reversals in state. State saves both decisions to archive so contact views can be rebuilt without losing history.
+1. List or show a person from the rows this part owns.
+2. Apply an edit from the person.
 
 ## Outputs
 
-- Contact links
-- Contact views
-- Handoff: [state](../state/CONTEXT.md)
+- Person pages
 
 ## Check
 
-A contributor merges two synthetic contacts, undoes the merge, and verifies that both retain all their history.
+When piece 1's code is written, a matter line can show a name. When piece 5's code is written, the page shows that person's open matters. A name taken from a message stays unconfirmed.
+
+## Lanes
+
+### Name on the line · Piece 1 (draft)
+
+#### Inputs
+
+- Working: None yet.
+
+#### Process
+
+1. Let a matter line name a person.
+
+#### Outputs
+
+- Name on a matter
+
+#### Check
+
+Piece 1 checks that the line can show a name.
+
+### The page · Piece 5 (draft)
+
+#### Inputs
+
+- Working: None yet.
+
+#### Process
+
+1. Show the page: what was said, open matters and projects.
+
+#### Outputs
+
+- Person page
+
+#### Check
+
+Piece 5 checks `person_get`.
+
+### Google Contacts · Piece 6 (draft)
+
+#### Inputs
+
+- Working: None yet.
+
+#### Process
+
+1. Match a person to a Google contact through connections.
+
+#### Outputs
+
+- Contact match
+
+#### Check
+
+Piece 6 checks that the sign-in stays in connections.

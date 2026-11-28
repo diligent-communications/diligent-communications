@@ -1,27 +1,48 @@
 ---
-build_step: 3
+build_step: 1
 status: draft
-consumes: ["../commands/CONTEXT.md","../queries/CONTEXT.md","../../contracts/CONTEXT.md#command-list","../../contracts/CONTEXT.md#query-list"]
-produces: ["Agent access to commands and queries"]
+consumes: ["../host/CONTEXT.md","../operations/CONTEXT.md"]
+produces: ["Agent tools"]
 ---
-# mcp — Expose commands and queries to agents
+# mcp — The agent connection
+
+Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes the tools piece 1 needs. Later pieces add tools for the operations they add. A capability is finished only when it also works here.
+
+One job: the connection an outside agent uses. MCP is the open standard for that connection.
+
+## What it owns
+
+No behaviour of its own. A tool is an operation. The tool's name is the operation's name.
+
+## What it never does
+
+It never calls a model. Diligent does not start or wake the agent. This part never holds a Google sign-in and never stores a mail body. It does not add a tool the door does not name.
+
+## Operations
+
+This part adds no operation. It offers the door's operations as tools, at the agent's level. An agent holds Read or Prepare, never You.
+
+## Hard rules
+
+1. A tool name is an operation name.
+2. The agent's level is checked by the door. This part does not raise it.
+3. A tool result is the operation's named result, with no advice added.
 
 ## Inputs
 
-- Working: None in this planning repository.
-- Reference: [commands](../commands/CONTEXT.md)
-- Reference: [queries](../queries/CONTEXT.md)
-- Reference: [Command list](../../contracts/CONTEXT.md#command-list)
-- Reference: [Query list](../../contracts/CONTEXT.md#query-list)
+- Working: None yet.
+- Reference: [Host](../host/CONTEXT.md)
+- Reference: [Operations](../operations/CONTEXT.md)
 
 ## Process
 
-1. Expose commands and queries over the Model Context Protocol. Return read results, write previews, and receipts through that interface.
+1. Present each operation the agent is allowed to call as a tool.
+2. Pass the call through to the door and return the named result.
 
 ## Outputs
 
-- Agent access to commands and queries
+- Agent tools
 
 ## Check
 
-A contributor connects two different agent hosts and completes the same read and write workflow in each.
+When this part's code is written, a contributor lists the tools and finds the piece-1 operations, and no tool that sends mail.

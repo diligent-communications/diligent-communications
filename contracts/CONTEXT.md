@@ -1,122 +1,79 @@
 ---
 consumes: []
-produces: ["Versioned handoff specifications"]
+produces: ["Shared shapes"]
 ---
-# contracts — Define shared handoff shapes
+# contracts — Define the shapes parts share
 
 ## Inputs
 
-- Working: None at this stage.
+- Working: None yet.
 - Reference: None.
 
 ## Process
 
-1. Publish each shared shape here with a version. Update it before changing any module interface that uses it.
+1. Keep each shared shape here. A part links the heading it uses. It does not copy the fields.
 
 ## Outputs
 
-- Versioned handoff specifications
+- Shared shapes
 
 ## Check
 
-A contributor verifies that both sides of each handoff use the same fields and version.
+A contributor checks that both sides of a handoff use the same fields. A draft shape below has no version number until code reads it. The first code that reads it publishes version 1, and the version rule then applies.
 
 ## Version rule
 
 Each shape that has a version number has its own whole number, starting at 1. Any change to its fields raises it. A reader accepts the versions it knows and refuses a newer one with a clear message, without rewriting it. All times are UTC.
 
-## First shapes
+## Shared shapes
 
-### Captured record
+These headings are the seam. They are draft: the fields are what other parts may rely on, and the code that reads and writes them is not written yet. A quote is at most 300 characters and a summary is at most 1,200. Those two limits are proposals, not a decision by the owner.
 
-The record capture hands to archive. The archive uses the source ID to refuse repeat imports and saves the payload byte for byte.
+### Matter
 
-Version 1:
-
-| Field | Meaning |
-| --- | --- |
-| `record_version` | 1 |
-| `source_id` | 1 to 2,048 characters of valid text |
-| `payload` | The exact original bytes |
-| `source_kind` | `mail`, `text`, `call` or `import` |
-| `media_type` | File type, such as `message/rfc822` for email |
-| `captured_at` | When capture received it |
-
-A source ID is exact text: capitals, spaces and every other character count, and nothing is trimmed or folded. It is unique across the whole archive, not only within one kind of capture.
-
-In TypeScript, the payload is a `Uint8Array`. The code form and reader are in [captured-record.ts](captured-record.ts).
-
-### Archive manifest
-
-The index of everything in the evidence folder: originals, saved decisions and action receipts. It is a text file with one JSON record per line, added to only at the end.
-
-Version 1. The first line is a header: `line: "header"`, `manifest_version: 1`, `archive_id` (random, and kept through restore) and `created_at`. Each later line:
+Draft.
 
 | Field | Meaning |
 | --- | --- |
-| `line` | `"entry"` |
-| `kind` | `original`, `decision` or `receipt` |
-| `record_id` | Permanent ID, unique within its kind. For an original, derived from the source ID |
-| `record_version` | Version of the record |
-| `path` | Location inside the evidence folder, with `/` separators |
-| `size_bytes`, `sha256` | For checking the file |
-| `archived_at` | When saved |
-| `source_id`, `source_kind`, `media_type`, `captured_at` | Originals only |
+| `id`, `version` | Permanent random ID. A counter that goes up with every change. The ID never changes and is never reused |
+| `kind` | `money`, `do` or `reply` |
+| `lane` | One of the person's lanes |
+| `title`, `next_action`, `owed_by`, `summary`, `latest_update`, `timing` | What the line says. `owed_by` is the person, the other party, or a name. `summary` is at most 1,200 characters |
+| `state` | `open`, `waiting`, `snoozed` (until a date), `done` or `dismissed` |
+| `main_action` | `reply`, `schedule`, `contact` or `none` |
+| `notes`, `due` | The person's only |
+| `set_by_you` | Which fields the person has edited. An agent does not overwrite those |
 
-The archive refuses a source ID the manifest already holds.
+### Source message
 
-The code forms and readers are in [manifest-header.ts](manifest-header.ts) and [manifest-entry.ts](manifest-entry.ts).
+Draft. There is no field for a mail body, a subject or a sender.
 
-### Saved decision
+| Field | Meaning |
+| --- | --- |
+| `kind`, `account`, `provider_id` | Identity. `kind` is `mail`, `text` or `call`. `account` is this install's ID for the account or phone. `provider_id` is the provider's own ID. The same Google account keeps the same `account` after a new sign-in |
+| `thread`, `happened_at`, `noticed_at`, `hints` | The provider's thread, the two UTC times, and label IDs. Labels from the mail client arrive in `hints` |
+| `reachable` | `yes`, `gone` or `not_reachable`. Those are three different values |
+| `outcome` | None yet (waiting), `no_action`, `linked`, or `held` with a reason |
+| `outcome_by`, `outcome_at`, `run` | Who recorded it, when (UTC), and in which run |
 
-A readable record of a person's choice, such as a review, contact merge or reversal, or approval. It identifies the choice and the item or action it applies to so state can rebuild it after restore.
+### Person
 
-Version 1 (minimum): `decision_version`, `decision_id`, `kind` (for example `approval` or `review`), `applies_to` (type and ID), `decided_at`, and optional `details`.
+Draft. `id`, `name`, ways to reach them, and `confirmed` (`yes` or `no`). A later piece may add the matching Google contact. A name found in a message is not a confirmed person.
 
-### Action receipt
+### Link
 
-A readable record that identifies an approved action, its outcome, and any confirmation needed to recognize it after restore or retry. The archive saves an action receipt only for an approved action. It is not the command receipt a write returns.
+Draft. `id`. `kind` is message to matter, matter to person, or later matter to project. The two ends. `state` is `proposed`, `active` or `removed`. Who made it and when, who accepted it and when, who removed it and when. A link is never deleted, only marked `removed`.
 
-Version 1 (minimum): `receipt_version`, `receipt_id`, `action_id`, `approval_id` (the approval's `decision_id`), `outcome` (`succeeded`, `failed` or `unknown`), `confirmation`, and `recorded_at`.
+A message-to-matter link also carries a quote of at most 300 characters, the sender's name and the date. The quote is not a stored mail body.
 
-### Attachment export
+### Agent
 
-The published package layout and file information that let another app take an export.
+Draft. `id`, `name`, `level` (`read` or `prepare`), on or off, when made, and when last used. `prepare` is the highest level an agent can hold.
 
-### Command list
+### Sort run
 
-The shared list of writes with their inputs, previews, and receipts. Version 1. Adding or changing a command raises the version.
+Draft. `run`, the agent, started, last activity, ended, and how it ended (`finished`, `stopped` or `timed_out`). The receipt, once given, never changes. Per account it counts offered, no action, linked, held, gone and left waiting, and one word, `complete` or `partial`. `complete` means every listed message is in those counts and none are left waiting.
 
-Each write shows a preview before it runs and returns a command receipt afterward: a result shown to the person, saying what was done or why it was refused. A command receipt is not an action receipt and is not saved in the archive. Confirm is a part of restore only.
+### Who did it
 
-Version 1 covers only the folder, backup and restore commands:
-
-| Command | Preview shows | Command receipt returns |
-| --- | --- | --- |
-| Set folder locations | The evidence folder and backup folder chosen, whether the evidence folder is empty or already an archive, and any warning | The two locations saved, or the reason they were refused |
-| Back up | The backup folder, the number of originals, decisions and receipts, the total size, and the free space | The new backup with its time, counts and size, or the reason it failed |
-| Restore | The backup list, then the picked backup's time, counts, size and archive ID, and the destination evidence folder | The backup restored, its counts, and whether state accepted the restored decisions and receipts, or the reason it failed |
-
-Restore runs in five parts: list, pick, preview that backup, confirm, receipt.
-
-1. **List.** Commands returns the backup list from archive. It names each backup found in the backup folder with its time, counts, size and archive ID. A backup that is unfinished or cannot be read is listed with the reason and cannot be picked.
-2. **Pick.** The person picks one backup from the list.
-3. **Preview.** Archive checks the picked backup and returns its restore preview, which commands shows. The destination is the evidence folder location. It must be empty, or hold an unfinished restore of this same backup that matches it exactly. Otherwise setup asks for a new empty folder and sets it through Set folder locations first.
-4. **Confirm.** The person confirms, and archive restores the backup.
-5. **Receipt.** The restore is complete only after state accepts the restored decisions and receipts. Until then, capture and other archive writes are blocked. The block does not cover retrying that restore or setting the folder locations, so a person can always pick a new empty folder.
-
-The backup list is the first part of the restore preview. It is the one stated exception to the rule that surfaces read through queries. Step 1 has no query for backups.
-
-### Query list
-
-The shared list of reads with their inputs and result shapes.
-
-### Connection status
-
-The information surfaces need to tell a person whether an account is connected. Sign-in details stay with connections.
-
-## Open
-
-- Assign versions to the attachment export, query list and connection status before their first publication.
-- Add the other step 1 writes (connect the mailbox, start a capture) to the command list, and settle the inputs each command takes. The mail capture and sign-in plans settle these before their code.
-- Decide whether a saved decision or action receipt keeps the approved content, such as reply text or event details.
+Draft. `you`, `agent:<id>`, or `diligent`. Every change records one of these.

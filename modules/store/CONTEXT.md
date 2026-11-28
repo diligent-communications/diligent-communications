@@ -1,50 +1,55 @@
 ---
-build_step: 1 to 2
+build_step: 1
 status: draft
-consumes: ["../../contracts/CONTEXT.md#saved-decision","../../contracts/CONTEXT.md#action-receipt"]
-produces: ["Capture and restore progress","Restored workflow state","Restore result for commands","Committed workflow state","Saved decisions and action receipts"]
-writes: ["../archive/CONTEXT.md"]
+consumes: ["../../contracts/CONTEXT.md#who-did-it"]
+produces: ["Stored rows"]
 ---
-# state — Hold live workflow state
+# store — The database
 
-## Step 1 (complete)
+Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes the tables piece 1 needs. Later pieces add their rows. Only this part talks to the database.
 
-Step 1 has no live producer of decisions or receipts. State starts producing them in step 2. In step 1, the archive's ability to accept them is proven with made-up records.
+On Cloudflare the database is D1. On a PC it is one local file.
 
-### Inputs
+## What it owns
 
-- Working: Capture and restore progress from commands, and saved decisions and receipts passed in by the restore command.
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
-- Reference: [Action receipt](../../contracts/CONTEXT.md#action-receipt)
+The tables, their upgrades, the yearly clean-out, and the export used for backup and restore. Each part's rows stay that part's. This part does not decide what the rows mean.
 
-### Process
+## What it never does
 
-1. Record the capture and restore progress that commands sends in transactions. Make it available to queries.
-2. Receive saved decisions and receipts from the restore command and rebuild live state from them transactionally. Report acceptance or failure of those records back to commands. During restore, keep an approval without a receipt out of automatic dispatch. Hold it for a provider check or return it for approval.
+It never calls a model, never holds a Google sign-in, and never stores a mail body. There is no column for one.
 
-### Outputs
+## Operations
 
-- Capture and restore progress
-- Restored workflow state
-- Restore result for commands
+| Operation | Meaning | Level | Named results |
+| --- | --- | --- | --- |
+| `activity_list` | Who did what | You | `listed` |
+| `settings_get` | Lanes, how long things are kept, how often mail is checked | Read | `settings` |
+| `settings_set` | Change those settings | You | `changed` |
+| `export_make` | A backup file of the Brief data | You | `made` |
+| `export_restore` | Put a backup file back into an empty install | You | `restored`, `not_empty` |
 
-### Check
+Backup and restore are not one of the six build pieces. One tested backup and restore is part of the bar for retiring the earlier product. Until that exists, the host's database can be restored to an earlier minute for the period the host keeps.
 
-A contributor interrupts a synthetic progress write and a restore mid-write, restarting after each interruption to verify that no partial progress or restored records remain. The contributor also verifies that completed progress is available to queries, state reports the restore result to commands, and restored approvals without receipts are held.
+## Hard rules
 
-## Step 2 (draft)
+1. Only this part talks to the database.
+2. A restore into an install that already has data returns `not_empty` and writes nothing.
+3. Activity rows name the time, who, which operation, on what, and the result's name. They hold no message content.
 
-### Process
+## Inputs
 
-1. Hold the queue, approvals, review progress, proposed events, and live receipts transactionally. Save lasting choices, including reviews, contact merges and their reversals, approvals, saved views, and calendar accept or decline decisions, as readable decision records in archive. Save action receipts there too.
-2. Preserve completed actions and reconcile uncertain outcomes before retrying.
+- Working: None yet.
+- Reference: [Who did it](../../contracts/CONTEXT.md#who-did-it)
 
-### Outputs
+## Process
 
-- Committed workflow state
-- Saved decisions and action receipts
-- Handoff: [archive](../archive/CONTEXT.md)
+1. Apply a table upgrade before serving a request that needs it.
+2. Return one named result. Do not interpret a part's rows.
 
-### Check
+## Outputs
 
-A contributor interrupts a synthetic queue update and verifies after restart that nothing is half done.
+- Stored rows
+
+## Check
+
+When this part's code is written, a contributor searches a database that has sorted made-up mail and finds no mail body. A restore into an install that is not empty returns `not_empty`.

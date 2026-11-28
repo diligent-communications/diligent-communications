@@ -1,9 +1,11 @@
 # Diligent Communications
 
-Diligent Communications will bring mail, texts, and optional calls together for review and keep the original evidence available. The project is at the planning stage.
+Diligent shows one Brief of what needs a person, built from their mail, texts and calls. An outside agent sorts and prepares, and the person accepts with a tap. Mail is read when it is needed and is not kept. The project is not ready for use with real mail by other people.
 
-- The [generated map](map/README.md) shows the current folder contracts, reading dependencies, write handoffs, and build steps. Open a contract from the table below the diagram.
-- The [target map](map/target.md) shows how evidence, reads, and approved actions will move through the finished app.
+It runs in the person's own Cloudflare account and is written so it can also run on a PC.
+
+- The [generated map](map/README.md) shows the current folder contracts, which contract reads which, and the build piece of each part. Open a contract from the table below the diagram.
+- The [target map](map/target.md) is the picture of the finished app: the parts, the rules, and the order the pieces are built.
 - The [repository guide](CONTEXT.md) routes tasks and explains how to work across folders.
 
 ## Run the checks
@@ -21,12 +23,7 @@ python -I _tools/test_map.py
 
 ## Decisions
 
-- The first version runs on your own computer and uses your own evidence folder. Hosting can come later.
-- Step 1 starts with the archive, then mail capture, then backup and restore. Steps 2 through 4 are proposed.
-- Every primary workflow works with calls switched off.
-- The app is written in TypeScript on Node.js. The minimum is Node 24.12.0. Tests and type checks run on exactly that version and on the latest Node 24 and 26, on Windows and Linux.
-- Backups go to a second folder you pick. Every backup is a full, separate copy, and the program never deletes old backups.
-- In step 1, the evidence folder and backups are not encrypted, so their files open without the program. Anyone who can open the evidence folder or a backup can read what is in it.
-- To restore, you pick from the list of backups, see a preview of that backup, and confirm.
-- The receipt a change returns is shown to you. Only approved actions leave a receipt in the archive.
-- In step 1, nothing yet makes decisions or action receipts. The archive's handling of them is tested with made-up records.
+- Diligent keeps no copy of mail. A matter may hold a short quote and a summary, and a way to open the original.
+- No part of Diligent calls a model. Any outside agent can connect. Each agent has its own sign-in and a level. The person accepts with a tap, and nothing is sent without that tap.
+- One install belongs to one person. The screens are built phone first. The same program is written so it can run on a PC.
+- The build has six pieces: mail to Brief, a reply, texts, calls, projects and goals, then calendar and contacts. The seam of each part is written first. What happens inside a part is written with that part's code.

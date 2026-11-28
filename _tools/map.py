@@ -10,7 +10,72 @@ ROOT = Path(__file__).resolve().parent.parent
 MAP = ROOT / "map" / "README.md"
 SHAPES = ROOT / "contracts" / "CONTEXT.md"
 FRONTMATTER_KEYS = {"build_step", "status", "consumes", "produces", "writes"}
-LANE_HEADING = re.compile(r"### (.+) · Step ([1-4]) \((decided|draft)\)")
+
+
+def routed_shape_name(target):
+    """A markdown file directly in contracts/, other than the router."""
+    try:
+        relative = target.relative_to((ROOT / "contracts").resolve())
+    except ValueError:
+        return None
+    if relative.parts != (relative.name,) or relative.suffix != ".md" or relative.name == "CONTEXT.md":
+        return None
+    return relative.name
+
+
+def routed_module_page(target):
+    """A markdown page inside a module folder, linked from that folder's contract."""
+    if target.suffix != ".md" or target.name == "CONTEXT.md":
+        return False
+    router = target.parent / "CONTEXT.md"
+    try:
+        router.resolve().relative_to((ROOT / "modules").resolve())
+    except ValueError:
+        return False
+    if not router.is_file():
+        return False
+    return f"]({target.name})" in router.read_text(encoding="utf-8")
+
+
+def edges_from_routed_page(page, node, nodes):
+    """A page this folder routes to can still be a read of another module."""
+    found = set()
+    modules = (ROOT / "modules").resolve()
+    home = page.parent.joinpath("CONTEXT.md").resolve()
+    for link in re.findall(r"\]\(([^)\s#]+)\)", page.read_text(encoding="utf-8")):
+        target = (page.parent / link).resolve()
+        if target.name != "CONTEXT.md":
+            continue
+        try:
+            target.relative_to(modules)
+        except ValueError:
+            continue
+        if target in nodes and target != home:
+            found.add(f"    {node} --> {nodes[target]}")
+    return found
+
+
+def draft_page_names(path, fields):
+    """Same-folder pages this contract routes to, when the page itself is marked draft."""
+    names = []
+    for dependency in sorted(fields["consumes"]):
+        target = (path.parent / dependency).resolve()
+        if target.parent != path.parent or target.name == "CONTEXT.md" or target.suffix != ".md":
+            continue
+        if not target.is_file():
+            continue
+        if target.read_text(encoding="utf-8").lstrip().startswith("Draft."):
+            names.append(target.name)
+    return names
+
+
+def load_routed_shapes():
+    """File names the contracts router links to. The map treats those as shapes."""
+    names = set(re.findall(r"\]\(([^)/#\s]+\.md)\)", SHAPES.read_text(encoding="utf-8")))
+    return {name for name in names if name != "CONTEXT.md"}
+
+
+LANE_HEADING = re.compile(r"### (.+) · Piece ([1-6]) \((decided|draft)\)")
 LANE_SECTIONS = {"#### Inputs", "#### Process", "#### Outputs", "#### Check", "#### Open"}
 
 
@@ -78,8 +143,8 @@ def read_contract(folder):
     step = ""
     if folder.parent == ROOT / "modules":
         steps = [line for line in frontmatter if line.startswith("build_step:")]
-        if len(steps) != 1 or not re.fullmatch(r"build_step: (?:[1-4]|1 to 2)", steps[0]):
-            raise ValueError(f"{relative}: expected one build_step from 1 to 4, or 1 to 2")
+        if len(steps) != 1 or not re.fullmatch(r"build_step: (?:[1-6]|1 to 2)", steps[0]):
+            raise ValueError(f"{relative}: expected one build_step from 1 to 6, or 1 to 2")
         step = steps[0].removeprefix("build_step: ")
 
     fields = {}
@@ -92,7 +157,7 @@ def read_contract(folder):
     for line in body:
         if line.startswith("## "):
             section = line
-        if line.startswith("#") and " · Step " in line and not (
+        if line.startswith("#") and " · Piece " in line and not (
             section == "## Lanes" and line.startswith("### ")
         ):
             raise ValueError(f"{relative}: lane heading {line!r} must be a ### heading under ## Lanes")
@@ -123,6 +188,7 @@ def render():
     )
     contracts = [read_contract(folder) for folder in folders]
     nodes = {contract[0].resolve(): f"folder{index}" for index, contract in enumerate(contracts)}
+    routed_shapes = load_routed_shapes()
     shape_anchors = {
         title.lower().replace(" ", "-")
         for title in re.findall(r"^### ([a-zA-Z0-9 -]+)$", SHAPES.read_text(encoding="utf-8"), re.M)
@@ -136,7 +202,7 @@ def render():
         "",
         "All modules may read the [shared shapes](../contracts/CONTEXT.md). Each module contract links the shapes it needs.",
         "",
-        "See the [target map](target.md) for how the finished application will work.",
+        "See the [target map](target.md) for how the finished application will work. That picture points along a call. This map points toward the contract a part reads.",
         "",
         "```mermaid",
         "flowchart TD",
@@ -158,8 +224,24 @@ def render():
         for key in ("consumes", "writes"):
             for dependency in fields[key]:
                 target_path, _, anchor = dependency.partition("#")
+                if Path(target_path).is_absolute():
+                    raise ValueError(f"{folder}/CONTEXT.md: unknown contract {dependency}")
                 target = (path.parent / target_path).resolve()
-                if target not in nodes or Path(target_path).is_absolute():
+                shape_name = routed_shape_name(target)
+                if shape_name is not None:
+                    if key != "consumes" or anchor or shape_name not in routed_shapes:
+                        raise ValueError(f"{folder}/CONTEXT.md: unknown shared shape {dependency}")
+                    continue
+                if routed_module_page(target):
+                    if key != "consumes" or anchor:
+                        raise ValueError(f"{folder}/CONTEXT.md: unknown module page {dependency}")
+                    owner = (target.parent / "CONTEXT.md").resolve()
+                    if owner != path.resolve() and owner in nodes:
+                        edges.add(f"    {node} --> {nodes[owner]}")
+                    elif owner == path.resolve():
+                        edges.update(edges_from_routed_page(target, node, nodes))
+                    continue
+                if target not in nodes:
                     raise ValueError(f"{folder}/CONTEXT.md: unknown contract {dependency}")
                 if target == SHAPES:
                     if key != "consumes" or anchor not in shape_anchors:
@@ -173,19 +255,27 @@ def render():
                     destination = target.parent.relative_to(ROOT).as_posix()
                     write_links.append(f"[{target.parent.name}](../{destination}/CONTEXT.md)")
         outputs = ", ".join(fields["produces"]).replace("|", r"\|") or "None"
-        build_step = {"": "—", "1": "1 (decided)", "1 to 2": "1 (decided) to 2 (proposed)"}.get(
-            step, f"{step} (proposed)"
-        )
+        if step == "":
+            build_step = "—"
+        elif step == "1 to 2":
+            build_step = "1 (complete) to 2 (draft)"
+        elif draft:
+            build_step = f"{step} (draft)"
+        else:
+            build_step = f"{step} (complete)"
         if lanes:
             build_step += "<br>" + ", ".join(
-                f"{name}: {number} ({'proposed, draft' if status == 'draft' else status})"
-                for name, number, status in lanes
+                f"{name}: {number} ({'proposed, draft' if lane_status == 'draft' else lane_status})"
+                for name, number, lane_status in lanes
             )
         status = "Draft" if draft else "Complete"
         if step == "1 to 2" and draft:
-            status = "Step 1 complete, step 2 draft"
+            status = "Piece 1 complete, piece 2 draft"
         elif step == "1" and not draft and any(lane[2] == "draft" for lane in lanes):
-            status = "Step 1 complete, later lanes draft"
+            status = "Piece 1 complete, later pieces draft"
+        inner = draft_page_names(path, fields)
+        if inner:
+            status += "; " + ", ".join(inner) + " draft"
         table.append(
             f"| [{folder}](../{folder}/CONTEXT.md) | {build_step} | {status} | {outputs} | "
             f"{', '.join(write_links) or '—'} |"

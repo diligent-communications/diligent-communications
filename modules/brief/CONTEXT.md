@@ -1,30 +1,60 @@
 ---
-build_step: 2
+build_step: 1
 status: draft
-consumes: ["../archive/CONTEXT.md","../state/CONTEXT.md","../../contracts/CONTEXT.md#captured-record","../../contracts/CONTEXT.md#saved-decision"]
-produces: ["Source-linked Brief"]
-writes: ["../state/CONTEXT.md"]
+consumes: ["../operations/CONTEXT.md","../links/CONTEXT.md","../sorting/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#matter"]
+produces: ["Matters"]
 ---
-# brief — Show items that need attention
+# brief — The matters on the Brief
+
+Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes it.
+
+One job: the matters. One matter is one line on the Brief, however many messages are behind it.
+
+## What it owns
+
+Each matter's fields, state and dated history, and how the Brief is grouped and filtered. The freshness line at the top is sorting's counts. This part shows them and does not compute them.
+
+## What it never does
+
+It never reads mail and never stores a mail body. It never calls a model. It never sends anything.
+
+## Operations
+
+| Operation | Meaning | Level | Named results |
+| --- | --- | --- | --- |
+| `brief_list` | The Brief, grouped by kind, with the freshness line | Read | `brief` |
+| `matter_get` | One matter with its sources, person and history | Read | `matter`, `unknown_matter` |
+| `matter_search` | Find matters, including closed ones | Read | `found` |
+| `matter_edit` | Change title, notes, due date, kind or lane | You | `changed` |
+| `matter_set_state` | Done, Waiting, snooze, dismiss or reopen | You | `changed`, `already_so` |
+
+Whether an agent may close a finished matter is still open.
+
+## Hard rules
+
+1. A matter's ID never changes and is never reused.
+2. Every change adds a history line, including who did it.
+3. A new linked message reopens a done matter. A dismissed matter is reopened only by the person.
+4. A field the person has edited is not overwritten by an agent. The field list is `set_by_you` on the [matter](../../contracts/CONTEXT.md#matter) shape.
 
 ## Inputs
 
-- Working: None in this planning repository.
-- Reference: [archive](../archive/CONTEXT.md)
-- Reference: [state](../state/CONTEXT.md)
-- Reference: [Captured record](../../contracts/CONTEXT.md#captured-record)
-- Reference: [Saved decision](../../contracts/CONTEXT.md#saved-decision)
+- Working: None yet.
+- Reference: [Operations](../operations/CONTEXT.md)
+- Reference: [Links](../links/CONTEXT.md)
+- Reference: [Sorting](../sorting/CONTEXT.md)
+- Reference: [Store](../store/CONTEXT.md)
+- Reference: [Matter](../../contracts/CONTEXT.md#matter)
 
 ## Process
 
-1. Commands calls brief for review. Use archived originals and live review progress to produce the Brief. Give each row a link to its original.
-2. Keep review choices in state. State saves those choices to archive so the Brief can be rebuilt after restore.
+1. Return the Brief or one matter.
+2. Apply an edit or a state change from the person, and append history.
 
 ## Outputs
 
-- Source-linked Brief
-- Handoff: [state](../state/CONTEXT.md)
+- Matters
 
 ## Check
 
-A contributor opens every row in a synthetic Brief and verifies that it opens the expected original.
+When this part's code is written, a contributor edits a field, then an agent sort leaves that field as the person set it. A new link to a done matter reopens it.

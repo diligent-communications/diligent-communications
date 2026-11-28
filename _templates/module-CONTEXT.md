@@ -6,9 +6,9 @@ writes: []
 ---
 # {Module name} — {One job}
 
-{Set build_step to 1, 2, 3, 4, or 1 to 2 for a module that spans those steps.}
+{Set build_step to 1, 2, 3, 4, 5, or 6. Use 1 to 2 only when piece 1 of this contract is complete and piece 2 is still draft.}
 
-{For draft work, add status: draft to the frontmatter. In a mixed contract, label the complete and draft sections and give each its own process and check.}
+{A contract has two layers. The seam is complete: the operations, their named results, the shared shapes, and the hard rules. An inner page, the step-by-step behaviour, starts with the line Draft. and is finished with that part's code. For a contract that is not finished, add status: draft to the frontmatter. In a mixed contract, label the complete and draft sections and give each its own process and check.}
 
 ## Inputs
 
@@ -30,4 +30,4 @@ writes: []
 
 {List one reference per line, or say None. Include lane references in consumes. Match output names to produces and handoff paths to writes. Omit Handoff and writes when there is no write handoff to draw.}
 
-{The map check rejects frontmatter keys other than the ones above and status. For lanes, add ## Lanes and a ### {Name} · Step {N} (decided or draft) heading for each lane. A lane may use only the sub-headings #### Inputs, #### Process, #### Outputs, #### Check, and #### Open. Any other is rejected.}
+{The map check rejects frontmatter keys other than the ones above and status. For lanes, add ## Lanes and a ### {Name} · Piece {N} (decided or draft) heading for each lane. N is 1 to 6. A lane may use only the sub-headings #### Inputs, #### Process, #### Outputs, #### Check, and #### Open. Any other is rejected.}
