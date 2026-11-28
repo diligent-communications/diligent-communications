@@ -38,6 +38,37 @@ A caller kind `device` is named in the [target map](../map/target.md#the-parts) 
 
 `agent.ts`. `id`, `name`, `level` (`read` or `prepare`), `on` (true or false), `made_at`, and `last_used_at`, which is empty until the agent's first call. It has no field for the token.
 
+### Matter
+
+`matter.ts`. One line on the Brief, however many messages are behind it.
+
+- `id`, which never changes and is never used again, and `version`, a whole number from 1 that goes up with every change to the matter's own fields.
+- `kind`: `money`, `do` or `reply`. `lane`: a short tag of lowercase letters, digits and dashes, at most 40 characters.
+- The line: `title` (1 to 200 characters), `next_action` (at most 200), `owed_by` (at most 100: `you` for the person, or the other party's name), `summary` (at most 1,200), `latest_update` (at most 600) and `timing` (at most 100). All but `title` may be empty.
+- `state`: `open`, `waiting`, `snoozed`, `done` or `dismissed`. `snoozed_until` is the UTC time a snoozed matter comes back, and is empty in every other state.
+- `main_action`: `reply`, `schedule`, `contact` or `none`.
+- `notes` (at most 2,000, may be empty) and `due` (a calendar date, `YYYY-MM-DD`, or empty) are the person's only.
+- `set_by_you`: the fields the person has edited, each once, from `title`, `notes`, `due`, `kind` and `lane`.
+
+The limits on the summary and the quote are the target map's proposals. The others were chosen while building and are proposals too. Each is one constant, in `matter.ts` or `link.ts`.
+
+### History line
+
+`matter.ts`. One dated line of a matter's history: `at` (a UTC time), `who` (who did it) and `what`, a line of at most 300 characters.
+
+### Link
+
+`link.ts`. What belongs to what. `kind` is `message`, a source message to a matter, or `person`, a matter to a person.
+
+- `id`, `matter`, and the other end: `message` for a message link, `person` for a person link. The other is empty.
+- `state`: `proposed`, `active` or `removed`. A link is never deleted, only marked removed.
+- `made_by` and `made_at`, `accepted_by` and `accepted_at`, `removed_by` and `removed_at`. Each pair is both filled or both empty, and a link is removed exactly when it says who removed it.
+- A message link carries a short `quote` (at most 300 characters), the `sender`'s name (at most 100) and `sent_at`, the UTC time the message happened. A person link carries none of them.
+
+### Person
+
+`person.ts`. As much of a person as a matter needs: `id`, `name` (at most 100 characters) and `confirmed`, `yes` or `no`. The person's page and ways to reach them are added in a later piece.
+
 ### Activity line
 
 `activity.ts`. `at` (a UTC time), `who` (who did it), `operation`, `on` (a kind and an ID such as `agent:4f2a`, or nothing) and `result` (the result's name). It has no field that could hold message content or a secret.
