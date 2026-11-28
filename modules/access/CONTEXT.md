@@ -47,13 +47,25 @@ Operations, from the [operations table](../../map/target.md#operations). Secret 
 
 The numbers below marked "proposal" were chosen while building. They are not decisions by the owner. Each is one constant in `src/limits.ts`.
 
-**The set-up code.** The person who controls the install's hosting account makes it: a random value of at least 32 characters, kept as the install's secret `SETUP_CODE`. On Cloudflare only someone who controls that account can set a secret. On a PC it is a line in Cloudflare's local secrets file, `.dev.vars`, which git ignores, and the hosting account is whoever can write that file. The install never makes, shows or returns the code, and it is in no table. `password_set` with a code sets the password without a session, ends every session, and uses the code up: the install keeps a SHA-256 fingerprint of it and refuses that code from then on. A new code in the secret is the way back from a forgotten password. Agent sign-ins stay as they are. No code set, or one shorter than 32 characters, means every code is answered `wrong_code`.
+**The set-up code.** The person who controls the install's hosting account makes it: a random value of at least 32 characters, kept as the install's secret `SETUP_CODE`. On Cloudflare only someone who controls that account can set a secret. On a PC it is a line in Cloudflare's local secrets file, `.dev.vars`, which git ignores, and the hosting account is whoever can write that file. The install never makes, shows or returns the code, and it is in no table. `password_set` with a code sets the password without a session, ends every other session, signs the calling device in as `sign_in` would, and uses the code up: the install keeps a SHA-256 fingerprint of it and refuses that code from then on. A new code in the secret is the way back from a forgotten password, and because it signs the device in, it gets the person in whatever the password lock says. Agent sign-ins stay as they are. No code set, or one shorter than 32 characters, means every code is answered `wrong_code`.
 
 A wrong set-up code is not locked. A lock here would let a stranger who keeps trying block the one way back. A random code of that length cannot be guessed, so its length is the limit, and it is compared in constant time.
 
 **Changing the password while signed in** needs the session and `current`, the current password, so a borrowed session cannot change it. It ends every other session. `password_set` with neither a code nor a session answers `not_allowed`.
 
-**Wrong passwords.** 5 wrong tries in a row start a lock of 15 minutes (both proposals). The try that reaches the limit answers `locked_out` with the time the lock ends. A try made during the lock is refused without being checked, right or wrong, and does not lengthen the lock. The lock ends by itself, and a right password starts the count again. It covers `sign_in` and the current password in `password_set`. It stops new sign-ins only: a device that is already signed in keeps working. So a stranger can delay a new sign-in while they keep trying, and can never lock the person out for good.
+**Wrong passwords.** 5 wrong tries in a row start a lock of 15 minutes (both proposals). It covers `sign_in` and the current password in `password_set`.
+
+A try is counted before it is checked. The count is one statement that the database runs whole, and it lands apart from the rest of the call, so it stands even if the call does not finish. That statement lets a try through only while fewer than 5 are counted and no lock is running, and the try that takes the fifth place starts the lock in the same statement. So tries sent at once cannot all be checked, each raises the count by exactly one, and one lock has one try that started it. That try answers `locked_out` with the time the lock ends, unless it is right.
+
+A try the statement does not let through is refused without being checked, right or wrong, and changes nothing, so it cannot lengthen the lock. A wrong answer writes nothing more. A right password clears the count, and clears a lock only when that same try started it: a late answer never clears or shortens a lock another try started. The lock ends by itself.
+
+The lock stops new sign-ins only: a device that is already signed in keeps working. So a stranger can delay a new sign-in while they keep trying, and can never lock the person out for good, because the set-up code is never locked and signs the person in.
+
+**Writes that rest on an earlier read.** A write is landed only while what it was decided on is still true, with [store](../store/CONTEXT.md)'s `stillTrue`. Otherwise the work runs again and answers about how things are now.
+
+- `sign_in` starts a session only if the password it checked is still the password. One that was checking the old password while a change or a reset landed starts none.
+- `password_set` with the current password writes only if that is still the password and the caller's session still stands. If the session was ended meanwhile it answers `not_signed_in`.
+- `agent_set` writes only the fields it was given, and only if the agent is as it was read. A level change never switches an agent on or off, and the answer says how the agent is now.
 
 **Sessions.** The password is typed once per device. A session ends at `sign_out` on that device, at a password change or reset as above, or by itself after 90 days without use (a proposal). Using it starts the 90 days again.
 
@@ -77,9 +89,15 @@ A wrong set-up code is not locked. A lock here would let a stranger who keeps tr
 | The first password needs the set-up code, and a used code is refused | "the first password needs the set-up code" |
 | A wrong set-up code is refused however often it is tried, and never locks | the same test |
 | No set-up code, or a short one, refuses every code | "an install with no set-up code" |
-| A new set-up code resets the password, ends every session and leaves agents | "a new set-up code is the way back" |
+| A new set-up code resets the password, ends every other session and leaves agents | "a new set-up code is the way back" |
+| A reset by set-up code signs the calling device in, even while the password is locked | "with the password locked, a reset by set-up code still gets the person in" |
 | Without a code, `password_set` needs the session and the current password | "once a password exists" and "changing the password while signed in" |
 | Wrong tries lock the password, the lock ends by itself, and a signed-in device keeps working | "a wrong password is refused" and "a wrong current password counts toward the lock" |
+| Tries sent at once cannot get past the lock, each raises the count by one, and one lock leaves one line | "wrong tries sent all at once cannot get past the lock", "each wrong try raises the count by one", "wrong current passwords sent all at once" |
+| A late answer never clears or shortens a lock another try started | `test/overlap.test.ts`: "a right password that lands late signs in, and does not clear a lock" |
+| A sign-in that was checking the old password while it was changed or reset starts no session | `test/overlap.test.ts`: the two tests that begin "a sign-in that was checking the old password" |
+| A password change whose session ended, or whose password was replaced, while it was in flight writes nothing | `test/overlap.test.ts`: the three tests about a password change |
+| `agent_set` writes only the fields given, and a level change never switches an agent back on | `test/overlap.test.ts`: "a level change that overlaps a switch-off", "agent_set writes only the fields it was given" |
 | `sign_out` ends that device's session and no other | "sign_out ends the session on that device" |
 | A session ends by itself when unused | "a session ends by itself" |
 | A caller with no sign-in may call `sign_in` and `password_set` only | "a caller with no sign-in" |
@@ -95,5 +113,5 @@ Draft. `device_list` and `device_remove`, and the first-run walk around these op
 
 - What only a real install can show: Cloudflare's free plan allows 10 ms of processor time for a request, and the password hash costs more than that. It runs only in `sign_in` and `password_set`, and it is made before anything is written, so a request cut off there fails whole. Whether the free plan lets it finish, and what to do if it does not, is the owner's decision at the trial.
 - A passkey can be added later. It is not how the person signs in now.
-- Counted as characters divided by four, this contract with its references and working files is about 9,400 tokens, above the 8,000-token guide for one read. Without the working files it is about 3,500.
+- Counted as characters divided by four, this contract with its references and working files is about 11,100 tokens, above the 8,000-token guide for one read. Without the working files it is about 4,400.
 - Rows of sessions that have ended by themselves stay until the clean-out is written.

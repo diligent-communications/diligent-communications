@@ -49,7 +49,9 @@ test('the first password needs the set-up code, a wrong code is refused however 
 
   const set = await stranger.call('password_set', { code: install.setupCode, password });
   assert.equal(set.result, 'set');
-  assert.equal((await stranger.call('sign_in', { password })).result, 'signed_in');
+  // Setting the password with the code signed this device in.
+  assert.equal((await stranger.call('whoami')).result, 'you');
+  assert.equal((await screen(install).call('sign_in', { password })).result, 'signed_in');
 
   // The code is used up: it does not set a second password.
   const again = await screen(install).call('password_set', { code: install.setupCode, password: madeUp('password') });
@@ -285,4 +287,87 @@ test("a request another site's page started is refused, even with the person's c
   const followed = await install.fetch('/api/sign_out', { headers: { cookie } });
   assert.equal(followed.status, 405);
   assert.equal((await device.call('whoami')).result, 'you');
+});
+
+test('wrong tries sent all at once cannot get past the lock: only as many as are allowed are checked, and one lock leaves one line', async () => {
+  const { install, password, device } = await withPassword();
+  const sent = WRONG_TRIES * 4;
+  const answers = await Promise.all(Array.from({ length: sent }, () => screen(install).call('sign_in', { password: madeUp('guess') })));
+
+  // Each try that was let through was counted before it was checked. The one
+  // that took the last allowed started the lock. The rest were not checked.
+  const results = answers.map((answer) => answer.result).sort();
+  assert.deepEqual(results, [...Array.from({ length: sent - WRONG_TRIES + 1 }, () => 'locked_out'), ...Array.from({ length: WRONG_TRIES - 1 }, () => 'wrong_password')]);
+  const untils = new Set(answers.filter((answer) => answer.result === 'locked_out').map((answer) => answer.until));
+  assert.equal(untils.size, 1);
+
+  // The lock is real, and no late answer cleared or shortened it.
+  const database = await install.database();
+  const tries = await database.prepare("SELECT wrong, locked_until FROM access_tries WHERE kind = 'password'").all<{ wrong: number; locked_until: string }>();
+  assert.deepEqual(tries.results, [{ wrong: WRONG_TRIES, locked_until: [...untils][0] }]);
+  const after = await screen(install).call('sign_in', { password });
+  assert.equal(after.result, 'locked_out');
+  assert.equal(after.until, [...untils][0]);
+
+  // One lock, one line by the install, however many tries arrived together.
+  const lines = (await activity(device)).filter((entry) => entry.operation === 'sign_in' && entry.who === 'diligent');
+  assert.deepEqual(lines.map((entry) => entry.result), ['locked_out']);
+});
+
+test('each wrong try raises the count by one, even when several arrive together', async () => {
+  const { install, password } = await withPassword();
+  const together = WRONG_TRIES - 2;
+  const first = await Promise.all(Array.from({ length: together }, () => screen(install).call('sign_in', { password: madeUp('guess') })));
+  assert.deepEqual(first.map((answer) => answer.result), Array.from({ length: together }, () => 'wrong_password'));
+  const database = await install.database();
+  const counted = await database.prepare("SELECT wrong, locked_until FROM access_tries WHERE kind = 'password'").all();
+  assert.deepEqual(counted.results, [{ wrong: together, locked_until: null }]);
+
+  // One more is still only wrong. The one after it reaches the limit.
+  assert.equal((await screen(install).call('sign_in', { password: madeUp('guess') })).result, 'wrong_password');
+  assert.equal((await screen(install).call('sign_in', { password: madeUp('guess') })).result, 'locked_out');
+  assert.equal((await screen(install).call('sign_in', { password })).result, 'locked_out');
+});
+
+test('wrong current passwords sent all at once are held to the same limit', async () => {
+  const { install, password, device } = await withPassword();
+  const sent = WRONG_TRIES * 2;
+  const answers = await Promise.all(
+    Array.from({ length: sent }, () => device.call('password_set', { current: madeUp('guess'), password: madeUp('password') })),
+  );
+  const results = answers.map((answer) => answer.result).sort();
+  assert.deepEqual(results, [...Array.from({ length: sent - WRONG_TRIES + 1 }, () => 'locked_out'), ...Array.from({ length: WRONG_TRIES - 1 }, () => 'wrong_password')]);
+  // The password did not change, and the lock covers sign-in too.
+  assert.equal((await device.call('password_set', { current: password, password: madeUp('password') })).result, 'locked_out');
+  assert.equal((await screen(install).call('sign_in', { password })).result, 'locked_out');
+  assert.equal((await device.call('whoami')).result, 'you');
+});
+
+test('with the password locked, a reset by set-up code still gets the person in: it signs the calling device in', async () => {
+  const { install, password, device } = await withPassword();
+  // A stranger locks the password.
+  for (let tries = 1; tries < WRONG_TRIES; tries += 1) {
+    assert.equal((await screen(install).call('sign_in', { password: madeUp('guess') })).result, 'wrong_password');
+  }
+  assert.equal((await screen(install).call('sign_in', { password: madeUp('guess') })).result, 'locked_out');
+  assert.equal((await screen(install).call('sign_in', { password })).result, 'locked_out');
+
+  // The person puts in a new set-up code and sets the password on a new device.
+  const code = madeUp('setup-code');
+  await install.changeSetupCode(code);
+  const next = madeUp('password');
+  const fresh = screen(install);
+  const set = await fresh.call('password_set', { code, password: next });
+  assert.equal(set.result, 'set');
+  // That device is signed in at once, with no call to sign_in.
+  assert.ok(fresh.cookies.get('diligent_session')?.startsWith('dls_'));
+  assert.equal((await fresh.call('whoami')).result, 'you');
+  assert.equal((await fresh.call('agent_list')).result, 'listed');
+  // Every other session was ended.
+  assert.equal((await device.call('whoami')).result, 'not_signed_in');
+  assert.equal(((await (await install.database()).prepare('SELECT id FROM access_sessions').all()).results).length, 1);
+
+  // It is recorded as the person's doing, on the session it began.
+  const line = (await activity(fresh)).find((entry) => entry.operation === 'password_set')!;
+  assert.deepEqual([line.who, line.result, line.on?.startsWith('session:')], ['you', 'set', true]);
 });

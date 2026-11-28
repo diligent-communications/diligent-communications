@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Agent } from '../../../contracts/agent.ts';
@@ -17,6 +18,71 @@ type Kept = { install?: string; session?: string };
 
 async function kept(home: string): Promise<Kept> {
   return JSON.parse(await readFile(path.join(home, 'session.json'), 'utf8')) as Kept;
+}
+
+type Seen = { path: string; cookie: string | undefined; body: string };
+
+// A made-up server on this PC's own address, for a test to see exactly what
+// the command line sends somewhere. It is closed when the test ends.
+async function listener(reply: () => { status: number; headers?: Record<string, string>; body?: string }): Promise<{ origin: string; seen: Seen[]; close(): Promise<void> }> {
+  const seen: Seen[] = [];
+  const server = createServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => (body += String(chunk)));
+    request.on('end', () => {
+      seen.push({ path: request.url ?? '', cookie: request.headers.cookie, body });
+      const { status, headers, body: text } = reply();
+      response.writeHead(status, { 'content-type': 'application/json', ...headers });
+      response.end(text ?? '');
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('The made-up server has no port.');
+  }
+  return {
+    origin: `http://127.0.0.1:${address.port}`,
+    seen,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+// The command line with nothing real behind it: what it asks, says, prints
+// and sends is kept for the test to read.
+function watched(home: string, reply?: () => Response): { asked: string[]; said: string[]; printed: string[]; sent: { url: string; init: RequestInit }[]; run(args: string[]): Promise<number> } {
+  const asked: string[] = [];
+  const said: string[] = [];
+  const printed: string[] = [];
+  const sent: { url: string; init: RequestInit }[] = [];
+  return {
+    asked,
+    said,
+    printed,
+    sent,
+    run: (args) =>
+      run({
+        args,
+        home,
+        ask: async (question) => {
+          asked.push(question);
+          return 'a made-up answer to a question';
+        },
+        print: (text) => void printed.push(text),
+        say: (text) => void said.push(text),
+        fetch: (async (url: string, init: RequestInit) => {
+          sent.push({ url, init });
+          if (reply === undefined) {
+            throw new Error('nothing should be sent');
+          }
+          return reply();
+        }) as typeof fetch,
+      }),
+  };
 }
 
 before(async () => {
@@ -126,9 +192,9 @@ test('when there is no answer to print it prints nothing, says why, and ends wit
   assert.equal(await terminal.run(['whoami']), 1);
   assert.match(terminal.said.at(-1)!, /--install <address>/);
   assert.equal(await terminal.run(['--install', install.origin, 'no_such_operation']), 1);
-  assert.match(terminal.said.at(-1)!, /There is no operation named no_such_operation/);
+  assert.match(terminal.said.at(-1)!, /There is no operation with that name/);
   assert.equal(await terminal.run(['--install', install.origin, 'agent_set', '--colour', 'blue']), 1);
-  assert.match(terminal.said.at(-1)!, /`colour` is not an input of `agent_set`/);
+  assert.match(terminal.said.at(-1)!, /An input given is not one `agent_set` takes/);
   assert.equal(await terminal.run(['--install', install.origin, 'agent_set', '--agent']), 1);
   assert.match(terminal.said.at(-1)!, /--agent needs a value/);
   // A port on this PC where nothing is listening.
@@ -174,8 +240,10 @@ test('the program itself runs: a password comes in as a line, and the session fi
       const child = execFile(
         process.execPath,
         [program, ...args],
-        // The child gets a home of its own, inside the test folder.
-        { env: { ...process.env, DILIGENT_HOME: home }, timeout: 60_000 },
+        // The child gets a home of its own, inside the test folder. Every
+        // name the program could take a home folder from points there too, so
+        // a mistake in the program can never reach the real session file.
+        { env: { ...process.env, DILIGENT_HOME: home, APPDATA: home, XDG_CONFIG_HOME: home, HOME: home, USERPROFILE: home }, timeout: 60_000 },
         (error, stdout, stderr) => resolve({ code: typeof error?.code === 'number' ? error.code : error ? 1 : 0, stdout, stderr }),
       );
       child.stdin?.end(input);
@@ -201,4 +269,137 @@ test('the program itself runs: a password comes in as a line, and the session fi
   const refused = await runProgram(['sign_in', '--password', 'typed-as-an-argument'], '');
   assert.equal(refused.code, 1);
   assert.equal(refused.stdout, '');
+});
+
+test('a session is sent only to the address that issued it, and is dropped when the address changes', async () => {
+  const terminal = commandLine(install);
+  assert.equal((await terminal.call('sign_in', { password })).result, 'signed_in');
+  const session = (await kept(terminal.home)).session!;
+  assert.match(session, /^dls_/);
+
+  // Another address, which answers as if all were well.
+  const other = await listener(() => ({ status: 200, body: JSON.stringify({ result: 'you', description: 'A made-up answer.' }) }));
+  try {
+    assert.equal(await terminal.run(['--install', other.origin, 'whoami']), 0);
+    // It was sent no session, and the session is gone from the PC.
+    assert.equal(other.seen.length, 1);
+    assert.equal(other.seen[0]!.cookie, undefined);
+    assert.deepEqual(await kept(terminal.home), { install: other.origin });
+
+    // The next command goes to the remembered address, still with no session.
+    assert.equal(await terminal.run(['whoami']), 0);
+    assert.equal(other.seen.length, 2);
+    assert.equal(JSON.stringify(other.seen).includes(session), false);
+  } finally {
+    await other.close();
+  }
+
+  // Back at the first address the person signs in again: the session was dropped.
+  const back = await terminal.call('whoami');
+  assert.equal(back.result, 'not_signed_in');
+  assert.deepEqual(await kept(terminal.home), { install: install.origin });
+});
+
+test("a plain http address is refused unless it is this PC's own, before a secret is asked for or anything is sent", async () => {
+  for (const address of ['http://192.0.2.10:8787', 'http://diligent.example', 'http://localhost.example:8787', 'http://127.0.0.1.example']) {
+    const terminal = watched(newFolder('command-line-home'));
+    assert.equal(await terminal.run(['--install', address, 'sign_in']), 1, address);
+    assert.match(terminal.said.join(' '), /plain http:\/\/ address is refused/, address);
+    assert.deepEqual([terminal.asked, terminal.sent, terminal.printed], [[], [], []], address);
+  }
+
+  // A session file that names a plain address, however it got there, sends nothing.
+  const home = newFolder('command-line-home');
+  await mkdir(home, { recursive: true });
+  await writeFile(path.join(home, 'session.json'), JSON.stringify({ install: 'http://192.0.2.10:8787', session: 'dls_a-made-up-session' }));
+  const tampered = watched(home);
+  assert.equal(await tampered.run(['whoami']), 1);
+  assert.deepEqual([tampered.sent, tampered.printed], [[], []]);
+
+  // Something that is not an install's address is refused the same way.
+  for (const address of ['ftp://diligent.example', 'https://someone:secret@diligent.example', 'https://diligent.example/some/path', 'https://diligent.example/?a=b', 'diligent.example']) {
+    const terminal = watched(newFolder('command-line-home'));
+    assert.equal(await terminal.run(['--install', address, 'whoami']), 1, address);
+    assert.deepEqual([terminal.asked, terminal.sent, terminal.printed], [[], [], []], address);
+  }
+
+  // An https address, and this PC's own plain address, are used.
+  const answer = (): Response => new Response(JSON.stringify({ result: 'wrong_password', description: 'A made-up answer.' }), { headers: { 'content-type': 'application/json' } });
+  for (const [address, sentTo] of [
+    ['https://diligent.example', 'https://diligent.example/api/sign_in'],
+    ['https://diligent.example/', 'https://diligent.example/api/sign_in'],
+    ['http://localhost:8787', 'http://localhost:8787/api/sign_in'],
+    ['http://127.0.0.1:8787/', 'http://127.0.0.1:8787/api/sign_in'],
+    ['http://[::1]:8787', 'http://[::1]:8787/api/sign_in'],
+  ] as const) {
+    const terminal = watched(newFolder('command-line-home'), answer);
+    assert.equal(await terminal.run(['--install', address, 'sign_in']), 0, address);
+    assert.deepEqual(terminal.sent.map((request) => request.url), [sentTo]);
+    // Every request refuses to be sent on somewhere else.
+    assert.equal(terminal.sent[0]!.init.redirect, 'error');
+  }
+});
+
+test('a redirect is an error and is never followed, so a password and a session go nowhere else', async () => {
+  const elsewhere = await listener(() => ({ status: 200, body: JSON.stringify({ result: 'signed_in', description: 'A made-up answer.' }) }));
+  let status = 307;
+  const redirecting = await listener(() => ({ status, headers: { location: `${elsewhere.origin}/api/sign_in` } }));
+  try {
+    for (status of [301, 302, 303, 307, 308]) {
+      const terminal = commandLine(install);
+      const typed = madeUp('password');
+      assert.equal(await terminal.run(['--install', redirecting.origin, 'sign_in'], [typed]), 1, String(status));
+      assert.match(terminal.said.at(-1)!, /did not answer/);
+      assert.deepEqual(terminal.printed, []);
+      assert.equal((await kept(terminal.home)).session, undefined);
+    }
+    // The first address was asked each time. The second was never reached.
+    assert.equal(redirecting.seen.length, 5);
+    assert.deepEqual(elsewhere.seen, []);
+  } finally {
+    await redirecting.close();
+    await elsewhere.close();
+  }
+});
+
+test('nothing typed on the line is ever said or printed back, wherever it sits', async () => {
+  const secret = madeUp('typed-secret');
+  const token = `dla_${madeUp('token')}`;
+  const lines: string[][] = [
+    ['--password', secret, 'sign_in'],
+    ['sign_in', '--password', secret],
+    ['sign_in', `--password=${secret}`],
+    ['--code', secret, 'password_set'],
+    ['password_set', '--code', secret],
+    ['password_set', `--code=${secret}`],
+    ['--current', secret, 'password_set'],
+    ['password_set', '--current', secret],
+    ['password_set', `--current=${secret}`, '--code'],
+    [secret],
+    ['whoami', secret],
+    ['whoami', '--note', secret],
+    [`--${secret}`, 'whoami'],
+    ['whoami', `--${secret}`],
+    ['agent_set', '--agent', 'abc', `--${secret}=x`],
+    [token],
+    ['whoami', token],
+    ['--token', token, 'whoami'],
+    ['whoami', '--token', token],
+    ['whoami', `--token=${token}`],
+    ['--install', secret, 'whoami'],
+    ['--install', `https://diligent.example/${secret}`, 'whoami'],
+    ['--install', `https://someone:${secret}@diligent.example`, 'whoami'],
+  ];
+  for (const line of lines) {
+    // Once with no address known, and once with one, so each line gets as far as it can.
+    for (const withAddress of [false, true]) {
+      const terminal = watched(newFolder('command-line-home'));
+      const args = withAddress && !line.includes('--install') ? ['--install', install.origin, ...line] : line;
+      assert.equal(await terminal.run(args), 1, args.join(' '));
+      const shown = [...terminal.said, ...terminal.printed, ...terminal.asked].join('\n');
+      assert.equal(shown.includes(secret), false, args.join(' '));
+      assert.equal(shown.includes(token), false, args.join(' '));
+      assert.deepEqual(terminal.sent, [], args.join(' '));
+    }
+  }
 });

@@ -13,6 +13,20 @@ export interface Store {
   // Lands every write together or none of them. `clash` means a uniqueness
   // rule refused one of them, so nothing was written.
   land(writes: readonly Write[]): Promise<'landed' | 'clash'>;
+  // Lands one write by itself, at once, and returns the rows it names with
+  // RETURNING. The database runs one statement whole, so a write that counts
+  // and decides in the same statement cannot be split by another request.
+  landOne<Row>(write: Write): Promise<Row[]>;
+}
+
+// The table behind `stillTrue`. It never holds a row.
+export const GUARD_TABLE = 'CREATE TABLE store_guard (held INTEGER NOT NULL CHECK (held = 1)) STRICT';
+
+// A write that changes nothing, and makes the whole landing clash unless
+// `query` still finds a row. A part adds one to its writes when they rest on
+// something it read earlier, so that a change in between is never written over.
+export function stillTrue(query: string, values: readonly Value[]): Write {
+  return { sql: `INSERT INTO store_guard (held) SELECT 0 WHERE NOT EXISTS (${query})`, values };
 }
 
 const UPGRADES =
@@ -40,6 +54,10 @@ export async function openStore(db: D1Database, tables: readonly Tables[], now: 
         }
         throw error;
       }
+    },
+    async landOne<Row>(write: Write): Promise<Row[]> {
+      const changed = await db.prepare(write.sql).bind(...write.values).all<Row>();
+      return changed.results;
     },
   };
 }

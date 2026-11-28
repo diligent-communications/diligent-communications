@@ -1,9 +1,10 @@
 // Starts the install on Cloudflare's local runtime for a test.
 //
-// Safety on the PC that runs the tests:
-// - Everything a test writes goes into one temporary folder this file makes
-//   under the system temporary folder. Wrangler's own log and registry files,
-//   which it would otherwise keep in the home folder, are pointed there too.
+// Safety on the PC that runs the tests. Where a test may write is said once,
+// in the root CONTEXT.md under "Code and tests". This file keeps to it:
+// - It makes the one temporary folder a test writes to. Wrangler's own log
+//   and registry files, which it would otherwise keep in the home folder,
+//   are pointed there too.
 // - The clean-up removes that one folder and nothing else. It refuses any
 //   path that is not the folder made here.
 // - No test reaches the network. Wrangler's usage reports and its look-up of

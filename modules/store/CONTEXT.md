@@ -29,8 +29,10 @@ It never calls a model, and it never stores a received mail body.
 
 1. A part keeps its table definitions in its own folder as numbered steps, one SQL statement each. `openStore` applies every step that is not yet applied, in order, and records each one with the step it applied. A shipped step is never edited. A change is a new step.
 2. A part reads its own rows with `rows` and hands its writes to the door, which lands them with `land`.
-3. `land` lands every write of one call together or none of them. `clash` means a uniqueness rule refused one, so nothing was written. Any other failure is an error.
-4. `activityWrite` makes the write for one activity line and refuses anything that is not exactly an [activity line](../../contracts/CONTEXT.md#activity-line).
+3. `land` lands every write of one call together or none of them. `clash` means a rule of the tables refused one, so nothing was written. Any other failure is an error.
+4. `stillTrue` makes a write that changes nothing and makes the whole landing clash unless a query still finds a row. A part adds one when its writes rest on something it read earlier, so a change made in between is never written over.
+5. `landOne` lands one write by itself, at once, and returns the rows it names. The database runs one statement whole, so a write that counts and decides in the same statement cannot be split by another request.
+6. `activityWrite` makes the write for one activity line and refuses anything that is not exactly an [activity line](../../contracts/CONTEXT.md#activity-line).
 
 Operation, from the [operations table](../../map/target.md#operations):
 
@@ -50,6 +52,8 @@ Operation, from the [operations table](../../map/target.md#operations):
 | Hard rule | Test |
 | --- | --- |
 | One operation's changes land together or not at all ([rule 11](../../map/target.md#rules-every-part-keeps)) | `test/store.test.ts`: "one operation's writes land together or not at all" |
+| Writes that rest on an earlier read land only while it is still true | `test/store.test.ts`: "writes that rest on something read earlier land only while it is still true" |
+| One write landed by itself counts whole when many arrive together | `test/store.test.ts`: "one write landed by itself returns the rows it names" |
 | A table step is applied once, and a failed step is not recorded | `test/store.test.ts`: the two tests about steps |
 | The activity record holds time, who, which operation, on what and the result's name, and has nowhere to put anything else | `test/store.test.ts`: "an activity line is written only when it is exactly an activity line" |
 | No sign-in is in any row | `test/nothing-secret.test.ts`, and [host](../host/CONTEXT.md)'s local-file test for the file on a PC |

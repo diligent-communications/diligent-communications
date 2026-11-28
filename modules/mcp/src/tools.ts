@@ -66,6 +66,32 @@ export function toolOf(operation: Operation): Tool {
   };
 }
 
+// The name of the tool a request on the agent connection calls, or nothing.
+// It is read as plain JSON, without the protocol library, for one purpose:
+// so the host can record a change that an agent it has already refused was
+// trying to make. Anything else, and anything that cannot be understood, is
+// nothing.
+export function toolCalledIn(body: string | null): string | null {
+  if (body === null) {
+    return null;
+  }
+  let request: unknown;
+  try {
+    request = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (typeof request !== 'object' || request === null || Array.isArray(request)) {
+    return null;
+  }
+  const { method, params } = request as { method?: unknown; params?: unknown };
+  if (method !== 'tools/call' || typeof params !== 'object' || params === null) {
+    return null;
+  }
+  const { name } = params as { name?: unknown };
+  return typeof name === 'string' ? name : null;
+}
+
 // Every operation is offered as a tool.
 export function toolList(): Tool[] {
   return operationList.map(toolOf);

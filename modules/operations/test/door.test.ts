@@ -23,6 +23,9 @@ function standIn(landing: 'landed' | 'clash' = 'landed'): Store & { landed: Writ
       }
       return landing;
     },
+    async landOne() {
+      return [];
+    },
   };
 }
 

@@ -6,7 +6,7 @@ import type { Install } from '../../host/test/helpers/local-install.ts';
 import { screen } from '../../host/test/helpers/ways.ts';
 import { activityWrite, storeTables } from '../src/activity.ts';
 import { ACTIVITY_LIMIT } from '../src/operations.ts';
-import { openStore } from '../src/store.ts';
+import { openStore, stillTrue } from '../src/store.ts';
 import type { Tables } from '../src/store.ts';
 
 let install: Install;
@@ -126,4 +126,36 @@ test('activity_list returns the newest lines first, as many as asked for', async
   assert.equal((await person.call('activity_list', { limit: ACTIVITY_LIMIT.most + 1 })).result, 'invalid_input');
   // Reading the record is itself a read: it added no line.
   assert.equal(((await person.call('activity_list')).entries as ActivityEntry[]).length, 5);
+});
+
+test('one write landed by itself returns the rows it names, and counts whole when many arrive together', async () => {
+  const tables: Tables = { part: 'counts', steps: ['CREATE TABLE counts_rows (name TEXT PRIMARY KEY, n INTEGER NOT NULL) STRICT'] };
+  const store = await openStore(database, [tables]);
+  // Let through only while the count is under three, and say what it became.
+  const count = { sql: "INSERT INTO counts_rows (name, n) VALUES ('tries', 1) ON CONFLICT (name) DO UPDATE SET n = n + 1 WHERE n < 3 RETURNING n", values: [] };
+  const answers = await Promise.all(Array.from({ length: 12 }, () => store.landOne<{ n: number }>(count)));
+  const through = answers.filter((rows) => rows.length === 1).map((rows) => rows[0]!.n).sort();
+  assert.deepEqual(through, [1, 2, 3]);
+  assert.equal(answers.filter((rows) => rows.length === 0).length, 9);
+  assert.deepEqual(await store.rows('SELECT n FROM counts_rows'), [{ n: 3 }]);
+});
+
+test('writes that rest on something read earlier land only while it is still true', async () => {
+  const tables: Tables = { part: 'guarded', steps: ['CREATE TABLE guarded_rows (id TEXT PRIMARY KEY, state TEXT NOT NULL) STRICT'] };
+  const store = await openStore(database, [storeTables, tables]);
+  assert.equal(await store.land([{ sql: "INSERT INTO guarded_rows (id, state) VALUES ('one', 'read')", values: [] }]), 'landed');
+  const asRead = stillTrue('SELECT 1 FROM guarded_rows WHERE id = ? AND state = ?', ['one', 'read']);
+  const change = { sql: "UPDATE guarded_rows SET state = 'changed by me' WHERE id = 'one'", values: [] };
+
+  // Still as it was read: the writes land.
+  assert.equal(await store.land([asRead, change]), 'landed');
+  assert.deepEqual(await store.rows('SELECT state FROM guarded_rows'), [{ state: 'changed by me' }]);
+
+  // No longer as it was read: nothing lands, wherever the guard sits.
+  const other = { sql: "UPDATE guarded_rows SET state = 'written over' WHERE id = 'one'", values: [] };
+  assert.equal(await store.land([asRead, other]), 'clash');
+  assert.equal(await store.land([other, asRead]), 'clash');
+  assert.deepEqual(await store.rows('SELECT state FROM guarded_rows'), [{ state: 'changed by me' }]);
+  // The guard itself never keeps a row.
+  assert.deepEqual(await store.rows('SELECT held FROM store_guard'), []);
 });

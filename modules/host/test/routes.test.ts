@@ -7,7 +7,7 @@ import { AGENT_CONNECTION_PATH } from '../../mcp/src/address.ts';
 import { OPERATION_PATH, SESSION_COOKIE } from '../src/addresses.ts';
 import { REPOSITORY, madeUp, startInstall } from './helpers/local-install.ts';
 import type { Install } from './helpers/local-install.ts';
-import { post, screen } from './helpers/ways.ts';
+import { agentConnection, post, screen } from './helpers/ways.ts';
 
 let install: Install;
 
@@ -97,6 +97,43 @@ test('when the install cannot finish, it answers unavailable and says nothing ab
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), { result: 'unavailable', description: 'The install could not finish this now. Nothing was changed.' });
   } finally {
+    await broken.close();
+  }
+});
+
+test('when the install cannot finish a tool call, the agent gets unavailable and nothing about what failed', async () => {
+  const broken = await startInstall();
+  const person = screen(broken);
+  await person.call('password_set', { code: broken.setupCode, password: madeUp('password') });
+  const created = await person.call('agent_create', { name: 'caller', level: 'read' });
+  const token = String(created.token);
+  const connection = await agentConnection(broken, token);
+  try {
+    assert.equal((await connection.call('agent_set', { agent: 'abc', on: true })).result, 'not_allowed');
+    // The database loses the table the record is kept in, as if damaged, so
+    // recording the next refused change fails inside the door.
+    const database = await broken.database();
+    await database.prepare('DROP TABLE activity').run();
+
+    const expected = { result: 'unavailable', description: 'The install could not finish this now. Nothing was changed.' };
+    assert.deepEqual(await connection.call('agent_set', { agent: 'abc', on: true }), expected);
+
+    // The whole reply, as sent, says nothing of the failure.
+    const response = await broken.fetch('/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'agent_set', arguments: { request_id: crypto.randomUUID(), agent: 'abc', on: true } } }),
+    });
+    const sent = await response.text();
+    assert.ok(sent.includes('unavailable'));
+    for (const leaked of ['D1_ERROR', 'no such table', 'activity', 'SQLITE', 'INSERT']) {
+      assert.equal(sent.includes(leaked), false, leaked);
+    }
+    // The same call on the operation address answers the same.
+    const onAddress = await post(broken, 'agent_set', { request_id: crypto.randomUUID(), agent: 'abc', on: true }, { authorization: `Bearer ${token}` });
+    assert.deepEqual(onAddress.answer, expected);
+  } finally {
+    await connection.close();
     await broken.close();
   }
 });

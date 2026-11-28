@@ -2,6 +2,7 @@ import { isActivityEntry } from '../../../contracts/activity.ts';
 import type { ActivityEntry } from '../../../contracts/activity.ts';
 import type { Work, Write } from '../../../contracts/operation.ts';
 import { ACTIVITY_LIMIT } from './operations.ts';
+import { GUARD_TABLE } from './store.ts';
 import type { Store, Tables } from './store.ts';
 
 // The activity table has a column for each field of an activity line and no
@@ -10,6 +11,7 @@ export const storeTables: Tables = {
   part: 'store',
   steps: [
     'CREATE TABLE activity (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, who TEXT NOT NULL, operation TEXT NOT NULL, on_what TEXT, result TEXT NOT NULL) STRICT',
+    GUARD_TABLE,
   ],
 };
 

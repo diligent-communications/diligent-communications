@@ -23,7 +23,7 @@ python -I _tools/map.py --check
 python -I _tools/test_map.py
 ```
 
-The tests start the program on Cloudflare's local runtime on this PC. They use made-up data, reach no network, and write only inside a temporary folder they make and remove.
+The tests start the program on Cloudflare's local runtime on this PC, with made-up data. What they write, and where, is in the [repository guide](CONTEXT.md#code-and-tests).
 
 ## Run it on a PC
 
@@ -47,7 +47,7 @@ The tests start the program on Cloudflare's local runtime on this PC. They use m
 
    It prints the address it answers on, usually `http://localhost:8787`. The database is a local file under `.wrangler/`, which git also ignores.
 
-4. Open that address in a browser. Copy the set-up code from `.dev.vars`, set a password of 16 characters or more, and sign in. A set-up code works once. If the password is ever forgotten, put a new code in `.dev.vars` and set the password again.
+4. Open that address in a browser. Copy the set-up code from `.dev.vars` and set a password of 16 characters or more. That signs this browser in. A set-up code works once. If the password is ever forgotten, put a new code in `.dev.vars` and set the password again.
 
 5. From a command line, the same operations are commands. The password is asked for, never typed as an argument:
 

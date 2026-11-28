@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { REQUEST_ID_FIELD, isAnswer } from '../../../contracts/operation.ts';
 import type { InputField, Operation } from '../../../contracts/operation.ts';
-import { OPERATION_PATH, SESSION_COOKIE } from '../../host/src/addresses.ts';
+import { OPERATION_PATH, SESSION_COOKIE, THIS_PC } from '../../host/src/addresses.ts';
 import { findOperation, operationList } from '../../operations/src/list.ts';
 
 const SESSION_FILE = 'session.json';
@@ -73,13 +73,36 @@ function valueOf(field: InputField, text: string): unknown {
 
 type Parsed = { install?: string; operation?: string; given: Map<string, string | null> };
 
+const NOT_AN_ADDRESS = '--install needs the address of the install, such as https://diligent.example or http://localhost:8787.';
+
+// The address of an install: its scheme, name and port, and nothing after.
+// A plain `http://` address is refused unless it is this PC's own, so a
+// session or a typed password never travels where others can read it.
+function addressOf(text: string): { address: string } | { refused: string } {
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return { refused: NOT_AN_ADDRESS };
+  }
+  const plain = url.protocol === 'http:';
+  if ((!plain && url.protocol !== 'https:') || url.username !== '' || url.password !== '' || url.pathname !== '/' || url.search !== '' || url.hash !== '') {
+    return { refused: NOT_AN_ADDRESS };
+  }
+  if (plain && !THIS_PC.includes(url.hostname)) {
+    return { refused: "A plain http:// address is refused unless it is this PC's own. Give the install's https:// address." };
+  }
+  return { address: url.origin };
+}
+
 function parse(args: readonly string[]): Parsed | string {
   const parsed: Parsed = { given: new Map() };
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]!;
     if (!arg.startsWith('--')) {
       if (parsed.operation !== undefined) {
-        return `Unexpected word: ${arg}`;
+        // Nothing typed on the line is said back: it could be a secret.
+        return 'There is a word too many. A command is one operation, then its inputs as --name value.';
       }
       parsed.operation = arg;
       continue;
@@ -93,7 +116,7 @@ function parse(args: readonly string[]): Parsed | string {
     }
     if (name === 'install') {
       if (value === null) {
-        return '--install needs an address.';
+        return NOT_AN_ADDRESS;
       }
       parsed.install = value;
     } else {
@@ -111,7 +134,7 @@ async function inputFor(operation: Operation, given: Map<string, string | null>,
     if (name === REQUEST_ID_FIELD && operation.request_id && value !== null) {
       input[name] = value;
     } else if (field === undefined) {
-      return `\`${name}\` is not an input of \`${operation.name}\`.`;
+      return `An input given is not one \`${operation.name}\` takes. Run diligent --help for the list.`;
     } else if (field.kind === 'text' && field.secret === true) {
       if (value !== null) {
         return `\`${name}\` is a secret. Name it without a value and it is asked for.`;
@@ -161,14 +184,26 @@ export async function run(surroundings: Surroundings): Promise<number> {
   }
   const operation = findOperation(parsed.operation);
   if (operation === undefined) {
-    surroundings.say(`There is no operation named ${parsed.operation}. Run diligent --help for the list.`);
+    surroundings.say('There is no operation with that name. Run diligent --help for the list.');
     return 1;
   }
-  const kept = await readKept(surroundings.home);
-  const install = (parsed.install ?? kept.install)?.replace(/\/+$/, '');
-  if (install === undefined) {
+  let kept = await readKept(surroundings.home);
+  const where = parsed.install ?? kept.install;
+  if (where === undefined) {
     surroundings.say('Say where the install is with --install <address>. It is remembered after that.');
     return 1;
+  }
+  const checked = addressOf(where);
+  if ('refused' in checked) {
+    surroundings.say(checked.refused);
+    return 1;
+  }
+  const install = checked.address;
+  // A session belongs to the address that issued it. When the address
+  // changes the session is dropped, at once, and is never sent to the new one.
+  if (kept.install !== install) {
+    kept = { install };
+    await writeKept(surroundings.home, kept);
   }
   const input = await inputFor(operation, parsed.given, surroundings);
   if (typeof input === 'string') {
@@ -186,6 +221,9 @@ export async function run(surroundings: Surroundings): Promise<number> {
         ...(kept.session === undefined ? {} : { cookie: `${SESSION_COOKIE}=${kept.session}` }),
       },
       body: JSON.stringify(input),
+      // A redirect would send the session and the input on to another
+      // address. It is an error, never followed.
+      redirect: 'error',
     });
     answer = await response.json();
   } catch {

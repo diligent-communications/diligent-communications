@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Operation } from '../../../contracts/operation.ts';
 import { operationList } from '../../operations/src/list.ts';
-import { toolList, toolOf } from '../src/tools.ts';
+import { toolCalledIn, toolList, toolOf } from '../src/tools.ts';
 
 test('the tool list is the operations list: one tool per operation, in the same order, with nothing added', () => {
   assert.deepEqual(toolList().map((tool) => tool.name), operationList.map((operation) => operation.name));
@@ -67,4 +67,29 @@ test("a tool says when its operation is the person's, so an agent knows the answ
     assert.ok(tool.description.includes('not_allowed'), name);
   }
   assert.ok(toolList().find((tool) => tool.name === 'whoami')!.description.includes('Needs the level read.'));
+});
+
+test('the name of a called tool is read from a request as plain JSON, and anything else is nothing', () => {
+  const call = (params: unknown): string => JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params });
+  assert.equal(toolCalledIn(call({ name: 'agent_set', arguments: { on: true } })), 'agent_set');
+  assert.equal(toolCalledIn(call({ name: 'anything at all' })), 'anything at all');
+
+  const nothing: (string | null)[] = [
+    null,
+    '',
+    'not json {{{',
+    'null',
+    '"tools/call"',
+    JSON.stringify([{ method: 'tools/call', params: { name: 'agent_set' } }]),
+    JSON.stringify({ method: 'tools/list', params: { name: 'agent_set' } }),
+    JSON.stringify({ method: 'initialize', params: {} }),
+    JSON.stringify({ method: 'tools/call' }),
+    JSON.stringify({ method: 'tools/call', params: null }),
+    JSON.stringify({ method: 'tools/call', params: 'agent_set' }),
+    call({ name: 7 }),
+    call({ arguments: { name: 'agent_set' } }),
+  ];
+  for (const body of nothing) {
+    assert.equal(toolCalledIn(body), null, String(body));
+  }
 });

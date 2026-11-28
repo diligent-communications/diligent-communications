@@ -112,37 +112,53 @@ test('a switched-off agent is refused everything on its very next call, and work
   assert.equal((off.agent as Agent).on, false);
   const before = (await activity()).length;
 
-  // On the agent connection every request is refused before the protocol
-  // handler reads it: the handshake, the tool list and a tool call alike.
+  // On the agent connection the host refuses every request itself, before
+  // the protocol handler: the handshake, the tool list and a tool call alike.
   // Each gets the named result, and none is answered by the protocol.
   const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${token}` };
-  const requests = [
-    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test-agent', version: '1' } } },
-    { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
-    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'whoami', arguments: {} } },
-    { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'agent_set', arguments: { request_id: crypto.randomUUID(), agent: agent.id, on: true } } },
-  ];
-  for (const request of requests) {
-    const response = await install.fetch('/mcp', { method: 'POST', headers, body: JSON.stringify(request) });
-    assert.equal(response.status, 403, request.method);
+  const refused = async (body: string): Promise<void> => {
+    const response = await install.fetch('/mcp', { method: 'POST', headers, body });
+    assert.equal(response.status, 403, body.slice(0, 60));
     assert.deepEqual(await response.json(), {
       result: 'switched_off',
       description: 'The caller\'s agent sign-in is switched off. The agent "sleeper" is switched off.',
     });
+  };
+  const change = { request_id: crypto.randomUUID(), agent: agent.id, on: true };
+  // None of these is an attempt at a change, so none leaves a record: a
+  // handshake, a tool list, a read, a tool that is no operation, several
+  // requests in one body, a body that is not JSON, and a body too large to read.
+  const noRecord = [
+    JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test-agent', version: '1' } } }),
+    JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+    JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'whoami', arguments: {} } }),
+    JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'no_such_operation', arguments: {} } }),
+    JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'agent_set', params: { name: 'agent_set' } }),
+    JSON.stringify([{ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'agent_set', arguments: change } }]),
+    'not json {{{',
+    JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'agent_set', arguments: { ...change, padding: 'x'.repeat(70_000) } } }),
+  ];
+  for (const body of noRecord) {
+    await refused(body);
   }
-  // A body that is not the protocol at all is refused the same way, unread.
-  const unread = await install.fetch('/mcp', { method: 'POST', headers, body: 'not json {{{' });
-  assert.equal(unread.status, 403);
-  assert.equal(((await unread.json()) as { result: string }).result, 'switched_off');
-
   // A real client is refused on the connection it already had open, cannot
   // list the tools, and cannot complete a new handshake.
-  await assert.rejects(connection.call('whoami'));
   await assert.rejects(connection.toolNames());
   await assert.rejects(agentConnection(install, token));
-
-  // None of that left a line: the requests were never read.
   assert.equal((await activity()).length, before);
+
+  // A tool call that names an operation that changes something is refused
+  // the same way, and that attempt is recorded: one line, by that agent.
+  await refused(JSON.stringify({ jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'agent_set', arguments: change } }));
+  await assert.rejects(connection.call('agent_set', change));
+  const onConnection = (await activity()).slice(0, -before);
+  assert.deepEqual(
+    onConnection.map((entry) => [entry.who, entry.operation, entry.on, entry.result]),
+    [
+      [`agent:${agent.id}`, 'agent_set', null, 'switched_off'],
+      [`agent:${agent.id}`, 'agent_set', null, 'switched_off'],
+    ],
+  );
 
   // On the operation address the sign-in gets `switched_off` on every
   // operation, a read included. The refused change is recorded. The read is not.
@@ -150,13 +166,17 @@ test('a switched-off agent is refused everything on its very next call, and work
   for (const operation of ['whoami', 'agent_list', 'activity_list', 'sign_out']) {
     assert.equal((await post(install, operation, {}, asAgent)).answer.result, 'switched_off', operation);
   }
-  const change = await post(install, 'agent_set', { request_id: crypto.randomUUID(), agent: agent.id, on: true }, asAgent);
-  assert.equal(change.answer.result, 'switched_off');
+  const onAddress = await post(install, 'agent_set', { request_id: crypto.randomUUID(), agent: agent.id, on: true }, asAgent);
+  assert.equal(onAddress.answer.result, 'switched_off');
   const lines = (await activity()).filter((entry) => entry.who === `agent:${agent.id}`);
   assert.deepEqual(lines.map((entry) => [entry.operation, entry.result]), [
     ['agent_set', 'switched_off'],
     ['sign_out', 'switched_off'],
+    ['agent_set', 'switched_off'],
+    ['agent_set', 'switched_off'],
   ]);
+  // The agent stayed as the person left it through all of that.
+  assert.equal(((await person.call('agent_list')).agents as Agent[]).find((row) => row.id === agent.id)?.on, false);
 
   // Switching it off erased nothing, and switching it on brings it back.
   const listed = (await person.call('agent_list')).agents as Agent[];

@@ -28,7 +28,7 @@ export const ADVICE = {
   request_id_reused: 'Load the page again and repeat the step.',
   changed_since: 'Load the page again to see the change, then repeat the step.',
   unavailable: 'Try again in a moment. Nothing was changed.',
-  set: 'Now sign in with the new password on each device.',
+  set: 'Every other device needs to sign in again, with the new password.',
   wrong_code: 'Check the set-up code. A code works once. To set the password again, put a new set-up code in the install first.',
   wrong_password: 'Check the password and try again. Too many wrong tries in a row lock the password for a while.',
   locked_out: 'Wait until the time shown, then try again. A device that is already signed in keeps working.',

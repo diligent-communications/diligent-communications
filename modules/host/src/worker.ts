@@ -1,12 +1,14 @@
 import { accessTables, openAccess } from '../../access/src/access.ts';
 import { AGENT_CONNECTION_PATH } from '../../mcp/src/address.ts';
 import { answerAgent } from '../../mcp/src/connection.ts';
+import { toolCalledIn } from '../../mcp/src/tools.ts';
 import { openDoor, operationsTables, refusal } from '../../operations/src/door.ts';
 import type { Ran } from '../../operations/src/door.ts';
+import { findOperation } from '../../operations/src/list.ts';
 import { storeTables, storeWork } from '../../store/src/activity.ts';
 import { openStore } from '../../store/src/store.ts';
 import type { Answer } from '../../../contracts/operation.ts';
-import { OPERATION_PATH, SESSION_COOKIE } from './addresses.ts';
+import { OPERATION_PATH, SESSION_COOKIE, THIS_PC } from './addresses.ts';
 
 // The session cookie outlives the session's own idle limit, which access
 // keeps. 400 days is the longest a browser keeps a cookie.
@@ -35,10 +37,6 @@ function sessionCookie(request: Request): string | null {
   return null;
 }
 
-// The names a PC answers to by itself. Only there may the session travel
-// over a plain address.
-const THIS_PC = ['localhost', '127.0.0.1', '[::1]'];
-
 // The cookie that begins or ends a session on the calling device. It is
 // hidden from page scripts, never sent with a request another site started,
 // and sent only over HTTPS except on the PC's own address.
@@ -56,6 +54,17 @@ function fromAnotherSite(request: Request, url: URL): boolean {
   const origin = request.headers.get('origin');
   const site = request.headers.get('sec-fetch-site');
   return (origin !== null && origin !== url.origin) || (site !== null && site !== 'same-origin' && site !== 'none');
+}
+
+// The body of a request, when it says it is small and is. A body that is
+// large, or does not say how large it is, is not read at all.
+async function smallBody(request: Request): Promise<string | null> {
+  const length = Number(request.headers.get('content-length') ?? Number.NaN);
+  if (!(length <= BODY_LIMIT)) {
+    return null;
+  }
+  const text = await request.text();
+  return text.length <= BODY_LIMIT ? text : null;
 }
 
 async function readInput(request: Request): Promise<unknown> {
@@ -99,8 +108,15 @@ async function answer(request: Request, env: Env, ctx: ExecutionContext): Promis
     // So is every request from an agent that is switched off, the handshake
     // and the tool list included. An agent is often switched off because its
     // token may have leaked, so nothing that token sends reaches the handler.
-    // The request is not read, so it leaves no activity line.
     if (!caller.on) {
+      // The host reads just enough to tell whether the request is a tool call
+      // that names an operation. If it is, the door refuses it as it refuses
+      // the same call on the operation address, and so records a refused
+      // change. Anything else leaves no record.
+      const name = toolCalledIn(await smallBody(request));
+      if (name !== null && findOperation(name) !== undefined) {
+        return json(403, (await door.run(caller, name, {}, seen)).answer);
+      }
       return json(403, refusal('switched_off', `The agent "${caller.name}" is switched off.`));
     }
     return answerAgent(request, env, ctx, async (name, input) => (await door.run(caller, name, input, seen)).answer);

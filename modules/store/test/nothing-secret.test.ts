@@ -54,6 +54,8 @@ test('after every kind of sign-in has been made and used, none is in the databas
   // The first password, wrong tries, and two devices signed in.
   await onScreen.call('password_set', { code: wrongCode, password: firstPassword });
   assert.equal((await onScreen.call('password_set', { code: firstCode, password: firstPassword })).result, 'set');
+  // Setting the password with the set-up code signed this device in.
+  const setupSession = browser.cookies.get('diligent_session')!;
   await onScreen.call('sign_in', { password: guess });
   assert.equal((await onScreen.call('sign_in', { password: firstPassword })).result, 'signed_in');
   assert.equal((await atCommandLine.call('sign_in', { password: firstPassword })).result, 'signed_in');
@@ -87,9 +89,10 @@ test('after every kind of sign-in has been made and used, none is in the databas
   const secondCode = madeUp('setup-code');
   await running.changeSetupCode(secondCode);
   assert.equal((await onScreen.call('password_set', { code: secondCode, password: thirdPassword })).result, 'set');
+  const resetSession = browser.cookies.get('diligent_session')!;
   assert.equal((await onScreen.call('sign_in', { password: thirdPassword })).result, 'signed_in');
   const secondSession = browser.cookies.get('diligent_session')!;
-  assert.notEqual(secondSession, firstSession);
+  assert.equal(new Set([setupSession, firstSession, resetSession, secondSession]).size, 4);
   await onScreen.call('agent_list');
   await onScreen.call('activity_list', { limit: 200 });
   await onScreen.call('sign_out');
@@ -105,7 +108,9 @@ test('after every kind of sign-in has been made and used, none is in the databas
     secondPassword,
     thirdPassword,
     guess,
+    setupSession,
     firstSession,
+    resetSession,
     secondSession,
     thirdSession,
     terminalSession,
@@ -126,8 +131,11 @@ test('after every kind of sign-in has been made and used, none is in the databas
     'access_tries',
     'activity',
     'operations_requests',
+    'store_guard',
     'store_upgrades',
   ]);
+  // The guard table never holds a row.
+  assert.ok(text.includes('{"table":"store_guard","rows":[]}'));
   // The search would find plain text: these are there.
   for (const present of ['made-on-screen', 'made-at-command-line', 'scrypt$N=32768,r=8,p=3$', screenRequest.request_id, '"result":"created"']) {
     assert.ok(text.includes(present), `${present} is in the database`);

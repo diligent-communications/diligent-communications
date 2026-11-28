@@ -17,7 +17,7 @@ export const accessOperations: readonly Operation[] = [
     name: 'password_set',
     part: 'access',
     meaning:
-      'Set the password. With an unused set-up code it needs no session and ends every session. Without one it needs the person\'s session and the current password.',
+      'Set the password. With an unused set-up code it needs no session, ends every other session and signs the calling device in. Without one it needs the person\'s session and the current password.',
     level: 'none',
     changes: true,
     request_id: false,

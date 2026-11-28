@@ -38,18 +38,18 @@ The operations list is `src/list.ts`. Each part describes its own operations, an
 `run` takes the caller, an operation's name and an input, and returns one answer. In order:
 
 1. An unknown name answers `invalid_input`.
-2. An agent that is switched off answers `switched_off`.
+2. An agent that is switched off answers `switched_off`. The [host](../host/CONTEXT.md) asks the door for this answer on the agent connection too, so the same refused change is recorded the same way.
 3. The level check. An operation at the level `none` runs for a caller with no sign-in and for the person, and answers `not_allowed` to an agent. Any other operation answers `not_signed_in` to a caller with no sign-in, and `not_allowed` to a caller whose level does not reach it. What a caller may do depends on its sign-in, never on the way in.
 4. The input is checked against what the operation takes. Anything else answers `invalid_input`, which names the field and never repeats the value.
 5. For an operation that takes a request ID: a request ID already kept with the same operation, caller and input returns the kept answer, and nothing is changed or recorded again. The same ID with anything different answers `request_id_reused`.
 6. The owning part's work runs and hands back its [work](../../contracts/CONTEXT.md#work). An answer that is not one of the operation's named results, or one any operation can return, is an error and is never returned.
-7. The work's writes, the activity line, and the kept answer land together through store, or none of them do. The kept answer leaves out the fields the operation shows once. If the writes clash with another request twice, the answer is `unavailable`.
+7. The work's writes, the activity line, and the kept answer land together through store, or none of them do. The kept answer leaves out the fields the operation shows once. A part may add a write that makes the landing clash unless what it read is still true. After a clash the work runs once more, so its answer is about how things are now. If the writes clash twice, the answer is `unavailable`.
 
 What is recorded, one [activity line](../../contracts/CONTEXT.md#activity-line) each:
 
 - Every call to an operation that changes something, by a caller with a sign-in, whatever the answer. That covers every change and every refused attempt at one.
 - A call that proved the person by itself: a successful `sign_in`, or `password_set` with a set-up code, as `you`.
-- The one wrong try that starts a password lock, as `diligent`. A stranger's other wrong tries leave no line, so a stranger cannot fill the record.
+- The one try that starts a password lock, when it is wrong, as `diligent`. A stranger's other wrong tries leave no line, so a stranger cannot fill the record.
 - A read leaves no line. Nor does a repeat that returns a kept answer.
 
 ### Outputs
