@@ -40,7 +40,7 @@ function workFor(overrides: Record<string, Work> = {}): Record<string, Work> {
 
 const you: Caller = { kind: 'you', session: 'ab12' };
 
-test('the operations list is well formed: unique lowercase names, and the eight operations of this slice', () => {
+test('the operations list is well formed: unique lowercase names, and the operations of the slices built so far', () => {
   for (const operation of operationList) {
     assert.equal(isOperation(operation), true, operation.name);
   }
@@ -52,6 +52,15 @@ test('the operations list is well formed: unique lowercase names, and the eight 
     'access.sign_in',
     'access.sign_out',
     'access.whoami',
+    'brief.brief_list',
+    'brief.link_move_message',
+    'brief.matter_edit',
+    'brief.matter_get',
+    'brief.matter_search',
+    'brief.matter_set_state',
+    'links.link_accept_person',
+    'links.link_remove_person',
+    'people.person_get',
     'store.activity_list',
   ]);
   assert.equal(new Set(operationList.map((operation) => operation.name)).size, operationList.length);
@@ -70,6 +79,15 @@ test('the levels, request IDs and named results are the ones the operations tabl
     agent_list: ['you', false, 'listed'],
     agent_set: ['you', true, 'changed unknown_agent'],
     activity_list: ['you', false, 'listed'],
+    brief_list: ['read', false, 'brief'],
+    matter_get: ['read', false, 'matter unknown_matter'],
+    matter_search: ['read', false, 'found'],
+    matter_edit: ['you', true, 'already_so changed unknown_matter'],
+    matter_set_state: ['you', true, 'already_so changed unknown_matter'],
+    link_move_message: ['you', true, 'moved same_matter unknown_link unknown_matter'],
+    link_accept_person: ['you', true, 'accepted already_so unknown_link'],
+    link_remove_person: ['you', true, 'already_so removed unknown_link'],
+    person_get: ['read', false, 'person unknown_person'],
   });
   // The three sign-in operations take no request ID, so no answer of theirs is kept.
   for (const name of ['sign_in', 'sign_out', 'password_set']) {
