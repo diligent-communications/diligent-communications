@@ -5,7 +5,7 @@ This repository is planning only. There is no program yet. The plan is one Brief
 The finished app is planned to run in the person's own Cloudflare account and also on a PC.
 
 - The [generated map](map/README.md) shows the current folder contracts, which contract reads which, and the build piece of each part. Open a contract from the table below the diagram.
-- The [target map](map/target.md) is the picture of the finished app: the parts, the rules, and the order the pieces are built.
+- The [target map](map/target.md) is the plan for the finished app until a piece writes a contract.
 - The [repository guide](CONTEXT.md) routes tasks and explains how to work across folders.
 
 ## Run the checks
@@ -24,6 +24,6 @@ python -I _tools/test_map.py
 ## Decisions
 
 - Diligent keeps no copy of mail. A matter may hold a short quote and a summary, and a way to open the original.
-- No part of Diligent calls a model. Any outside agent can connect. Each agent has its own sign-in and a level. The person accepts with a tap, and nothing is sent without that tap.
+- No part of Diligent calls a model. Any outside agent can connect. Each agent has its own sign-in and a level. The person accepts with a tap, and nothing is sent without that tap. The [command-line limit](map/target.md#rules-every-part-keeps) sits beside that tap.
 - One install belongs to one person. The screens are planned phone first. The same program is planned so it can run on a PC.
-- The build has six pieces: mail to Brief, a reply, texts, calls, projects and goals, then calendar and contacts. The seam of each part is written first. What happens inside a part is written with that part's code.
+- The build has six pieces: mail to Brief, a reply, texts, calls, projects and goals, then calendar and contacts. Until a piece writes a part's contract, the target map is the plan.

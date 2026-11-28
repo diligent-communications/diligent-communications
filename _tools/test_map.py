@@ -11,6 +11,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FOLDERS = ("_tools", "contracts", "map", "modules", "guides")
+LANE_CONTRACT = """---
+build_step: 1
+status: draft
+consumes: []
+produces: []
+---
+# sources — What exists at each source
+
+## Lanes
+
+### Text · Piece 3 (draft)
+
+#### Check
+
+verifies that a text is kept once.
+
+#### Open
+
+- An unsettled handoff.
+"""
 
 
 class MapValidationTests(unittest.TestCase):
@@ -44,30 +64,51 @@ class MapValidationTests(unittest.TestCase):
     def test_indented_status(self):
         self.rejects("operations", "status: draft", "  status: draft", "frontmatter key '  status'")
 
+    def run_fixture(self, relative, text, check):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / relative
+            path.parent.mkdir(parents=True)
+            path.write_text(text, encoding="utf-8")
+            script = root / "_tools" / "map.py"
+            script.parent.mkdir()
+            shutil.copyfile(ROOT / "_tools" / "map.py", script)
+            command = [sys.executable, "-I", "-X", "utf8", str(script)]
+            if check:
+                command.append("--check")
+            return subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+
     def test_lane_heading(self):
-        self.rejects("sources", "Piece 3 (draft)", "Piece Three (draft)", "invalid lane heading")
+        result = self.run_fixture(
+            "modules/sources/CONTEXT.md", LANE_CONTRACT.replace("Piece 3 (draft)", "Piece Three (draft)"), True,
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("invalid lane heading", result.stderr)
 
     def test_lane_with_two_hashes(self):
-        self.rejects(
-            "sources", "### Text · Piece 3 (draft)", "## Text · Piece 3 (draft)",
-            "must be a ### heading under ## Lanes",
+        result = self.run_fixture(
+            "modules/sources/CONTEXT.md",
+            LANE_CONTRACT.replace("### Text · Piece 3 (draft)", "## Text · Piece 3 (draft)"),
+            True,
         )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("must be a ### heading under ## Lanes", result.stderr)
 
     def test_misspelled_lanes(self):
-        self.rejects("sources", "## Lanes", "## Lane", "must be a ### heading under ## Lanes")
+        result = self.run_fixture(
+            "modules/sources/CONTEXT.md", LANE_CONTRACT.replace("## Lanes", "## Lane"), True,
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("must be a ### heading under ## Lanes", result.stderr)
 
     def test_open_under_lane(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             self.copy_workspace(root)
             path = root / "modules" / "sources" / "CONTEXT.md"
-            contract = path.read_text(encoding="utf-8")
-            original = "verifies that a text is kept once.\n"
-            self.assertIn(original, contract)
-            opened = f"{original}\n#### Open\n\n- An unsettled handoff.\n"
-            path.write_text(contract.replace(original, opened, 1), encoding="utf-8")
+            path.write_text(LANE_CONTRACT, encoding="utf-8")
             result = subprocess.run(
-                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py"), "--check"],
+                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py")],
                 capture_output=True, text=True, encoding="utf-8",
             )
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -88,10 +129,13 @@ class MapValidationTests(unittest.TestCase):
             root = Path(temp)
             self.copy_workspace(root)
             path = root / "modules" / "brief" / "CONTEXT.md"
-            contract = path.read_text(encoding="utf-8")
-            original = "../../contracts/CONTEXT.md#matter"
-            self.assertIn(original, contract)
-            path.write_text(contract.replace(original, "../../contracts/not-a-shape.md"), encoding="utf-8")
+            path.write_text(
+                "---\nbuild_step: 1\nstatus: draft\n"
+                "consumes: [\"../../contracts/not-a-shape.md\"]\nproduces: []\n---\n"
+                "# brief — The matters\n\n## Inputs\n\n"
+                "- Reference: [Missing](../../contracts/not-a-shape.md)\n",
+                encoding="utf-8",
+            )
             result = subprocess.run(
                 [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py"), "--check"],
                 capture_output=True, text=True, encoding="utf-8",
@@ -107,13 +151,11 @@ class MapValidationTests(unittest.TestCase):
             page.write_text("Draft.\n\nSee [store](../store/CONTEXT.md).\n", encoding="utf-8")
             path = root / "modules" / "app" / "CONTEXT.md"
             contract = path.read_text(encoding="utf-8")
+            contract = contract.replace("consumes: []", 'consumes: ["inner.md"]', 1)
             contract = contract.replace(
-                '"../../guides/CONTEXT.md"',
-                '"../../guides/CONTEXT.md","inner.md"',
-            )
-            contract = contract.replace(
-                "- Reference: [Guides](../../guides/CONTEXT.md)\n",
-                "- Reference: [Guides](../../guides/CONTEXT.md)\n- Reference: [Inner](inner.md)\n",
+                "# app — The screens\n",
+                "# app — The screens\n\n## Inputs\n\n- Reference: [Inner](inner.md)\n",
+                1,
             )
             path.write_text(contract, encoding="utf-8")
             result = subprocess.run(

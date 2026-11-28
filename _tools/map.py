@@ -200,7 +200,7 @@ def render():
         "",
         "Every arrow points toward the folder being read. The **Writes to** column below lists write handoffs separately.",
         "",
-        "All modules may read the [shared shapes](../contracts/CONTEXT.md). Each module contract links the shapes it needs.",
+        "A shared shape is added in [contracts](../contracts/CONTEXT.md) by the piece whose code first uses it. Until then the [target map](target.md) is the plan.",
         "",
         "See the [target map](target.md) for how the finished application will work. That picture points along a call. This map points toward the contract a part reads.",
         "",

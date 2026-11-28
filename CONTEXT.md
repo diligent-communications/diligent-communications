@@ -32,13 +32,9 @@ The checks run on Node.js 24.12.0 or later. Run `npm ci --ignore-scripts`, `npm 
 
 ## Working across folders
 
-The screen, the command line and the agent connection are the three ways in. They reach the same operations through [host](modules/host/CONTEXT.md) and the [one door](modules/operations/CONTEXT.md). A part may read only the folders its contract lists, and the exact shapes it names in [contracts](contracts/CONTEXT.md).
+Until a piece writes a part's contract together with its code and tests, the [target map](map/target.md) is the plan. When that contract is written, it holds. If it differs from the target map, the map is corrected in the same change.
 
-The seam of a part is complete while the part is still draft: its operations, their named results, the shapes it shares and its hard rules. The inner step-by-step behaviour is written with that part's code. An inner page starts with the line `Draft.` and the map marks that page draft. Where an inner page disagrees with a hard rule, the hard rule stands.
-
-Nothing comes in except through [sources](modules/sources/CONTEXT.md). Nothing leaves except through [effects](modules/effects/CONTEXT.md), and only after the person accepts. No part calls a model. A received mail body follows the [prepared reply](contracts/CONTEXT.md#prepared-reply) shape. Only [connections](modules/connections/CONTEXT.md) holds a sign-in to an outside account. Only [store](modules/store/CONTEXT.md) talks to the database.
-
-The build has six pieces. Piece 1 is mail to Brief. A later piece may add operations and lanes. It does not change an operation an earlier piece shipped without changing the shared shape here first.
+No received mail body is stored. The rule is in the [target map](map/target.md#rules-every-part-keeps).
 
 `map/` holds the generated map and the hand-written target. `_tools/` holds the map tools. `guides/` holds recipes. `map/` and `_tools/` carry no contract. Update the [target map](map/target.md) when a part is added or removed or its edges change.
 

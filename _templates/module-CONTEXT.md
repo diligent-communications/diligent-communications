@@ -8,7 +8,9 @@ writes: []
 
 {Set build_step to 1, 2, 3, 4, 5, or 6. Use 1 to 2 only when piece 1 of this contract is complete and piece 2 is still draft.}
 
-{A contract has two layers. The seam is complete: the operations, their named results, the shared shapes, and the hard rules. An inner page, the step-by-step behaviour, starts with the line Draft. and is finished with that part's code. For a contract that is not finished, add status: draft to the frontmatter. In a mixed contract, label the complete and draft sections and give each its own process and check.}
+{A folder starts as a stub: what the part is for, what it owns, what it never does, and the piece that first builds it. Its seam is written together with its code and tests in that piece. Until then the target map is the plan for it.}
+
+{A written contract has two layers. The seam is complete: the operations, their named results, the shared shapes, and the hard rules. An inner page, the step-by-step behaviour, starts with the line Draft. and is finished with that part's code. For a contract that is not finished, add status: draft to the frontmatter. In a mixed contract, label the complete and draft sections and give each its own process and check.}
 
 ## Inputs
 

@@ -4,7 +4,7 @@
 
 Every arrow points toward the folder being read. The **Writes to** column below lists write handoffs separately.
 
-All modules may read the [shared shapes](../contracts/CONTEXT.md). Each module contract links the shapes it needs.
+A shared shape is added in [contracts](../contracts/CONTEXT.md) by the piece whose code first uses it. Until then the [target map](target.md) is the plan.
 
 See the [target map](target.md) for how the finished application will work. That picture points along a call. This map points toward the contract a part reads.
 
@@ -26,63 +26,23 @@ flowchart TD
     folder14["modules/sorting"]
     folder15["modules/sources"]
     folder16["modules/store"]
-    folder1 --> folder14
-    folder10 --> folder11
-    folder10 --> folder8
-    folder11 --> folder16
-    folder12 --> folder11
-    folder12 --> folder13
-    folder12 --> folder16
-    folder12 --> folder4
-    folder12 --> folder6
-    folder12 --> folder9
-    folder13 --> folder11
-    folder13 --> folder16
-    folder13 --> folder9
-    folder14 --> folder11
-    folder14 --> folder15
-    folder14 --> folder16
-    folder14 --> folder4
-    folder14 --> folder9
-    folder15 --> folder11
-    folder15 --> folder16
-    folder15 --> folder6
-    folder2 --> folder11
-    folder2 --> folder16
-    folder3 --> folder1
-    folder3 --> folder11
-    folder3 --> folder8
-    folder4 --> folder11
-    folder4 --> folder16
-    folder4 --> folder9
-    folder5 --> folder11
-    folder5 --> folder8
-    folder6 --> folder11
-    folder6 --> folder16
-    folder7 --> folder11
-    folder7 --> folder16
-    folder7 --> folder6
-    folder8 --> folder11
-    folder8 --> folder2
-    folder9 --> folder11
-    folder9 --> folder16
 ```
 
 | Folder contract | Piece | Contract status | Outputs | Writes to |
 | --- | --- | --- | --- | --- |
-| [guides](../guides/CONTEXT.md) | — | Draft | Set-up recipes, Sorting guide | — |
-| [modules/access](../modules/access/CONTEXT.md) | 1 (draft) | Draft | Caller and level | — |
-| [modules/app](../modules/app/CONTEXT.md) | 1 (draft) | Draft | Screens and advice | — |
-| [modules/brief](../modules/brief/CONTEXT.md) | 1 (draft) | Draft | Matters | — |
-| [modules/cli](../modules/cli/CONTEXT.md) | 1 (draft) | Draft | Printed results | — |
-| [modules/connections](../modules/connections/CONTEXT.md) | 1 (draft)<br>Mail: 1 (proposed, draft), Sending: 2 (proposed, draft), Calendar and contacts: 6 (proposed, draft) | Draft | Account sign-ins | — |
-| [modules/effects](../modules/effects/CONTEXT.md) | 2 (draft)<br>Reply: 2 (proposed, draft), Text reply: 3 (proposed, draft), Events and contacts: 6 (proposed, draft) | Draft | Prepared actions | — |
-| [modules/host](../modules/host/CONTEXT.md) | 1 (draft) | Draft | Routed requests | — |
-| [modules/links](../modules/links/CONTEXT.md) | 1 (draft)<br>Projects: 5 (proposed, draft) | Draft | Links | — |
-| [modules/mcp](../modules/mcp/CONTEXT.md) | 1 (draft) | Draft | Agent tools | — |
-| [modules/operations](../modules/operations/CONTEXT.md) | 1 (draft) | Draft | Checked calls | — |
-| [modules/people](../modules/people/CONTEXT.md) | 1 (draft)<br>Name on the line: 1 (proposed, draft), The page: 5 (proposed, draft), Google Contacts: 6 (proposed, draft) | Draft | Person pages | — |
-| [modules/plans](../modules/plans/CONTEXT.md) | 5 (draft) | Draft | Projects and goals | — |
-| [modules/sorting](../modules/sorting/CONTEXT.md) | 1 (draft) | Draft | Outcomes and receipts | — |
-| [modules/sources](../modules/sources/CONTEXT.md) | 1 (draft)<br>Mail: 1 (proposed, draft), Text: 3 (proposed, draft), Calls: 4 (proposed, draft) | Draft | Source messages | — |
-| [modules/store](../modules/store/CONTEXT.md) | 1 (draft) | Draft | Stored rows | — |
+| [guides](../guides/CONTEXT.md) | — | Draft | None | — |
+| [modules/access](../modules/access/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/app](../modules/app/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/brief](../modules/brief/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/cli](../modules/cli/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/connections](../modules/connections/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/effects](../modules/effects/CONTEXT.md) | 2 (draft) | Draft | None | — |
+| [modules/host](../modules/host/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/links](../modules/links/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/mcp](../modules/mcp/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/operations](../modules/operations/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/people](../modules/people/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/plans](../modules/plans/CONTEXT.md) | 5 (draft) | Draft | None | — |
+| [modules/sorting](../modules/sorting/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/sources](../modules/sources/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/store](../modules/store/CONTEXT.md) | 1 (draft) | Draft | None | — |
