@@ -110,26 +110,62 @@ test('a switched-off agent is refused everything on its very next call, and work
   const off = await person.call('agent_set', { agent: agent.id, on: false });
   assert.equal(off.result, 'changed');
   assert.equal((off.agent as Agent).on, false);
+  const before = (await activity()).length;
 
-  // The very next call, on the connection that was already open.
-  const next = await connection.call('whoami');
-  assert.equal(next.result, 'switched_off');
-  assert.equal((await connection.call('agent_set', { agent: agent.id, on: true })).result, 'switched_off');
-  assert.equal((await post(install, 'whoami', {}, { authorization: `Bearer ${token}` })).answer.result, 'switched_off');
-  // A new connection is refused the same way.
-  const again = await agentConnection(install, token);
-  connections.push(again);
-  assert.equal((await again.call('whoami')).result, 'switched_off');
+  // On the agent connection every request is refused before the protocol
+  // handler reads it: the handshake, the tool list and a tool call alike.
+  // Each gets the named result, and none is answered by the protocol.
+  const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${token}` };
+  const requests = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test-agent', version: '1' } } },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'whoami', arguments: {} } },
+    { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'agent_set', arguments: { request_id: crypto.randomUUID(), agent: agent.id, on: true } } },
+  ];
+  for (const request of requests) {
+    const response = await install.fetch('/mcp', { method: 'POST', headers, body: JSON.stringify(request) });
+    assert.equal(response.status, 403, request.method);
+    assert.deepEqual(await response.json(), {
+      result: 'switched_off',
+      description: 'The caller\'s agent sign-in is switched off. The agent "sleeper" is switched off.',
+    });
+  }
+  // A body that is not the protocol at all is refused the same way, unread.
+  const unread = await install.fetch('/mcp', { method: 'POST', headers, body: 'not json {{{' });
+  assert.equal(unread.status, 403);
+  assert.equal(((await unread.json()) as { result: string }).result, 'switched_off');
 
-  // The refused change is recorded. The refused reads are not.
+  // A real client is refused on the connection it already had open, cannot
+  // list the tools, and cannot complete a new handshake.
+  await assert.rejects(connection.call('whoami'));
+  await assert.rejects(connection.toolNames());
+  await assert.rejects(agentConnection(install, token));
+
+  // None of that left a line: the requests were never read.
+  assert.equal((await activity()).length, before);
+
+  // On the operation address the sign-in gets `switched_off` on every
+  // operation, a read included. The refused change is recorded. The read is not.
+  const asAgent = { authorization: `Bearer ${token}` };
+  for (const operation of ['whoami', 'agent_list', 'activity_list', 'sign_out']) {
+    assert.equal((await post(install, operation, {}, asAgent)).answer.result, 'switched_off', operation);
+  }
+  const change = await post(install, 'agent_set', { request_id: crypto.randomUUID(), agent: agent.id, on: true }, asAgent);
+  assert.equal(change.answer.result, 'switched_off');
   const lines = (await activity()).filter((entry) => entry.who === `agent:${agent.id}`);
-  assert.deepEqual(lines.map((entry) => [entry.operation, entry.result]), [['agent_set', 'switched_off']]);
+  assert.deepEqual(lines.map((entry) => [entry.operation, entry.result]), [
+    ['agent_set', 'switched_off'],
+    ['sign_out', 'switched_off'],
+  ]);
 
   // Switching it off erased nothing, and switching it on brings it back.
   const listed = (await person.call('agent_list')).agents as Agent[];
   assert.equal(listed.find((row) => row.id === agent.id)?.on, false);
   assert.equal((await person.call('agent_set', { agent: agent.id, on: true })).result, 'changed');
-  assert.equal((await connection.call('whoami')).result, 'agent');
+  const again = await agentConnection(install, token);
+  connections.push(again);
+  assert.equal((await again.call('whoami')).result, 'agent');
+  assert.equal((await again.toolNames()).length > 0, true);
 });
 
 test("changing an agent's level takes effect on its next call", async () => {

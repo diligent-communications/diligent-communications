@@ -96,6 +96,13 @@ async function answer(request: Request, env: Env, ctx: ExecutionContext): Promis
         'www-authenticate': 'Bearer',
       });
     }
+    // So is every request from an agent that is switched off, the handshake
+    // and the tool list included. An agent is often switched off because its
+    // token may have leaked, so nothing that token sends reaches the handler.
+    // The request is not read, so it leaves no activity line.
+    if (!caller.on) {
+      return json(403, refusal('switched_off', `The agent "${caller.name}" is switched off.`));
+    }
     return answerAgent(request, env, ctx, async (name, input) => (await door.run(caller, name, input, seen)).answer);
   }
 

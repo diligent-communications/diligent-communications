@@ -30,7 +30,7 @@ It never holds a Google sign-in, and it never calls a model. It never writes the
 1. The agent connection answers at `/mcp`. The agent protocol (MCP) is spoken by the platform's maintained handler, `createMcpHandler` from the `agents` package, with the protocol's own `Server`. Nothing of the protocol is written here.
 2. `toolList` makes one tool from each entry in the [operations list](../operations/CONTEXT.md): the same name, the operation's meaning, and exactly the inputs the operation takes, as a JSON schema. Every operation is offered. One that needs the person answers `not_allowed`.
 3. A tool call is passed to the door with the caller the [host](../host/CONTEXT.md) identified. The door's answer goes back unchanged. A named result is an answer, not a protocol error.
-4. The connection accepts agent sign-ins only. The host refuses a request with no agent sign-in before this part sees it. A switched-off agent can still connect and list the tools, and every call it makes answers `switched_off`.
+4. The connection accepts agent sign-ins only. The [host](../host/CONTEXT.md) refuses a request with no agent sign-in, or from an agent that is switched off, before this part sees it.
 5. The handler keeps nothing between requests: no session of the protocol, no Durable Object.
 
 ### Outputs
@@ -46,7 +46,7 @@ It never holds a Google sign-in, and it never calls a model. It never writes the
 | The tool list is made from the operations list, with nothing added | `test/tools.test.ts` |
 | Every operation is offered, and one that needs the person answers `not_allowed` | [operations](../operations/CONTEXT.md)' `test/three-ways.test.ts`: "every operation is offered as a tool", and [access](../access/CONTEXT.md)'s `test/levels.test.ts` |
 | A real client of the agent protocol gets the same answer as the other ways in | [operations](../operations/CONTEXT.md)' `test/three-ways.test.ts` |
-| A switched-off agent is refused on its very next call on an open connection | [access](../access/CONTEXT.md)'s `test/levels.test.ts`: "a switched-off agent is refused everything" |
+| A switched-off agent cannot complete the handshake, list the tools or call one, on an open connection or a new one | [access](../access/CONTEXT.md)'s `test/levels.test.ts`: "a switched-off agent is refused everything" |
 
 ## Still to come in piece one (draft)
 

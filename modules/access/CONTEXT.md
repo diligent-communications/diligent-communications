@@ -84,7 +84,7 @@ A wrong set-up code is not locked. A lock here would let a stranger who keeps tr
 | A session ends by itself when unused | "a session ends by itself" |
 | A caller with no sign-in may call `sign_in` and `password_set` only | "a caller with no sign-in" |
 | An agent's level stops at Prepare, and a Read agent is refused a change | "a Read agent", "no agent, at either level" |
-| A switched-off agent is refused on its very next call, and switching it off erases nothing | "a switched-off agent is refused everything" |
+| A switched-off agent is refused on its very next call, on every operation and on the agent connection, and switching it off erases nothing | "a switched-off agent is refused everything" |
 | A lost token is replaced by making a new agent: no operation shows a token again | "an agent is listed" and [operations](../operations/CONTEXT.md)' repeat test |
 
 ## Still to come in piece one (draft)

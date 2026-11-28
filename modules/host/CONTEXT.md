@@ -38,7 +38,7 @@ For each request:
 1. The screen's own files are served to anyone, as plain files. They say nothing about the install.
 2. Any other address that is not an operation's or the agent connection's answers 404.
 3. A request that a page on another site started is refused, before anything else looks at it. A browser says where a request started, in its `Origin` and `Sec-Fetch-Site` headers. A caller that is not a browser sends neither.
-4. On the agent connection, [access](../access/CONTEXT.md) identifies the caller from the token after `Bearer`. A request with no agent sign-in answers `not_signed_in` before the protocol handler reads it. Otherwise [mcp](../mcp/CONTEXT.md) answers.
+4. On the agent connection, [access](../access/CONTEXT.md) identifies the caller from the token after `Bearer`. A request with no agent sign-in answers `not_signed_in` before the protocol handler reads it. So does every request from an agent that is switched off, the handshake and the tool list included: it answers `switched_off`. An agent is often switched off because its token may have leaked, so nothing that token sends reaches the handler. Because the request is not read, it leaves no activity line. Otherwise [mcp](../mcp/CONTEXT.md) answers.
 5. An operation is a POST of JSON, of at most 65,536 characters, to `/api/` followed by its name. A read is a POST too, so no operation can be called by following a link. Access identifies the caller from the session cookie or the token, and the [door](../operations/CONTEXT.md) runs the call. Every outside request is identified before the door runs it.
 6. The answer goes back as JSON, marked not to be stored. When the door hands back a session to begin or end, it travels in the cookie `diligent_session`, never in the answer. The cookie is hidden from page scripts, is never sent with a request another site started, and is sent only over HTTPS, except on the PC's own address (`localhost`, `127.0.0.1`).
 7. If anything fails, the answer is `unavailable`. The failure is not logged or returned, because it could hold what was sent.
@@ -57,6 +57,7 @@ For each request:
 | A request another site's page started is refused, even with the person's cookie | [access](../access/CONTEXT.md)'s `test/sign-in.test.ts`: "a request another site's page started is refused" |
 | The session cookie is hidden from scripts, kept from other sites, and HTTPS-only off the PC's own address | the same file: "the session cookie is hidden from page scripts" |
 | The agent connection refuses a request with no agent sign-in before the protocol handler reads it | [access](../access/CONTEXT.md)'s `test/levels.test.ts`: "the agent connection refuses a request" |
+| The agent connection refuses every request from a switched-off agent the same way, with `switched_off` and no activity line | the same file: "a switched-off agent is refused everything" |
 | An operation is called only by a POST of JSON to its own address | `test/routes.test.ts`: "an operation is called with a POST of JSON" |
 | The database is the only binding, besides the one secret | `test/routes.test.ts`: "the database is the only thing the program is bound to" |
 | A failure answers `unavailable` and says nothing about what failed | `test/routes.test.ts`: "when the install cannot finish" |
