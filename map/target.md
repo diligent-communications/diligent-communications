@@ -4,7 +4,7 @@ Diligent shows one Brief of what needs the person. The Brief is built from their
 
 This is the target, a plan, not a contract. It may change a little as pieces are built. When a piece writes a part's contract, that contract is what holds. If it differs from this map, this map is corrected in the same change.
 
-The [generated map](README.md) has no arrows yet. An arrow appears when a piece writes a contract that reads another part. The picture below points along a call. Counted as characters divided by four, this page is about 8,600 tokens, above the 8,000-token guide for one read.
+The [generated map](README.md) draws an arrow where a written contract reads another part. The picture below points along a call. Counted as characters divided by four, this page is about 9,000 tokens, above the 8,000-token guide for one read.
 
 ## Words
 
@@ -16,7 +16,7 @@ The [generated map](README.md) has no arrows yet. An arrow appears when a piece 
 - **D1.** Cloudflare's database. On a PC it is one local file.
 - **MCP.** The open standard agents use to connect to a tool.
 - **Token.** A long secret. The person is shown a new token once when it is made, and the agent presents it on every call. The command line does not show a token of the person's.
-- **Password.** The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. It is not how the person signs in now.
+- **Password.** The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries lock it for a while. A passkey can be added later. It is not how the person signs in now.
 
 ## The picture
 
@@ -82,11 +82,11 @@ operations writes its activity rows through store, because only store talks to t
 
 **cli.** A small program on the PC called `diligent`. The command line stays signed in as the person, once per device, like the screens. It never keeps the password. It keeps its session on that PC, and the install keeps only a hash of it. The command-line limit is rule 6. It also runs as a local bridge an agent can start (`diligent mcp`), for an agent that cannot hold a token itself. The bridge uses an agent sign-in of its own, which the person makes and gives it, and nothing else. It never uses the person's password. It prints what the operation returned and adds nothing of its own, so its output holds a mail's words only where the operation returns them (`sort_next` at the `full` level), and a sign-in only where the operation returns one (a new agent token, once). It prints a new agent token once and holds no other sign-in in its output. It owns nothing about mail or matters.
 
-**mcp.** The agent connection. It offers the same operations as tools an agent can call. It accepts agent sign-ins only, so an operation that needs the person's level answers `not_allowed`. An agent's level stops at Prepare. It owns no behaviour of its own. A tool is an operation.
+**mcp.** The agent connection. It offers the same operations as tools an agent can call. It accepts agent sign-ins only, so an operation that needs the person's level answers `not_allowed`. A request with no agent sign-in is refused before the agent protocol reads it. An agent's level stops at Prepare. It owns no behaviour of its own. A tool is an operation.
 
-**host.** The running program. It takes each request, sends it to the right place, and runs the schedule. It owns the routes and the timer. It makes no decisions. Every outside request is identified before the door runs it. The schedule calls operations as `diligent`. It runs `cleanup_run` once a day. It runs `mail_check` at the interval the setting gives. It does not start an agent. On a PC a timer does the same.
+**host.** The running program. It takes each request, sends it to the right place, and runs the schedule. It owns the routes and the timer. It makes no decisions. Every outside request is identified before the door runs it. The calls that run for a caller with no sign-in are listed in the access rules. The schedule calls operations as `diligent`. It runs `cleanup_run` once a day. It runs `mail_check` at the interval the setting gives. It does not start an agent. On a PC a timer does the same.
 
-**access.** Who is calling. The command line stays signed in as the person, once per device, like the screens. It never keeps the password. It keeps its session on that PC, and the install keeps only a hash of it. The command-line limit is rule 6. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries are locked out. A passkey can be added later. A caller kind `device` is named for the phone app. Its sign-in is defined in piece three. Until then the seam only names it, recorded as `device:<id>`. It owns sign-ins to Diligent and the list of agents. It never holds a Google sign-in.
+**access.** Who is calling. The command line stays signed in as the person, once per device, like the screens. It never keeps the password. It keeps its session on that PC, and the install keeps only a hash of it. The command-line limit is rule 6. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries of the password lock it for a while. A passkey can be added later. A caller kind `device` is named for the phone app. Its sign-in is defined in piece three. Until then the seam only names it, recorded as `device:<id>`. It owns sign-ins to Diligent and the list of agents. It never holds a Google sign-in.
 
 **operations.** The one door. It owns the level check, makes repeats safe, and writes the record of who did what. What a caller may do depends on its sign-in, never on the way in. Every part's work is reached through it. It never contains the work itself. The list of operations is the table below.
 
@@ -134,10 +134,11 @@ Each part is a folder with a `CONTEXT.md`, and later `src/` and `test/`. Until i
 | `modules/store/` | Database, upgrades, clean-out, export |
 | `guides/` | The set-up walk in words, a recipe per agent, and the sorting guide |
 | `_templates/`, `_tools/` | The contract template and the map tools |
+| `wrangler.jsonc`, `worker-configuration.d.ts` | Cloudflare's settings file, and the binding types generated from it |
 
 The phone app for texts, and the optional helper for rooted phones, are not in this repository yet. Whether they live here or in their own repository is decided at piece 3.
 
-The Cloudflare settings file is added at the repository root with the first piece of code, with one program in the repository. Cloudflare's [one-click deploy](https://developers.cloudflare.com/workers/platform/deploy-buttons/) does not fully support a repository that holds several programs. That file is not part of the repository yet.
+The Cloudflare settings file is at the repository root, with one program in the repository. Cloudflare's [one-click deploy](https://developers.cloudflare.com/workers/platform/deploy-buttons/) does not fully support a repository that holds several programs.
 
 These folders are not part of this design: an evidence archive, an attachment export, a separate calendar part, and a separate first-run part. Calendar changes are a lane of effects. The first-run walk is in app. The recipes are in `guides/`.
 
@@ -146,7 +147,7 @@ These folders are not part of this design: an evidence archive, an attachment ex
 1. **No model inside.** No part calls a model.
 2. **No received mail body is stored.** A prepared reply is stored with its matter and holds only the new words, never the quoted original. A quote is at most 300 characters. A summary is at most 1,200. Those two limits are proposals, not a decision by the owner.
 3. **One door, three ways in.** The screen, the command line and an agent call the same operation. What a caller may do depends on its sign-in, never on the way in. The agent connection accepts agent sign-ins only, so an operation at the person's level answers `not_allowed` there. A capability counts as finished only when it works all three ways.
-4. **Every change records who did it.** The person, a named agent, a device (`device:<id>`), or Diligent itself on its schedule. The device sign-in is defined in piece three. Until then the seam only names that caller.
+4. **Every change records who did it.** The person, a named agent, a device (`device:<id>`), or Diligent itself on its schedule. A refused attempt at a change by a caller with a sign-in is recorded too. A read is not recorded. A stranger's wrong sign-in try is not recorded, and Diligent records one line itself when wrong tries lock the password. The device sign-in is defined in piece three. Until then the seam only names that caller.
 5. **A repeat is safe.** Only an operation that changes something takes a request ID, and only that answer is kept. `sort_next` and every other read take none, so no kept answer ever holds a message's words. `sign_in`, `sign_out` and `password_set` take none either: no answer and no value made from the password is kept for them. The same ID with the same input returns the same answer and changes nothing twice, except `agent_create`, whose kept answer and repeat return `created` without the token.
 6. **Nothing leaves without a tap.** Any program that can run commands on that PC, an agent included, can act through a signed-in command line at the person's level. Only effects reaches outward to change anything, and only for an action the person accepted. The Prepare level and the person's tap limit an agent that uses its own sign-in; they do not limit a program on the same PC as a signed-in command line, and nothing says the bridge rule does.
 7. **Only connections holds outside sign-ins.**
@@ -162,13 +163,13 @@ Operation names use lowercase and underscores (`sort_next`) so one name works as
 
 ## Operations
 
-Levels: **Read** (see everything), **Prepare** (Read, plus sort and prepare), **You** (everything). Prepare is the most an agent can hold. Until a piece writes that part's contract, this table is the list of operations.
+Levels: **Read** (see everything), **Prepare** (Read, plus sort and prepare), **You** (everything). Prepare is the most an agent can hold. A **—** marks an operation that has no level: its row, or its part's rules, say who may call it. Until a piece writes that part's contract, this table is the list of operations.
 
 | Part | Operation | Meaning | Level | Named results |
 | --- | --- | --- | --- | --- |
 | access | `sign_in` | The person signs in with the password. See the access rules | — | `signed_in`, `wrong_password`, `locked_out` |
 | access | `sign_out` | End the session on this device | You | `signed_out` |
-| access | `password_set` | Set the password. See the access rules | — | `set`, `wrong_code`, `not_allowed` |
+| access | `password_set` | Set the password. See the access rules | — | `set`, `wrong_code`, `not_allowed`, `wrong_password`, `locked_out` |
 | access | `whoami` | Who the caller is and its level | Read | `you`, `agent` |
 | access | `agent_create` | Make an agent sign-in. See the access rules | You | `created`, `name_taken` |
 | access | `agent_list` | Agents, levels, on or off, last used | You | `listed` |
@@ -220,11 +221,11 @@ Signing in to Google happens on Google's own page in a browser. That step cannot
 - **connections.** The lasting states are `connected`, `needs-sign-in` and `disconnected`. A disconnect erases the sign-in and leaves the account's row, with Diligent's ID for it and the provider's lasting ID, in `disconnected`. Account rows are kept until the person deletes them. Each outside sign-in is kept encrypted with a key that is not in the database, and that sign-in lives only in this part's rows. A sign-in that Google rejects becomes `needs-sign-in` and stays so until the person signs in again. A network failure changes nothing. Mail is read over HTTPS from the provider's mail address only, and a redirect elsewhere is refused, and the sign-in is not attached. A failure has one name. A read returns `read`, `gone`, `needs_sign_in`, `not_reachable`, `rate_limited` (with the wait asked for, if any) or `refused_address`. From piece two a send returns `sent`, `failed`, `outcome_unknown` or `needs_sign_in`. This part does not check whether a send was accepted.
 - **effects.** An accepted action is carried out at most once. An unknown outcome is checked with the provider before any retry. An event that invites or notifies someone shows who gets notified before the tap. Only this part asks connections to send, and only for an accepted action. What a prepared reply may hold is rule 2.
 - **guides.** A recipe stays inside the operations this map names. It holds no real mailbox, token or customer data. The sorting guide adds no rule of its own.
-- **access.** The command-line limit is rule 6. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries are locked out. A passkey can be added later. `agent_create` returns the token in its first `created` answer only. A repeat returns `created` without the token. No kept answer, row, backup, activity line or log holds it. The install keeps a hash. A lost token is replaced by making a new one. The bridge's agent sign-in is an agent token, never the person's password. A caller kind `device` is named for the phone app and defined in piece three. An agent that is switched off is refused at once, and its matters stay. `sign_in` and the first `password_set` are the only operations a caller with no session may call, apart from `account_connect_finish`, as its row says. `sign_in`, `sign_out` and `password_set` answer `not_allowed` on the agent connection. `password_set` on an install with no password takes a one-time set-up code that only someone who controls the install's own hosting account can read. How the code is made and shown is decided by the piece that builds sign-in. Once a password exists, `password_set` needs the person's session.
+- **access.** The command-line limit is rule 6. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries of the password lock it for a while, and the lock ends by itself. A passkey can be added later. `agent_create` returns the token in its first `created` answer only. A repeat returns `created` without the token. No kept answer, row, backup, activity line or log holds it. The install keeps a hash. A lost token is replaced by making a new one. The bridge's agent sign-in is an agent token, never the person's password. A caller kind `device` is named for the phone app and defined in piece three. An agent that is switched off is refused at once. Switching it off erases nothing: its matters stay. `sign_in`, and `password_set` with an unused set-up code, are the only operations a caller with no session may call, apart from `account_connect_finish`, as its row says. `sign_in`, `sign_out` and `password_set` answer `not_allowed` to an agent sign-in, whichever way it comes in. `password_set` with a one-time set-up code sets the password without a session and ends every session. Only someone who controls the install's own hosting account can set that code, the install never shows it, and a new code is the way back from a forgotten password. A wrong code is not locked: its length is the limit on guessing. Without a code, `password_set` needs the person's session and the current password. How the code is made and used up, how long a lock lasts, when a session ends and how each sign-in is hashed are in the [access contract](../modules/access/CONTEXT.md).
 
 ## Shared shapes
 
-Until a piece writes code, the shapes below are the plan in this map. That piece adds the shape to [contracts](../contracts/CONTEXT.md), first and alone, when its code first uses it.
+Until a piece writes code, the shapes below are the plan in this map. That piece adds the shape to [contracts](../contracts/CONTEXT.md), first and alone, when its code first uses it. Agent and Who did it are written there now, with the shapes the door uses.
 
 - **Matter.** `version` goes up with every change. `kind` is `money`, `do` or `reply`. `lane` is one of the person's lanes. The line is `title`, `next_action`, `owed_by`, `summary`, `latest_update` and `timing`. `owed_by` is the person, the other party, or a name. `state` is `open`, `waiting`, `snoozed` (until a date), `done` or `dismissed`. `main_action` is `reply`, `schedule`, `contact` or `none`. `notes` and `due` are the person's only. `set_by_you` lists the fields the person has edited.
 - **Source message.** `kind` is `mail`, `text` or `call`. `account` is this install's ID for the account or phone, and `provider_id` is the provider's own ID. `thread`, the UTC times `happened_at` and `noticed_at`, and `hints`, which are label IDs from the mail client. `reachable` is `yes`, `gone` or `not_reachable`. `outcome` is none yet, `no_action`, `linked`, or `held` with a reason. `outcome_by`, `outcome_at` and `run` say who recorded it, when, and in which run. No subject, no sender, no body.
@@ -233,7 +234,7 @@ Until a piece writes code, the shapes below are the plan in this map. That piece
 - **Agent.** Name, level (`read` or `prepare`), on or off, and when it was made and last used.
 - **Sort run.** The agent, the times, and how it ended: `finished`, `stopped` or `timed_out`. The receipt counts, per account, offered, no action, linked, held, gone and left waiting, and says `complete` or `partial`.
 - **Prepared reply.** See rule 2.
-- **Who did it.** The person, `agent:<id>`, `device:<id>`, or Diligent.
+- **Who did it.** `you` for the person, `agent:<id>`, `device:<id>`, or `diligent`.
 
 ## What is stored, and for how long
 
@@ -247,7 +248,7 @@ Until a piece writes code, the shapes below are the plan in this map. That piece
 | Links | The link fields, including a quote of at most 300 characters | With the matter |
 | People, projects, goals, steps | As the parts describe | Until the person deletes them |
 | Prepared actions | The prepared reply, as rule 2 says, who prepared it, the acceptance, the provider's receipt | With the matter |
-| Agents, devices, sessions | Names, levels, and hashes of the password, agent tokens, sessions and device sign-ins | Until removed. Sessions end by themselves. The export file holds none of those sign-ins |
+| Agents, devices, sessions | Names, levels, and hashes of the password, agent tokens, sessions and device sign-ins. A fingerprint of each used set-up code, and the count of wrong password tries | Until removed. A session ends by itself when it is not used. The export file holds none of those sign-ins |
 | Sort runs and receipts | Counts only | One year |
 | Request IDs | The ID, a fingerprint of the input, and the answer of an operation that changes something. A read is not kept | 30 days |
 | Activity | Time, who, which operation, on what, the result's name. No message content and no token | One year |

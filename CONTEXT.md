@@ -28,7 +28,11 @@ Put code in `modules/<name>/src/` and tests in `modules/<name>/test/`, beside th
 
 Put files that must retain their exact bytes in a part's or the shared contracts' `test/fixtures/` folder, where Git preserves them byte for byte.
 
-The checks run on Node.js 24.12.0 or later. Run `npm ci --ignore-scripts`, `npm test`, and `npm run typecheck` from the root. Node runs TypeScript directly. Use only erasable TypeScript syntax, so removing the types leaves valid JavaScript. Include the `.ts` extension when importing a TypeScript file by relative path and use `import type` for type-only imports. The program itself is for Cloudflare's runtime, with screens in a browser. That runtime is set up with the first piece of code, not in this repository yet.
+The checks run on Node.js 24.12.0 or later. Run `npm ci --ignore-scripts`, `npm test`, and `npm run typecheck` from the root. Node runs TypeScript directly. Use only erasable TypeScript syntax, so removing the types leaves valid JavaScript. Include the `.ts` extension when importing a TypeScript file by relative path and use `import type` for type-only imports. The program itself runs on Cloudflare's runtime, with screens in a browser. `wrangler.jsonc` at the root sets it up, and [host](modules/host/CONTEXT.md) is its entry. The screen's own files, in `modules/app/public/`, are plain JavaScript, CSS and HTML with no build step, and are not type-checked.
+
+A test that needs the running program starts it on Cloudflare's local runtime with `modules/host/test/helpers/local-install.ts`, and reaches it by one of the three ways in with `modules/host/test/helpers/ways.ts`. Such a test uses made-up data, reaches no network, and writes only inside the temporary folder that helper makes and removes. No test may write to the home folder or leave a program running.
+
+`worker-configuration.d.ts` is generated from `wrangler.jsonc`. After changing that file, run `npx wrangler types --include-runtime=false` and commit the result. A test fails when the two disagree.
 
 ## Working across folders
 
