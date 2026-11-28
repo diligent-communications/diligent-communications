@@ -69,5 +69,6 @@ Draft. The schedule is not written, because no operation in this slice is called
 
 ### Open
 
+- Counted as characters divided by four, this contract with its references and working files is about 9,000 tokens, above the 8,000-token guide for one read, because it reads five other contracts whole.
 - On a custom address, the agent protocol handler needs the install's own host name named in its settings. That is settled with deployment.
 - Cloudflare's local runtime is a development tool and is not a hardened sandbox. Running an install on a PC for real use is not settled.

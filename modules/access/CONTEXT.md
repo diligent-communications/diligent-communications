@@ -73,6 +73,7 @@ A wrong set-up code is not locked. A lock here would let a stranger who keeps tr
 | Hard rule | Test |
 | --- | --- |
 | Every sign-in is kept only as a hash or a fingerprint, and none is in a result or a record, except the one answer that first shows a token | [store](../store/CONTEXT.md)'s `test/nothing-secret.test.ts` |
+| The password is kept as a salted slow hash that carries its settings, and a session and a token are 32 random bytes | `test/secrets.test.ts` |
 | The first password needs the set-up code, and a used code is refused | "the first password needs the set-up code" |
 | A wrong set-up code is refused however often it is tried, and never locks | the same test |
 | No set-up code, or a short one, refuses every code | "an install with no set-up code" |
@@ -94,4 +95,5 @@ Draft. `device_list` and `device_remove`, and the first-run walk around these op
 
 - What only a real install can show: Cloudflare's free plan allows 10 ms of processor time for a request, and the password hash costs more than that. It runs only in `sign_in` and `password_set`, and it is made before anything is written, so a request cut off there fails whole. Whether the free plan lets it finish, and what to do if it does not, is the owner's decision at the trial.
 - A passkey can be added later. It is not how the person signs in now.
+- Counted as characters divided by four, this contract with its references and working files is about 9,400 tokens, above the 8,000-token guide for one read. Without the working files it is about 3,500.
 - Rows of sessions that have ended by themselves stay until the clean-out is written.

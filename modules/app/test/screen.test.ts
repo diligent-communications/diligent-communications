@@ -8,6 +8,7 @@ import type { InputField } from '../../../contracts/operation.ts';
 import { OPERATION_PATH } from '../../host/src/addresses.ts';
 import { startInstall } from '../../host/test/helpers/local-install.ts';
 import type { Install } from '../../host/test/helpers/local-install.ts';
+import { PASSWORD_LENGTH } from '../../access/src/limits.ts';
 import { operationList } from '../../operations/src/list.ts';
 
 type ScreenScript = {
@@ -77,6 +78,9 @@ test('the screen has a form for every operation, and each form takes inputs its 
   for (const form of forms) {
     assert.ok(operationList.some((operation) => operation.name === form.operation), `${form.operation} is an operation`);
   }
+  // A new password's shortest length is the one access sets.
+  const lengths = Array.from(page.matchAll(/autocomplete="new-password" minlength="(\d+)"/g), ([, length]) => Number(length));
+  assert.deepEqual(lengths, [PASSWORD_LENGTH.min, PASSWORD_LENGTH.min]);
   // A secret is typed into a field that hides it.
   for (const [, field] of page.matchAll(/<input\s([^>]*)>/g)) {
     const name = /name="([^"]+)"/.exec(field!)?.[1];

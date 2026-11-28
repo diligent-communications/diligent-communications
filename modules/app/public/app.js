@@ -30,7 +30,7 @@ export const ADVICE = {
   unavailable: 'Try again in a moment. Nothing was changed.',
   set: 'Now sign in with the new password on each device.',
   wrong_code: 'Check the set-up code. A code works once. To set the password again, put a new set-up code in the install first.',
-  wrong_password: 'Check the password and try again. Five wrong tries in a row lock the password for a while.',
+  wrong_password: 'Check the password and try again. Too many wrong tries in a row lock the password for a while.',
   locked_out: 'Wait until the time shown, then try again. A device that is already signed in keeps working.',
   signed_out: 'Sign in again to carry on from this device.',
   created: 'Copy the token now and give it to the agent. It is not shown again. A lost token is replaced by making a new agent.',
