@@ -3,10 +3,12 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { LINK_LIMITS } from '../../../contracts/link.ts';
-import { MATTER_LIMITS } from '../../../contracts/matter.ts';
+import { HISTORY_LIMIT, MATTER_LIMITS } from '../../../contracts/matter.ts';
+import { PERSON_NAME_LIMIT } from '../../../contracts/person.ts';
 import { REPOSITORY } from '../../host/test/helpers/local-install.ts';
-import { linkWrite } from '../../links/src/links.ts';
-import { newMatterWrites } from '../src/brief.ts';
+import { linkWrite, linksTables } from '../../links/src/links.ts';
+import { peopleTables } from '../../people/src/people.ts';
+import { briefTables, newMatterWrites } from '../src/brief.ts';
 import { startBriefInstall } from './helpers/brief-install.ts';
 import type { BriefInstall } from './helpers/brief-install.ts';
 import { madeUpBrief } from './helpers/made-up.ts';
@@ -118,4 +120,24 @@ test('no program code imports from a test folder, so the made-up Brief cannot re
   // The screen's own files hold no made-up matter either.
   const script = await readFile(path.join(REPOSITORY, 'modules', 'app', 'public', 'app.js'), 'utf8');
   assert.equal(script.includes('Pellworth'), false);
+});
+
+test('the table steps hold their limits written out, the same as the limits in contracts, so a shipped step never changes with a proposed limit', async () => {
+  // Written out: the source of each step is plain text, with nothing put into it.
+  for (const file of ['modules/brief/src/brief.ts', 'modules/links/src/links.ts', 'modules/people/src/people.ts']) {
+    const source = await readFile(path.join(REPOSITORY, file), 'utf8');
+    const steps = source.slice(source.indexOf('steps: ['), source.indexOf('],', source.indexOf('steps: [')));
+    assert.equal(steps.includes('${'), false, `${file} puts a value into a table step`);
+  }
+  // The same numbers as the limits.
+  const brief = briefTables.steps.join(' ');
+  for (const [field, limit] of Object.entries(MATTER_LIMITS)) {
+    const written = [`length(${field}) <= ${limit})`, `length(${field}) BETWEEN 1 AND ${limit})`];
+    assert.ok(written.some((rule) => brief.includes(rule)), `${field} ${limit}`);
+  }
+  assert.ok(brief.includes(`length(what) BETWEEN 1 AND ${HISTORY_LIMIT})`));
+  const links = linksTables.steps.join(' ');
+  assert.ok(links.includes(`length(quote) <= ${LINK_LIMITS.quote})`));
+  assert.ok(links.includes(`length(sender) <= ${LINK_LIMITS.sender})`));
+  assert.ok(peopleTables.steps.join(' ').includes(`length(name) BETWEEN 1 AND ${PERSON_NAME_LIMIT})`));
 });

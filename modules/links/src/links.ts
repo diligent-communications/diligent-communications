@@ -1,4 +1,4 @@
-import { isLink, LINK_LIMITS } from '../../../contracts/link.ts';
+import { isLink } from '../../../contracts/link.ts';
 import type { Link } from '../../../contracts/link.ts';
 import type { HistoryLine } from '../../../contracts/matter.ts';
 import type { Operation, Outcome, Work, Write } from '../../../contracts/operation.ts';
@@ -8,7 +8,8 @@ import { stillTrue } from '../../store/src/store.ts';
 import type { Store, Tables } from '../../store/src/store.ts';
 
 // Every link, in one table. A link is never deleted: removing one marks it
-// removed and keeps the row. A message is in force on one matter at most,
+// removed and keeps the row. The limits are written out in the step, not
+// read from contracts, so a shipped step never changes. A message is in force on one matter at most,
 // and a person once on a matter at most, which the two indexes hold.
 export const linksTables: Tables = {
   part: 'links',
@@ -26,8 +27,8 @@ export const linksTables: Tables = {
       accepted_at TEXT,
       removed_by TEXT,
       removed_at TEXT,
-      quote TEXT CHECK (quote IS NULL OR length(quote) <= ${LINK_LIMITS.quote}),
-      sender TEXT CHECK (sender IS NULL OR length(sender) <= ${LINK_LIMITS.sender}),
+      quote TEXT CHECK (quote IS NULL OR length(quote) <= 300),
+      sender TEXT CHECK (sender IS NULL OR length(sender) <= 100),
       sent_at TEXT,
       CHECK ((kind = 'message') = (message IS NOT NULL AND person IS NULL AND quote IS NOT NULL)),
       CHECK ((kind = 'person') = (person IS NOT NULL AND message IS NULL AND quote IS NULL))

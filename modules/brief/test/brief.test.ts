@@ -341,19 +341,79 @@ test('every change by an agent, at either level, answers not_allowed and is reco
   assert.deepEqual((await getMatter('water')).matter, matter);
 });
 
-test("each change by the person leaves one record under the person, on the matter it changed", async () => {
+test('each of the five changes by the person leaves one record under the person, on the matter it changed', async () => {
   const id = it.brief.matters.glass!;
+  const to = it.brief.matters.water!;
+  const message = it.brief.messages.glass![0]!;
+  const [accepting, removing] = it.brief.personLinks.inspection!;
   const before = (await it.activity()).length;
+  const { matter } = await getMatter('glass');
   assert.equal((await it.onScreen.call('matter_set_state', { matter: id, to: 'open' })).result, 'changed');
-  assert.equal((await it.atCommandLine.call('matter_set_state', { matter: id, to: 'waiting' })).result, 'changed');
-  assert.equal((await it.atCommandLine.call('matter_set_state', { matter: id, to: 'waiting' })).result, 'already_so');
+  assert.equal((await it.atCommandLine.call('matter_set_state', { matter: id, to: 'open' })).result, 'already_so');
+  assert.equal((await it.atCommandLine.call('matter_edit', { matter: id, version: matter.version + 1, notes: 'Measured Thursday.' })).result, 'changed');
+  assert.equal((await it.onScreen.call('link_move_message', { link: message, to })).result, 'moved');
+  assert.equal((await it.atCommandLine.call('link_accept_person', { link: accepting })).result, 'accepted');
+  assert.equal((await it.onScreen.call('link_remove_person', { link: removing })).result, 'removed');
   const added = (await it.activity()).slice(0, -before || undefined).reverse();
+  const inspection = `matter:${it.brief.matters.inspection}`;
   assert.deepEqual(
     added.map((entry) => [entry.who, entry.operation, entry.on, entry.result]),
     [
       ['you', 'matter_set_state', `matter:${id}`, 'changed'],
-      ['you', 'matter_set_state', `matter:${id}`, 'changed'],
       ['you', 'matter_set_state', `matter:${id}`, 'already_so'],
+      ['you', 'matter_edit', `matter:${id}`, 'changed'],
+      // A move is recorded on the matter the message was on.
+      ['you', 'link_move_message', `matter:${id}`, 'moved'],
+      ['you', 'link_accept_person', inspection, 'accepted'],
+      ['you', 'link_remove_person', inspection, 'removed'],
     ],
   );
+});
+
+test('notes may hold line breaks: saved from the screen and the command line, shown again the same every way in, and refused to an agent', async () => {
+  const id = it.brief.matters.registration!;
+  const twoLines = 'Bring the old registration.\nThe office closes at noon.';
+  let { matter } = await getMatter('registration');
+  const fromScreen = await it.onScreen.call('matter_edit', { matter: id, version: matter.version, notes: twoLines });
+  assert.equal(fromScreen.result, 'changed');
+  for (const way of [it.onScreen, it.atCommandLine, it.reader, it.preparer]) {
+    const got = await way.call('matter_get', { matter: id });
+    assert.equal((got.matter as Matter).notes, twoLines);
+  }
+  // A Windows line ending is kept as a plain one.
+  matter = (await getMatter('registration')).matter;
+  const windows = 'First line.\r\nSecond line.';
+  assert.equal((await it.atCommandLine.call('matter_edit', { matter: id, version: matter.version, notes: windows })).result, 'changed');
+  assert.equal((await getMatter('registration')).matter.notes, 'First line.\nSecond line.');
+  // An agent is refused, whatever the notes hold.
+  matter = (await getMatter('registration')).matter;
+  assert.equal((await it.preparer.call('matter_edit', { matter: id, version: matter.version, notes: twoLines })).result, 'not_allowed');
+  // Other control characters are still refused in notes, and a line break is refused in a title.
+  assert.equal((await it.onScreen.call('matter_edit', { matter: id, version: matter.version, notes: 'one\ttwo' })).result, 'invalid_input');
+  assert.equal((await it.onScreen.call('matter_edit', { matter: id, version: matter.version, title: 'one\ntwo' })).result, 'invalid_input');
+  assert.equal((await getMatter('registration')).matter.notes, 'First line.\nSecond line.');
+});
+
+test('search finds words of any length, in any characters, and matches the case of the letters A to Z only', async () => {
+  const id = it.brief.matters.newsletter!;
+  const { matter } = await getMatter('newsletter');
+  const notes = 'Ask for 50%_off\\back at Ødegård Hardware, the one on the corner past the old mill road.';
+  assert.equal((await it.onScreen.call('matter_edit', { matter: id, version: matter.version, notes })).result, 'changed');
+  const found = async (words: string) => ((await it.onScreen.call('matter_search', { words })).matters as Matter[]).map((one) => one.id);
+  // Pattern characters are plain text.
+  for (const words of ['%', '_', '\\', '50%_off\\back']) {
+    assert.deepEqual(await found(words), [id], words);
+  }
+  assert.deepEqual(await found('50%x'), []);
+  // Words well over 50 bytes, plain and with non-ASCII letters.
+  const plain = notes.slice(30);
+  const nonAscii = 'Ødegård Hardware, the one on the corner past the old';
+  for (const words of [plain, nonAscii]) {
+    assert.ok(new TextEncoder().encode(words).length > 50, words);
+    assert.deepEqual(await found(words), [id], words);
+  }
+  assert.equal((await it.onScreen.call('matter_search', { words: 'x'.repeat(200) })).result, 'found');
+  // The letters A to Z match in either case; other letters only as written.
+  assert.deepEqual(await found('Ødegård HARDWARE'), [id]);
+  assert.deepEqual(await found('ødegård hardware'), []);
 });

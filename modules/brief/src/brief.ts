@@ -1,4 +1,4 @@
-import { HISTORY_LIMIT, MATTER_KINDS, MATTER_LIMITS, isDate, isHistoryLine, isLane, isMatter } from '../../../contracts/matter.ts';
+import { MATTER_KINDS, isDate, isHistoryLine, isLane, isMatter } from '../../../contracts/matter.ts';
 import type { HistoryLine, Matter, MatterKind, MatterState, PersonField } from '../../../contracts/matter.ts';
 import type { Answer, Outcome, Work, Write } from '../../../contracts/operation.ts';
 import { isUtcTime } from '../../../contracts/record-fields.ts';
@@ -10,8 +10,10 @@ import type { Store, Tables } from '../../store/src/store.ts';
 import { SEARCH_LIMIT } from './operations.ts';
 
 // The matters and their dated history. A matter's row is never deleted, and
-// its ID is never used again. The summary's limit is also a rule of the
-// table, so no write of any part can store a longer one.
+// its ID is never used again. The limits of the text fields are also rules of
+// the table, so no write of any part can store a longer one. They are written
+// out here, not read from the limits in contracts: a step that has shipped
+// never changes, even when a proposed limit does.
 export const briefTables: Tables = {
   part: 'brief',
   steps: [
@@ -19,23 +21,23 @@ export const briefTables: Tables = {
       id TEXT PRIMARY KEY,
       version INTEGER NOT NULL CHECK (version >= 1),
       kind TEXT NOT NULL CHECK (kind IN ('money', 'do', 'reply')),
-      lane TEXT NOT NULL CHECK (length(lane) BETWEEN 1 AND ${MATTER_LIMITS.lane}),
-      title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND ${MATTER_LIMITS.title}),
-      next_action TEXT NOT NULL CHECK (length(next_action) <= ${MATTER_LIMITS.next_action}),
-      owed_by TEXT NOT NULL CHECK (length(owed_by) <= ${MATTER_LIMITS.owed_by}),
-      summary TEXT NOT NULL CHECK (length(summary) <= ${MATTER_LIMITS.summary}),
-      latest_update TEXT NOT NULL CHECK (length(latest_update) <= ${MATTER_LIMITS.latest_update}),
-      timing TEXT NOT NULL CHECK (length(timing) <= ${MATTER_LIMITS.timing}),
+      lane TEXT NOT NULL CHECK (length(lane) BETWEEN 1 AND 40),
+      title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 200),
+      next_action TEXT NOT NULL CHECK (length(next_action) <= 200),
+      owed_by TEXT NOT NULL CHECK (length(owed_by) <= 100),
+      summary TEXT NOT NULL CHECK (length(summary) <= 1200),
+      latest_update TEXT NOT NULL CHECK (length(latest_update) <= 600),
+      timing TEXT NOT NULL CHECK (length(timing) <= 100),
       state TEXT NOT NULL CHECK (state IN ('open', 'waiting', 'snoozed', 'done', 'dismissed')),
       snoozed_until TEXT,
       main_action TEXT NOT NULL CHECK (main_action IN ('reply', 'schedule', 'contact', 'none')),
-      notes TEXT NOT NULL CHECK (length(notes) <= ${MATTER_LIMITS.notes}),
+      notes TEXT NOT NULL CHECK (length(notes) <= 2000),
       due TEXT,
       set_by_you TEXT NOT NULL,
       made_at TEXT NOT NULL,
       CHECK ((state = 'snoozed') = (snoozed_until IS NOT NULL))
     ) STRICT`,
-    `CREATE TABLE brief_history (id INTEGER PRIMARY KEY AUTOINCREMENT, matter TEXT NOT NULL, at TEXT NOT NULL, who TEXT NOT NULL, what TEXT NOT NULL CHECK (length(what) BETWEEN 1 AND ${HISTORY_LIMIT})) STRICT`,
+    `CREATE TABLE brief_history (id INTEGER PRIMARY KEY AUTOINCREMENT, matter TEXT NOT NULL, at TEXT NOT NULL, who TEXT NOT NULL, what TEXT NOT NULL CHECK (length(what) BETWEEN 1 AND 300)) STRICT`,
     'CREATE INDEX brief_history_by_matter ON brief_history (matter)',
   ],
 };
@@ -226,18 +228,21 @@ export function briefWork(store: Store): Readonly<Record<string, Work>> {
     },
 
     async matter_search({ input }) {
-      // The words are a value, never part of the query, and the characters a
-      // pattern treats specially are matched as plain text.
-      const pattern = `%${String(input.words).replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+      // No pattern: each field and the words are lower-cased (the letters A
+      // to Z only) and the words looked for as they are, so no character in
+      // them is special and their length has no other limit. The words are a
+      // value, never part of the query.
       const fields = ['title', 'next_action', 'owed_by', 'summary', 'latest_update', 'timing', 'notes'];
       const found = await store.rows<MatterRow>(
-        `SELECT ${COLUMNS} FROM brief_matters WHERE ${fields.map((field) => `${field} LIKE ?1 ESCAPE '\\'`).join(' OR ')} ORDER BY ${SEARCH_ORDER} LIMIT ?2`,
-        pattern,
+        `SELECT ${COLUMNS} FROM brief_matters WHERE ${fields.map((field) => `instr(lower(${field}), lower(?1)) > 0`).join(' OR ')} ORDER BY ${SEARCH_ORDER} LIMIT ?2`,
+        String(input.words),
         SEARCH_LIMIT,
       );
-      return {
-        answer: { result: 'found', description: `${found.length} matters hold those words.`, matters: found.map(matterOf) },
-      };
+      const description =
+        found.length === SEARCH_LIMIT
+          ? `At least ${SEARCH_LIMIT} matters hold those words. These are the newest ${SEARCH_LIMIT}.`
+          : `${found.length} matters hold those words.`;
+      return { answer: { result: 'found', description, matters: found.map(matterOf) } };
     },
 
     async matter_edit({ caller, input, now }) {

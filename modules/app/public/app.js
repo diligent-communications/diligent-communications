@@ -318,16 +318,49 @@ export function stateBefore(matter) {
   return matter.state === 'waiting' ? 'waiting' : 'open';
 }
 
+// How a matter's page shows its state: the badge, whether its main control
+// is Done or Reopen, and whether "more" offers the way back to the Brief. A
+// snoozed matter whose time has come is on the Brief, and says so.
+export function pageState(matter, now) {
+  if (matter.state === 'done' || matter.state === 'dismissed') {
+    return { badge: STATE_NAMES[matter.state], kind: matter.state, main: 'reopen', offerBack: false };
+  }
+  if (matter.state === 'snoozed') {
+    return new Date(matter.snoozed_until) > now
+      ? { badge: `Snoozed until ${whenName(matter.snoozed_until)}`, kind: 'snoozed', main: 'done', offerBack: true }
+      : { badge: 'On the Brief', kind: 'open', main: 'done', offerBack: false };
+  }
+  return { badge: STATE_NAMES[matter.state], kind: matter.state, main: 'done', offerBack: matter.state === 'waiting' };
+}
+
+// The line an empty Brief shows, about the filter that is chosen.
+export function emptyLine(lane, waiting) {
+  if (lane === '') {
+    return waiting ? 'Nothing is marked waiting.' : 'Nothing needs you right now.';
+  }
+  return waiting ? `Nothing in ${laneName(lane)} is marked waiting.` : `Nothing in ${laneName(lane)} needs you right now.`;
+}
+
+// A person's name as a matter's page shows it. A person that could not be
+// loaded is not shown as gone.
+export function personName(found) {
+  if (found.result === 'person') {
+    return found.person.name;
+  }
+  return found.result === 'unknown_person' ? 'A person no longer on record' : 'A name that could not be loaded';
+}
+
 let moreFor = null;
 
 function openMore(matter) {
   moreFor = matter;
   const sheet = document.getElementById('more');
   sheet.querySelector('[data-more-title]').textContent = matter.title;
-  // A matter marked waiting is offered the way back to the Brief instead.
+  // A matter that is off the Brief is offered the way back instead.
+  const back = pageState(matter, new Date()).offerBack;
   const waiting = sheet.querySelector('[data-more="waiting"], [data-more="open"]');
-  waiting.dataset.more = matter.state === 'waiting' ? 'open' : 'waiting';
-  waiting.textContent = matter.state === 'waiting' ? 'Back on the Brief' : 'Mark waiting';
+  waiting.dataset.more = back ? 'open' : 'waiting';
+  waiting.textContent = back ? 'Back on the Brief' : 'Mark waiting';
   const day = sheet.querySelector('[data-more-day]');
   const now = new Date();
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -420,7 +453,7 @@ async function renderBrief() {
   renderChips(answer);
   const shown = answer.groups.filter((group) => group.count > 0);
   if (shown.length === 0) {
-    state.textContent = view.waiting ? 'Nothing is marked waiting.' : 'Nothing needs you right now.';
+    state.textContent = emptyLine(view.lane, view.waiting);
     state.hidden = false;
   } else {
     state.hidden = true;
@@ -440,23 +473,33 @@ async function renderBrief() {
 // ---------------------------------------------------------------------------
 // A matter's page.
 
+// The agents' names, or null when they could not be loaded. Only a list that
+// loaded is kept.
 async function agentNames() {
   if (view.agents === null) {
     const listed = await call('agent_list');
-    view.agents = new Map(listed.result === 'listed' ? listed.agents.map((agent) => [`agent:${agent.id}`, agent.name]) : []);
+    if (listed.result !== 'listed') {
+      return null;
+    }
+    view.agents = new Map(listed.agents.map((agent) => [`agent:${agent.id}`, agent.name]));
   }
   return view.agents;
 }
 
-function whoName(who, agents) {
+// Who made a change, as the history shows it. `agents` is null when their
+// names could not be loaded.
+export function whoName(who, agents) {
   if (who === 'you') {
     return 'You';
   }
   if (who === 'diligent') {
     return 'Diligent';
   }
+  if (agents === null) {
+    return 'An agent whose name could not be loaded';
+  }
   const name = agents.get(who);
-  return name === undefined ? 'An agent' : `Agent ${name}`;
+  return name === undefined ? 'An agent no longer listed' : `Agent ${name}`;
 }
 
 // One field edited in place: its value, and an Edit button that turns it
@@ -530,15 +573,15 @@ async function renderMatter(id, params) {
   }
 
   const later = MAIN_ACTION_LATER[params.get('from') ?? ''];
-  const closed = matter.state !== 'open';
+  const shown = pageState(matter, new Date());
   const stateRow = el(
     'div',
     { class: 'state-row' },
-    el('span', { class: `badge badge-${matter.state}`, text: matter.state === 'snoozed' ? `Snoozed until ${whenName(matter.snoozed_until)}` : STATE_NAMES[matter.state] }),
-    closed
-      ? el('button', { type: 'button', class: 'button', text: matter.state === 'done' || matter.state === 'dismissed' ? 'Reopen' : 'Back on the Brief', onclick: () => void setState('open') })
+    el('span', { class: `badge badge-${shown.kind}`, text: shown.badge }),
+    shown.main === 'reopen'
+      ? el('button', { type: 'button', class: 'button', text: 'Reopen', onclick: () => void setState('open') })
       : el('button', { type: 'button', class: 'button', onclick: () => void setState('done') }, icon('done'), el('span', { text: 'Done' })),
-    matter.state === 'done' || matter.state === 'dismissed'
+    shown.main === 'reopen'
       ? null
       : el('button', { type: 'button', class: 'button button-icon', 'aria-label': 'More for this matter', 'aria-haspopup': 'true', onclick: () => openMore(matter) }, icon('more')),
   );
@@ -601,7 +644,7 @@ async function renderMatter(id, params) {
     'ul',
     { class: 'people' },
     ...people.map((link) => {
-      const name = link.found.result === 'person' ? link.found.person.name : 'A person no longer on record';
+      const name = personName(link.found);
       const proposed = link.state === 'proposed';
       return el(
         'li',

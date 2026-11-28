@@ -1,13 +1,14 @@
-import { isPerson, PERSON_NAME_LIMIT } from '../../../contracts/person.ts';
+import { isPerson } from '../../../contracts/person.ts';
 import type { Person } from '../../../contracts/person.ts';
 import type { Operation, Work, Write } from '../../../contracts/operation.ts';
 import type { Store, Tables } from '../../store/src/store.ts';
 
-// A person's row holds as much as a matter needs to show a name.
+// A person's row holds as much as a matter needs to show a name. The name's
+// limit is written out in the step, so a shipped step never changes.
 export const peopleTables: Tables = {
   part: 'people',
   steps: [
-    `CREATE TABLE people (id TEXT PRIMARY KEY, name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND ${PERSON_NAME_LIMIT}), confirmed TEXT NOT NULL CHECK (confirmed IN ('yes', 'no')), made_at TEXT NOT NULL) STRICT`,
+    `CREATE TABLE people (id TEXT PRIMARY KEY, name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 100), confirmed TEXT NOT NULL CHECK (confirmed IN ('yes', 'no')), made_at TEXT NOT NULL) STRICT`,
   ],
 };
 

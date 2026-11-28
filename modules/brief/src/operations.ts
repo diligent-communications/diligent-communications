@@ -57,7 +57,7 @@ export const briefOperations: readonly Operation[] = [
       matter: matterInput,
       version: { kind: 'count', meaning: 'The version of the matter that was shown.', required: true, min: 1, max: 2_147_483_647 },
       title: { kind: 'text', meaning: `The title, 1 to ${MATTER_LIMITS.title} characters.`, required: false, max: MATTER_LIMITS.title },
-      notes: { kind: 'text', meaning: `Notes, at most ${MATTER_LIMITS.notes} characters. Empty clears them.`, required: false, min: 0, max: MATTER_LIMITS.notes },
+      notes: { kind: 'text', meaning: `Notes, at most ${MATTER_LIMITS.notes} characters, on as many lines as needed. Empty clears them.`, required: false, min: 0, max: MATTER_LIMITS.notes, lines: 'many' },
       due: { kind: 'text', meaning: 'The due date, as YYYY-MM-DD. Empty clears it.', required: false, min: 0, max: 10 },
       kind: { kind: 'choice', meaning: 'The kind of matter.', required: false, choices: MATTER_KINDS },
       lane: { kind: 'text', meaning: 'The lane: lowercase letters, digits and dashes.', required: false, max: MATTER_LIMITS.lane },

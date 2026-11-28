@@ -158,3 +158,22 @@ test('a move read before the same message was moved elsewhere answers changed_si
   const inForce = await setup.store.rows<Link>("SELECT * FROM links WHERE message = ? AND state <> 'removed'", old!.message!);
   assert.deepEqual(inForce.map((row) => row.matter), [setup.brief.matters.water]);
 });
+
+test('a removal read before another removal landed answers already_so, and who removed the person and when stay as the first removal left them', async () => {
+  const setup = await setUp();
+  const [link] = setup.brief.personLinks.inspection!;
+
+  const held = setup.hold();
+  const removing = setup.held.run(you, 'link_remove_person', { request_id: id(), link });
+  await held.reached;
+  // The held removal was dated when its call began. The other is dated later.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal((await setup.door.run(you, 'link_remove_person', { request_id: id(), link })).answer.result, 'removed');
+  const [first] = await setup.store.rows<Link>('SELECT * FROM links WHERE id = ?', link!);
+  held.release();
+
+  assert.equal((await removing).answer.result, 'already_so');
+  const [after] = await setup.store.rows<Link>('SELECT * FROM links WHERE id = ?', link!);
+  assert.equal(after!.state, 'removed');
+  assert.deepEqual([after!.removed_by, after!.removed_at], [first!.removed_by, first!.removed_at]);
+});

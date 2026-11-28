@@ -36,7 +36,7 @@ Operation, from the [operations table](../../map/target.md#operations):
 | --- | --- | --- | --- |
 | `person_get` | `person` | Read | `person` with `person`: its `id`, `name` and `confirmed`; `unknown_person` |
 
-1. Each person is one row in the [Person](../../contracts/CONTEXT.md#person) shape. The table refuses a name over its limit there. No operation in this slice changes or removes one.
+1. Each person is one row in the [Person](../../contracts/CONTEXT.md#person) shape. The table refuses a name over its limit there, written out in the step. No operation in this slice changes or removes one.
 2. `personWrite` makes the write for a new person and refuses anything that is not exactly a person. In this slice only the tests' made-up Brief calls it.
 3. `person_get` returns one person. A matter's page asks it for the name of each person on the matter.
 

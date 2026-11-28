@@ -2,7 +2,7 @@
 
 This repository is building an app that shows one Brief of what needs a person, built from their mail, texts and calls. An outside agent sorts and prepares, and the person accepts with a tap. Mail is read when it is needed and is not kept.
 
-Two slices of the first piece are written. The first is the door, with three ways in: a person can set a password, sign in, make sign-ins for agents and see who did what, from the screen, from a command line and from an agent connection. The second is the Brief: one page, one line per matter, grouped Money, Do and Reply, with lanes and Waiting as filters, a page per matter, edits in place, and moving a message or a person, all three ways. It is shown from made-up matters only: there is no mail yet, so a real install's Brief is empty. The project is not ready for use with real mail by other people.
+Two slices of the first piece are written. The first is the door, with three ways in: a person can set a password, sign in, make sign-ins for agents and see who did what, from the screen, from a command line and from an agent connection. The second is the Brief: one page, one line per matter, grouped Money, Do and Reply, with lanes and Waiting as filters, a page per matter, edits in place, moving a message to another matter, and accepting or removing a person on a matter, all three ways. It is shown from made-up matters only: there is no mail yet, so a real install's Brief is empty. The project is not ready for use with real mail by other people.
 
 The finished app is planned to run in the person's own Cloudflare account and also on a PC. Today it runs on a PC only, on Cloudflare's local runtime. Nothing here is deployed.
 

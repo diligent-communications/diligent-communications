@@ -25,6 +25,10 @@ type ScreenScript = {
   snoozeTimes(now: Date): Record<string, string>;
   snoozeOnDay(day: string): string;
   stateBefore(matter: { state: string }): string;
+  pageState(matter: { state: string; snoozed_until: string | null }, now: Date): { badge: string; kind: string; main: string; offerBack: boolean };
+  emptyLine(lane: string, waiting: boolean): string;
+  personName(found: Record<string, unknown>): string;
+  whoName(who: string, agents: Map<string, string> | null): string;
 };
 
 const publicFolder = path.join(import.meta.dirname, '..', 'public');
@@ -142,6 +146,55 @@ test('Undo puts a line back on the Brief, or under Waiting for a matter that was
   // A snoozed line on the Brief is one whose time has come: Undo leaves it open.
   assert.equal(script.stateBefore({ state: 'snoozed' }), 'open');
   assert.equal(script.stateBefore({ state: 'waiting' }), 'waiting');
+});
+
+test("a matter's page has Done unless the matter is done or dismissed, and never shows a snooze whose time has gone", () => {
+  const now = new Date('2026-12-02T12:00:00Z');
+  const later = '2026-12-03T08:00:00Z';
+  const gone = '2026-12-01T08:00:00Z';
+  for (const state of ['open', 'waiting'] as const) {
+    assert.equal(script.pageState({ state, snoozed_until: null }, now).main, 'done', state);
+  }
+  assert.equal(script.pageState({ state: 'open', snoozed_until: null }, now).offerBack, false);
+  assert.equal(script.pageState({ state: 'waiting', snoozed_until: null }, now).offerBack, true);
+  const snoozed = script.pageState({ state: 'snoozed', snoozed_until: later }, now);
+  assert.deepEqual([snoozed.main, snoozed.offerBack], ['done', true]);
+  assert.match(snoozed.badge, /^Snoozed until /);
+  // Its time has come: it is on the Brief, and the page says so.
+  assert.deepEqual(script.pageState({ state: 'snoozed', snoozed_until: gone }, now), { badge: 'On the Brief', kind: 'open', main: 'done', offerBack: false });
+  for (const state of ['done', 'dismissed'] as const) {
+    const shown = script.pageState({ state, snoozed_until: null }, now);
+    assert.deepEqual([shown.main, shown.offerBack], ['reopen', false], state);
+  }
+});
+
+test('an empty Brief says so about the filter chosen', () => {
+  assert.equal(script.emptyLine('', false), 'Nothing needs you right now.');
+  assert.equal(script.emptyLine('', true), 'Nothing is marked waiting.');
+  assert.equal(script.emptyLine('job-114', false), 'Nothing in Job 114 needs you right now.');
+  assert.equal(script.emptyLine('work', true), 'Nothing in Work is marked waiting.');
+});
+
+test('a name that could not be loaded is not shown as gone', () => {
+  assert.equal(script.personName({ result: 'person', person: { id: 'p1', name: 'A made-up neighbour', confirmed: 'no' } }), 'A made-up neighbour');
+  assert.equal(script.personName({ result: 'unknown_person' }), 'A person no longer on record');
+  for (const result of ['unavailable', 'not_signed_in', 'not_allowed']) {
+    assert.equal(script.personName({ result }), 'A name that could not be loaded', result);
+  }
+  const agents = new Map([['agent:a1', 'sorter']]);
+  assert.equal(script.whoName('agent:a1', agents), 'Agent sorter');
+  assert.equal(script.whoName('agent:a2', agents), 'An agent no longer listed');
+  assert.equal(script.whoName('agent:a1', null), 'An agent whose name could not be loaded');
+  assert.equal(script.whoName('you', null), 'You');
+});
+
+test('a title link takes a tap at least 44 px tall without changing the layout', async () => {
+  const css = await readFile(path.join(publicFolder, 'app.css'), 'utf8');
+  const rule = css.slice(css.indexOf('.line-title::after {'), css.indexOf('}', css.indexOf('.line-title::after {')));
+  assert.ok(rule.length > 0, 'the title has a tap area');
+  assert.ok(rule.includes('position: absolute'));
+  assert.ok(rule.includes('inset-block: min(0px, calc((100% - var(--base-size-44)) / 2))'));
+  assert.ok(/\.line-title \{[^}]*position: relative/.test(css));
 });
 
 test('a snooze comes back at 8 in the morning, tomorrow, on the next Monday, or on a day picked', () => {

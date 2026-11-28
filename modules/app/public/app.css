@@ -390,6 +390,16 @@ h3 {
   line-height: var(--base-text-lineHeight-snug);
   text-decoration: none;
   text-wrap: balance;
+  position: relative;
+}
+
+/* A title is at least 44 px tall to a thumb: the area that takes the tap
+   reaches above and below a one-line title, and the layout stays as it is. */
+.line-title::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: min(0px, calc((100% - var(--base-size-44)) / 2));
 }
 
 .line-title:hover {
