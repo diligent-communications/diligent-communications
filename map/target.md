@@ -15,7 +15,7 @@ The [generated map](README.md) points toward the contract a part reads. The pict
 - **Worker.** The program as it runs inside Cloudflare.
 - **D1.** Cloudflare's database. On a PC it is one local file.
 - **MCP.** The open standard agents use to connect to a tool.
-- **Token.** A long secret an agent or the command line shows to prove who it is.
+- **Token.** A long secret an agent shows once, in the first `created` answer, to prove who it is. The command line does not show a token of the person's.
 - **Password.** The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. It is not how the person signs in now.
 
 ## The picture
@@ -79,13 +79,13 @@ operations writes its activity rows through store, because only store talks to t
 
 **app.** The screens: the Brief, a matter, a person, projects and goals, settings, and the first-run walk. Built phone first on the Primer tokens published by GitHub (MIT). It owns layout and wording, and the advice shown beside a result. It never talks to the database or to Google. It only calls operations.
 
-**cli.** A small program on the PC called `diligent`. It signs in as the person with the password, sends an operation to the install, and prints the result. It also runs as a local bridge an agent can start (`diligent mcp`), for an agent that cannot hold a token itself. The bridge uses an agent sign-in of its own, which the person makes and gives it, and nothing else. It never uses the person's password. It owns nothing about mail or matters.
+**cli.** A small program on the PC called `diligent`. The command line stays signed in as the person, once per device, like the screens. It never keeps the password. It keeps its session on that PC, and the install keeps only a hash of it. Any program that can run commands on that PC, an agent included, can act through a signed-in command line at the person's level. The Prepare level and the person's tap limit an agent that uses its own sign-in; they do not limit a program on the same PC as a signed-in command line, and nothing says the bridge rule does. It also runs as a local bridge an agent can start (`diligent mcp`), for an agent that cannot hold a token itself. The bridge uses an agent sign-in of its own, which the person makes and gives it, and nothing else. It never uses the person's password. It prints a new agent token once and holds no other sign-in in its output. It owns nothing about mail or matters.
 
 **mcp.** The agent connection. It offers the same operations as tools an agent can call. It accepts agent sign-ins only, so an operation that needs the person's level answers `not_allowed`. An agent's level stops at Prepare. It owns no behaviour of its own. A tool is an operation.
 
 **host.** The running program. It takes each request, sends it to the right place, and runs the schedule. It owns the routes and the timer. It makes no decisions.
 
-**access.** Who is calling. The person signs in with a long password, typed once per device. The password and agent tokens are stored only as hashes. Wrong tries are locked out. A passkey can be added later. The person creates an agent token and can switch it off. A caller kind `device` is named for the phone app. Its sign-in is defined in piece three. Until then the seam only names it, recorded as `device:<id>`. It owns sign-ins to Diligent and the list of agents. It never holds a Google sign-in.
+**access.** Who is calling. The command line stays signed in as the person, once per device, like the screens. It never keeps the password. It keeps its session on that PC, and the install keeps only a hash of it. Any program that can run commands on that PC, an agent included, can act through a signed-in command line at the person's level. The Prepare level and the person's tap limit an agent that uses its own sign-in; they do not limit a program on the same PC as a signed-in command line, and nothing says the bridge rule does. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries are locked out. A passkey can be added later. `agent_create` returns the token in its first `created` answer only. A caller kind `device` is named for the phone app. Its sign-in is defined in piece three. Until then the seam only names it, recorded as `device:<id>`. It owns sign-ins to Diligent and the list of agents. It never holds a Google sign-in.
 
 **operations.** The one door. It owns the level check, makes repeats safe, and writes the record of who did what. What a caller may do depends on its sign-in, never on the way in. Every part's work is reached through it. It never contains the work itself. The list of operations is the tables below, and the same tables in the part contracts.
 
@@ -99,13 +99,13 @@ operations writes its activity rows through store, because only store talks to t
 
 **plans.** Projects and goals. Both are standalone and both are built from one block: steps with dates. It owns projects, goals and steps. It holds the conversation side only. Estimates, costs and bills stay in the person's other apps, linked.
 
-**effects.** Anything that leaves Diligent or changes Gmail, Calendar or Contacts: a reply, an event, a contact change. It owns prepared actions, the acceptance of each, the sending, and the receipt. It never acts without a recorded acceptance by the person. It is the only part that asks connections to send, and only for an accepted action. connections does not check that acceptance. A prepared reply follows the one exception in the rules every part keeps.
+**effects.** Anything that leaves Diligent or changes Gmail, Calendar or Contacts: a reply, an event, a contact change. It owns prepared actions, the acceptance of each, the sending, and the receipt. It never acts without a recorded acceptance by the person. It is the only part that asks connections to send, and only for an accepted action. connections does not check that acceptance. What a prepared reply may hold is the [prepared reply](../contracts/CONTEXT.md#prepared-reply) shape.
 
 **sources.** What exists at each source. For mail it notices new messages and reads one when asked, keeping nothing but its ID. How far back a newly connected mailbox is sorted is a setting, 14 days unless changed. For texts and call transcripts the words stay until store removes them, because they live nowhere else. It owns the list of source messages. It does not own a clock. It never stores a mail body.
 
-**connections.** Sign-ins to outside accounts, Google first. It is the only part that holds or uses those sign-ins, and it makes calls to Google on behalf of other parts. Each outside sign-in is kept encrypted with a key that is not in the database. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no token.
+**connections.** Sign-ins to outside accounts, Google first. It is the only part that holds or uses those sign-ins, and it makes calls to Google on behalf of other parts. Each outside sign-in is kept encrypted with a key that is not in the database. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no outside sign-in.
 
-**store.** The database. It owns the tables, their upgrades, removing what has aged out, and the export for backup and restore. Only store talks to D1. Each part's rows are its own. `export_make` leaves out outside sign-ins, the password hash and token hashes. After a restore the person sets a password and connects each account again.
+**store.** The database. It owns the tables, their upgrades, removing what has aged out, and the export for backup and restore. Only store talks to D1. Each part's rows are its own. No backup holds any sign-in, sessions and device sign-ins included. After a restore the person sets a password and connects each account again. It never stores a received mail body.
 
 ## Folder layout
 
@@ -143,11 +143,11 @@ These folders are not part of this design: an evidence archive, an attachment ex
 ## Rules every part keeps
 
 1. **No model inside.** No part calls a model.
-2. **No received mail body is stored.** There is no column for one. A prepared reply is the exception: it holds only the new words, never the quoted original, and it is kept with its matter. A quote is at most 300 characters. A summary is at most 1,200. Those two limits are proposals, not a decision by the owner.
+2. **No received mail body is stored.** The rule, and the one exception for a prepared reply, is the [prepared reply](../contracts/CONTEXT.md#prepared-reply) shape. A quote is at most 300 characters. A summary is at most 1,200. Those two limits are proposals, not a decision by the owner.
 3. **One door, three ways in.** The screen, the command line and an agent call the same operation. What a caller may do depends on its sign-in, never on the way in. The agent connection accepts agent sign-ins only, so an operation at the person's level answers `not_allowed` there. A capability counts as finished only when it works all three ways.
 4. **Every change records who did it.** The person, a named agent, a device (`device:<id>`), or Diligent itself on its schedule. The device sign-in is defined in piece three. Until then the seam only names that caller.
-5. **A repeat is safe.** Every change carries a request ID the caller makes up. The same ID with the same input returns the same answer and changes nothing twice.
-6. **Nothing leaves without a tap.** Only effects reaches outward to change anything, and only for an action the person accepted.
+5. **A repeat is safe.** Only an operation that changes something takes a request ID, and only that answer is kept. `sort_next` and every other read take none, so no kept answer ever holds a message's words. The same ID with the same input returns the same answer and changes nothing twice, except `agent_create`, whose kept answer and repeat return `created` without the token.
+6. **Nothing leaves without a tap.** Only effects reaches outward to change anything, and only for an action the person accepted. The Prepare level and the person's tap limit an agent that uses its own sign-in; they do not limit a program on the same PC as a signed-in command line, and nothing says the bridge rule does.
 7. **Only connections holds outside sign-ins.**
 8. **Not reachable is never gone, and never empty.** They are three different results. A mailbox that cannot be read is not reachable.
 9. **Results say what was found, never what to do.** Every result has a name and a plain description that names what it is about. The screen gives the advice.
@@ -166,7 +166,7 @@ Levels: **Read** (see everything), **Prepare** (Read, plus sort and prepare), **
 | Part | Operation | Meaning | Level | Named results |
 | --- | --- | --- | --- | --- |
 | access | `whoami` | Who the caller is and its level | Read | `you`, `agent` |
-| access | `agent_create` | Make an agent sign-in. The token is shown once | You | `created`, `name_taken` |
+| access | `agent_create` | Make an agent sign-in. The token is in the first `created` answer only. A repeat returns `created` without it | You | `created`, `name_taken` |
 | access | `agent_list` | Agents, levels, on or off, last used | You | `listed` |
 | access | `agent_set` | Change an agent's level, or switch it off or on | You | `changed`, `unknown_agent` |
 | access | `device_list`, `device_remove` | The person's signed-in devices | You | `listed`, `removed`, `last_device` |
@@ -178,8 +178,8 @@ Levels: **Read** (see everything), **Prepare** (Read, plus sort and prepare), **
 | sources | `text_add`, `call_add` | The phone app or a file brings in a text or a transcript | device or You | `added`, `already_have` |
 | sorting | `sort_status` | Per account: last check, waiting, held, last complete sort, last attempt | Read | `status` |
 | sorting | `sort_start` | Open a sort run, or pick up the caller's own open run | Prepare | `started`, `resumed`, `run_open_elsewhere`, `nothing_waiting` |
-| sorting | `sort_next` | The next few messages to sort, at `handover_level`. `full` passes the words. `reference` means no request to Google is made because an agent asked. `full` unless changed | Prepare | `messages`, `none_left`, `run_ended` |
-| sorting | `sort_record` | Record one message's outcome. A close rides with the link when the message shows the matter is finished. No other state change. A later linked message reopens a done matter, never a dismissed one, as part of this operation | Prepare | `recorded`, `not_in_run`, `unknown_matter`, `owner_field`, `too_long` |
+| sorting | `sort_next` | The next few messages to sort, oldest first, at `handover_level`. `full` passes the words. `reference` means no request to Google is made because an agent asked. `full` unless changed. A read, so it takes no request ID | Prepare | `messages`, `none_left`, `run_ended` |
+| sorting | `sort_record` | Record one message's outcome. A close sets `done`, and only from `open`, `waiting` or `snoozed`. It never changes a dismissed matter. A linked message reopens a done matter only when the message happened after the matter was closed | Prepare | `recorded`, `not_in_run`, `unknown_matter`, `owner_field`, `too_long` |
 | sorting | `sort_finish` | Close the run and return its receipt | Prepare | `receipt` |
 | sorting | `sort_stop` | Stop a run | You, or the agent that owns the run | `receipt` |
 | sorting | `sort_receipt` | The same receipt again | Read | `receipt`, `unknown_run` |
@@ -206,13 +206,13 @@ Signing in to Google happens on Google's own page in a browser. That step cannot
 
 ## Rules that belong to one part
 
-- **sorting.** A source message has one current outcome, and its earlier outcomes stay in its history. One sort run is open at a time. A run with no activity for 30 minutes ends as `timed_out`. A message whose account cannot be read is left waiting, and the run's receipt counts it as left waiting. A run's receipt never changes once given. "Last complete sort" for an account moves only when a run ends with nothing left waiting for that account. A message that vanished before it was sorted is recorded as no action, reason "gone before sorting", by Diligent. The receipt says `complete` only when every listed message is accounted for. `handover_level` is `full` or `reference`, `full` unless changed. `reference` means no request to Google is made because an agent asked. When the message being recorded shows the matter is finished, `sort_record` may carry a close with the link. That is the only state change it makes. The link that carries a close does not reopen the matter. A later linked message reopens a done matter, never a dismissed one, as part of that `sort_record`, recorded under its caller.
-- **brief.** A matter's ID never changes and is never reused. Every change adds a history line. `matter_set_state` stays the person's. The close path is the one sorting states. State is not one of the fields "what you set stays yours" covers, so an agent may close again on a later message. The person reopens a done matter with one tap. The freshness line is sorting's; the caller asks `sort_status`. `matter_get` returns the person id; the caller asks people. Lines marked Waiting stay visible under a Waiting filter, and details are edited in place. Remembered columns and layout wait for the PC table view.
+- **sorting.** A source message has one current outcome, and its earlier outcomes stay in its history. One sort run is open at a time. A run with no activity for 30 minutes ends as `timed_out`. A message whose account cannot be read is left waiting, and the run's receipt counts it as left waiting. A run's receipt never changes once given. "Last complete sort" for an account moves only when a run ends with nothing left waiting for that account. A message that vanished before it was sorted is recorded as no action, reason "gone before sorting", by Diligent. The receipt says `complete` only when every listed message is accounted for. `handover_level` is `full` or `reference`, `full` unless changed. `reference` means no request to Google is made because an agent asked. `sort_next` offers messages oldest first. A close in `sort_record` sets `done`, and only from `open`, `waiting` or `snoozed`. It never changes a dismissed matter; only the person reopens a dismissed matter. That is the only state change `sort_record` makes. The link that carries a close does not reopen the matter. A linked message reopens a done matter only when the message happened after the matter was closed, as part of that `sort_record`, recorded under its caller.
+- **brief.** A matter's ID never changes and is never reused. Every change adds a history line. `matter_set_state` stays the person's. A close in `sort_record` sets `done`, and only from `open`, `waiting` or `snoozed`. It never changes a dismissed matter; only the person reopens a dismissed matter. A linked message reopens a done matter only when the message happened after the matter was closed. State is not one of the fields "what you set stays yours" covers, so an agent may close again on a later message. The person reopens a done matter with one tap. The freshness line is sorting's; the caller asks `sort_status`. `matter_get` returns the person id; the caller asks people. Lines marked Waiting stay visible under a Waiting filter, and details are edited in place. Remembered columns and layout wait for the PC table view.
 - **links.** A message-to-matter link made by sorting is in force at once. A person link proposed by an agent shows as unconfirmed until the person accepts it. Piece 1's undo is `link_move_message` and `link_remove_person`, with `link_accept_person`. `matter_merge` and `matter_split` are later and belong to no piece yet. A name in a message is not a verified contact.
 - **sources.** A message is identified by its kind, Diligent's own ID for the account, and the provider's own message ID. Reconnecting the same Google account keeps the same account ID. Mail is read from the provider's mail address only. A mailbox that cannot be read is not reachable. A read from connections is `read`, `gone`, `needs_sign_in`, `not_reachable`, `rate_limited` (with the wait asked for, if any) or `refused_address`. How far back a newly connected mailbox is sorted is a setting, 14 days unless changed. This part does not own a clock.
 - **connections.** The lasting states are `connected` and `needs-sign-in`. Each outside sign-in is kept encrypted with a key that is not in the database, and that sign-in lives only in this part's rows. A sign-in that Google rejects becomes `needs-sign-in` and stays so until the person signs in again. A network failure changes nothing. Mail is read over HTTPS from the provider's mail address only, and a redirect elsewhere is refused. A read returns `read`, `gone`, `needs_sign_in`, `not_reachable`, `rate_limited` (with the wait asked for, if any) or `refused_address`. From piece two a send returns `sent`, `failed`, `outcome_unknown` or `needs_sign_in`. This part does not check whether a send was accepted.
-- **effects.** An accepted action is carried out at most once. An unknown outcome is checked with the provider before any retry. An event that invites or notifies someone shows who gets notified before the tap. Only this part asks connections to send, and only for an accepted action. A prepared reply follows the one exception in the rules every part keeps.
-- **access.** The person signs in with a long password, typed once per device. The password and agent tokens are stored only as hashes. Wrong tries are locked out. A passkey can be added later. A token is shown once. The bridge's agent sign-in is an agent token, never the person's password. A caller kind `device` is named for the phone app and defined in piece three. An agent that is switched off is refused at once.
+- **effects.** An accepted action is carried out at most once. An unknown outcome is checked with the provider before any retry. An event that invites or notifies someone shows who gets notified before the tap. Only this part asks connections to send, and only for an accepted action. What a prepared reply may hold is the [prepared reply](../contracts/CONTEXT.md#prepared-reply) shape.
+- **access.** The command line stays signed in as the person, once per device, like the screens. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries are locked out. A passkey can be added later. `agent_create` returns the token in its first `created` answer only. A repeat returns `created` without the token. The bridge's agent sign-in is an agent token, never the person's password. A caller kind `device` is named for the phone app and defined in piece three. An agent that is switched off is refused at once. Any program that can run commands on that PC, an agent included, can act through a signed-in command line at the person's level. The Prepare level and the person's tap limit an agent that uses its own sign-in; they do not limit a program on the same PC as a signed-in command line, and nothing says the bridge rule does.
 
 ## Shared shapes
 
@@ -224,6 +224,7 @@ The fields have one home, in [contracts](../contracts/CONTEXT.md). They are draf
 - **Link.** The two ends, whether it is proposed, active or removed, and who made, accepted or removed it. A message link also carries a short quote.
 - **Agent.** Name, level (`read` or `prepare`), on or off, and when it was made and last used.
 - **Sort run.** The agent, the times, how it ended, and a receipt of counts per account with the word `complete` or `partial`.
+- **Prepared reply.** Stated once, in [contracts](../contracts/CONTEXT.md#prepared-reply).
 - **Who did it.** The person, `agent:<id>`, `device:<id>`, or Diligent.
 
 ## What is stored, and for how long
@@ -237,14 +238,14 @@ The fields have one home, in [contracts](../contracts/CONTEXT.md). They are draf
 | Matter history | One short dated line per change, and who | With the matter |
 | Links | The link fields, including a quote of at most 300 characters | With the matter |
 | People, projects, goals, steps | As the parts describe | Until the person deletes them |
-| Prepared actions | The exact reply, event or contact change, who prepared it, the acceptance, the provider's receipt | With the matter |
-| Agents, devices, sessions | Names, levels, token hashes, and the person's password hash | Until removed. Sessions end by themselves. A backup never holds those hashes |
+| Prepared actions | The prepared reply, as that shape says, who prepared it, the acceptance, the provider's receipt | With the matter |
+| Agents, devices, sessions | Names, levels, and hashes of the password, agent tokens, sessions and device sign-ins | Until removed. Sessions end by themselves. No backup holds any sign-in, sessions and device sign-ins included |
 | Sort runs and receipts | Counts only | One year |
-| Request IDs | The ID, a fingerprint of the input, the answer | 30 days |
+| Request IDs | The ID, a fingerprint of the input, and the answer of an operation that changes something. A read is not kept | 30 days |
 | Activity | Time, who, which operation, on what, the result's name. No message content and no token | One year |
 | Settings | Lanes, lengths, check interval, `handover_level`, how far back a new mailbox is sorted | Always |
 
-The lengths are settings. Two checks show that no mail body is stored: the tables have nowhere to put one, and an acceptance check sorts made-up mail containing a marker sentence and then searches the whole database for it.
+The lengths are settings. Two checks show that no received mail body is stored: the tables have nowhere to put one, and an acceptance check sorts made-up mail containing a marker sentence and then searches the whole database for it. The prepared-reply exception is the [prepared reply](../contracts/CONTEXT.md#prepared-reply) shape.
 
 The year for unlinked message IDs, the 30 days for request IDs, and the two size limits are proposals, not decisions by the owner. The year for text and call words is the retention this design uses.
 

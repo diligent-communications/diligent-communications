@@ -32,7 +32,7 @@ It never reads mail and never stores a mail body. It never calls a model. It nev
 
 1. A matter's ID never changes and is never reused.
 2. Every change adds a history line, including who did it.
-3. When the message being recorded shows the matter is finished, `sort_record` may carry a close with the link. `matter_set_state` stays the person's. `sort_record` can make no other state change. The link that carries a close does not reopen the matter. A later linked message reopens a done matter, never a dismissed one. That reopen is part of the `sort_record` that links the message, and it is recorded under its caller. State is not one of the fields "what you set stays yours" covers, so an agent may close again on a later message. The person reopens with one tap. sorting states the same rule. This part does not read sorting. The caller asks `sort_status` for the freshness line.
+3. A close in `sort_record` sets `done`, and only from `open`, `waiting` or `snoozed`. It never changes a dismissed matter; only the person reopens a dismissed matter. `sort_next` offers messages oldest first. `matter_set_state` stays the person's. `sort_record` can make no other state change. The link that carries a close does not reopen the matter. A linked message reopens a done matter only when the message happened after the matter was closed. That reopen is part of the `sort_record` that links the message, and it is recorded under its caller. State is not one of the fields "what you set stays yours" covers, so an agent may close again on a later message, and the person reopens a done matter with one tap. sorting states the same rule. This part does not read sorting. The caller asks `sort_status` for the freshness line.
 4. A field the person has edited is not overwritten by an agent. The field list is `set_by_you` on the [matter](../../contracts/CONTEXT.md#matter) shape. State is not one of those fields.
 
 ## Inputs
@@ -46,7 +46,7 @@ It never reads mail and never stores a mail body. It never calls a model. It nev
 ## Process
 
 1. Return the Brief or one matter.
-2. Apply an edit or a state change from the person, and append history.
+2. Apply an edit or `matter_set_state` from the person, and append history. A close that sets `done` is recorded by `sort_record`.
 
 ## Outputs
 
@@ -54,4 +54,4 @@ It never reads mail and never stores a mail body. It never calls a model. It nev
 
 ## Check
 
-When this part's code is written, a contributor edits a field, then an agent sort leaves that field as the person set it. A new link to a done matter reopens it.
+When this part's code is written, a contributor edits a field, then an agent sort leaves that field as the person set it. A linked message reopens a done matter only when the message happened after the matter was closed. A close does not change a dismissed matter.

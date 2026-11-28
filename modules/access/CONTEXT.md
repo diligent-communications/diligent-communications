@@ -12,7 +12,9 @@ One job: say who is calling, and at what level.
 
 ## What it owns
 
-Sign-ins to this install, and the list of agents. The person signs in with a long password, typed once per device. The password and agent tokens are stored only as hashes. Wrong tries are locked out. A passkey can be added later. It is not this sign-in. The person creates an agent token and can switch it off. A token is shown once. The command line's bridge holds an agent token the person made for it. This part never treats that token as the person's password.
+Sign-ins to this install, and the list of agents. The command line stays signed in as the person, once per device, like the screens. It never keeps the password. It keeps its session on that PC, and the install keeps only a hash of it. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries are locked out. A passkey can be added later. It is not this sign-in. The person creates an agent token and can switch it off. The command line's bridge holds an agent token the person made for it. This part never treats that token as the person's password.
+
+Any program that can run commands on that PC, an agent included, can act through a signed-in command line at the person's level. The Prepare level and the person's tap limit an agent that uses its own sign-in; they do not limit a program on the same PC as a signed-in command line, and nothing says the bridge rule does.
 
 A caller kind `device` is named for the phone app. Its sign-in is defined in piece three. Until then this seam only names it. A change it makes is recorded as `device:<id>` in [Who did it](../../contracts/CONTEXT.md#who-did-it).
 
@@ -25,7 +27,7 @@ It never holds a Google sign-in. It never calls a model. It never starts or wake
 | Operation | Meaning | Level | Named results |
 | --- | --- | --- | --- |
 | `whoami` | Who the caller is, and its level | Read | `you`, `agent` |
-| `agent_create` | Make an agent sign-in. The token is shown once | You | `created`, `name_taken` |
+| `agent_create` | Make an agent sign-in. The token is in the first `created` answer only | You | `created`, `name_taken` |
 | `agent_list` | Agents, their levels, on or off, and last used | You | `listed` |
 | `agent_set` | Change an agent's level, or switch it off or on | You | `changed`, `unknown_agent` |
 | `device_list` | The person's signed-in devices | You | `listed` |
@@ -35,8 +37,8 @@ An agent that is switched off is refused at once, as `switched_off` from the [do
 
 ## Hard rules
 
-1. A token is shown once. What is stored is a hash, not the token. No result, activity line or log holds a token.
-2. The person's password is stored only as a hash. Wrong tries are locked out. It is typed once per device. A backup does not include the password hash or a token hash.
+1. `agent_create` returns the token in its first `created` answer only. No kept answer, row, backup, activity line or log holds it. The install keeps a hash. A repeat of the same request returns `created` without the token. A lost token is replaced by making a new one.
+2. Every sign-in is kept only as a hash. That covers the password, agent tokens, the person's sessions and device sign-ins. Wrong tries are locked out. The password is typed once per device.
 3. This part never holds a Google sign-in. That stays in connections.
 4. Switching an agent off refuses its next call. It does not erase matters.
 
@@ -59,4 +61,4 @@ An agent that is switched off is refused at once, as `switched_off` from the [do
 
 ## Check
 
-When this part's code is written, a contributor creates an agent, sees the token once, and a later read does not return the token. A later read does not return the person's password, only a check against the hash. Wrong tries lock out. An agent that is switched off is refused on the next call.
+When this part's code is written, a contributor creates an agent and sees the token in the first `created` answer only. A repeat returns `created` without the token. A later read does not return the token or the password, only a check against the hash. Wrong tries lock out. An agent that is switched off is refused on the next call.

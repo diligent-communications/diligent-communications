@@ -22,7 +22,7 @@ It never calls a model, never stores a mail body, and never sends mail or change
 
 This part adds no operation of its own. A call names an operation from a part contract. The level on that operation is the lowest level that may call it. Levels are Read, Prepare and You. What a caller may do depends on its sign-in, never on the way in. The screen, the command line and the agent connection use this one check. The agent connection accepts agent sign-ins only, so an operation at the person's level answers `not_allowed` there. An agent's level stops at Prepare. A `device` caller is named for the phone app. Its sign-in is defined in piece three. Until then the seam names the caller kind `device`.
 
-A repeat carries a request ID the caller makes up. The same ID with the same input returns the same answer and changes nothing twice. The same ID with a different input returns `request_id_reused`.
+Only an operation that changes something takes a request ID, and only that answer is kept. `sort_next` and every other read take none, so no kept answer ever holds a message's words. The same ID with the same input returns the same answer and changes nothing twice, except `agent_create`: the kept answer and a repeat return `created` without the token. The same ID with a different input returns `request_id_reused`.
 
 Any operation can also return `not_signed_in`, `not_allowed`, `switched_off`, `invalid_input`, `request_id_reused`, `changed_since` or `unavailable`.
 
@@ -44,7 +44,7 @@ Every result has a name and a plain description that names what it is about. The
 ## Process
 
 1. Refuse a caller who is not signed in, whose level is too low, or whose agent is switched off.
-2. If the request ID was used before, return the earlier answer or `request_id_reused`.
+2. If the operation changes something and the request ID was used before, return the earlier answer or `request_id_reused`. A repeat of `agent_create` returns `created` without the token.
 3. Do the named operation in the part that owns it, then record who did it.
 
 ## Outputs

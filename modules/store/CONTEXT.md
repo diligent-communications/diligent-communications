@@ -1,7 +1,7 @@
 ---
 build_step: 1
 status: draft
-consumes: ["../../contracts/CONTEXT.md#who-did-it"]
+consumes: ["../../contracts/CONTEXT.md#who-did-it","../../contracts/CONTEXT.md#prepared-reply"]
 produces: ["Stored rows"]
 ---
 # store — The database
@@ -16,7 +16,7 @@ The tables, their upgrades, removing what has aged out, and the export used for 
 
 ## What it never does
 
-It never calls a model, never holds a Google sign-in, and never stores a mail body. There is no column for one.
+It never calls a model, never holds a Google sign-in, and never stores a received mail body. There is no column for a received mail body. What a prepared reply may hold is the [prepared reply](../../contracts/CONTEXT.md#prepared-reply) shape.
 
 ## Operations
 
@@ -30,7 +30,7 @@ It never calls a model, never holds a Google sign-in, and never stores a mail bo
 
 The settings are the lanes, how long each kind of row is kept, how often mail is checked, `handover_level` (`full` or `reference`, `full` unless changed), and how far back a newly connected mailbox is sorted (14 days unless changed).
 
-`export_make` leaves out outside sign-ins, the password hash and token hashes. After a restore the person sets a password and connects each account again.
+No backup holds any sign-in, sessions and device sign-ins included. After a restore the person sets a password and connects each account again.
 
 Backup and restore are not one of the six build pieces. Until they exist, the host's database can be restored to an earlier minute for the period the host keeps.
 
@@ -38,12 +38,12 @@ How long each kind is kept:
 
 | Record | Kept |
 | --- | --- |
-| Accounts, and the encrypted sign-in | Until the person disconnects. Then the sign-in is erased. The backup never holds it |
+| Accounts, and the encrypted sign-in | Until the person disconnects. Then the sign-in is erased. No backup holds it |
 | Source messages | Linked ones as long as their matter. Others one year |
 | Text and call words | One year. Audio is never kept once transcribed |
 | Matters, people, projects, goals, steps | Until the person deletes them |
 | Matter history, links, prepared actions | With the matter |
-| Agents, devices, sessions | Until removed. The backup never holds a password hash or a token hash |
+| Agents, devices, sessions | Until removed. No backup holds any sign-in, sessions and device sign-ins included |
 | Sort runs and receipts | One year |
 | Request IDs | 30 days |
 | Activity | One year. No message content and no token |
@@ -62,6 +62,7 @@ The year for unlinked message IDs, the 30 days, and the size limits on a quote a
 
 - Working: None yet.
 - Reference: [Who did it](../../contracts/CONTEXT.md#who-did-it)
+- Reference: [Prepared reply](../../contracts/CONTEXT.md#prepared-reply)
 
 ## Process
 
@@ -74,4 +75,4 @@ The year for unlinked message IDs, the 30 days, and the size limits on a quote a
 
 ## Check
 
-When this part's code is written, a contributor searches a database that has sorted made-up mail and finds no mail body. A restore into an install that is not empty returns `not_empty`.
+When this part's code is written, a contributor searches a database that has sorted made-up mail and finds no received mail body. A restore into an install that is not empty returns `not_empty`. No backup holds any sign-in, sessions and device sign-ins included.

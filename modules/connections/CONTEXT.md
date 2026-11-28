@@ -12,7 +12,7 @@ One job: sign-ins to outside accounts, Google first. This is the only part that 
 
 ## What it owns
 
-The sign-in for each connected account, and that account's lasting state. The lasting states are `connected` and `needs-sign-in`. Each outside sign-in is kept encrypted with a key that is not in the database. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no token. A backup does not include the sign-in.
+The sign-in for each connected account, and that account's lasting state. The lasting states are `connected` and `needs-sign-in`. Each outside sign-in is kept encrypted with a key that is not in the database. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no outside sign-in. A backup does not include the sign-in.
 
 ## What it never does
 
@@ -34,7 +34,7 @@ From piece two, a send returns `sent`, `failed`, `outcome_unknown` or `needs_sig
 
 ## Hard rules
 
-1. Only this part holds or uses an outside sign-in. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no token.
+1. Only this part holds or uses an outside sign-in. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no outside sign-in.
 2. Mail is read over HTTPS, from the provider's mail address only. A redirect to any other address is refused, and the sign-in is not attached.
 3. A failure has one name. A sign-in Google rejects is the result `needs_sign_in`, and the lasting state becomes `needs-sign-in` until the person signs in again. A network failure is `not_reachable` and changes neither lasting state.
 4. Reconnecting the same Google account keeps the same account ID.

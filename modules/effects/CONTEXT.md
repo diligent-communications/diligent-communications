@@ -1,7 +1,7 @@
 ---
 build_step: 2
 status: draft
-consumes: ["../operations/CONTEXT.md","../connections/CONTEXT.md","../store/CONTEXT.md"]
+consumes: ["../operations/CONTEXT.md","../connections/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#prepared-reply"]
 produces: ["Prepared actions"]
 ---
 # effects — What leaves, after a tap
@@ -16,7 +16,7 @@ Prepared actions, the person's acceptance of each, the sending, and the receipt.
 
 ## What it never does
 
-It never acts without a recorded acceptance by the person. It never calls a model. It never holds a Google sign-in. It is the only part that asks connections to send, and only for an accepted action. connections does not check that acceptance. Whether a prepared reply may be stored is the one exception in [Rules every part keeps](../../map/target.md#rules-every-part-keeps). This part does not state that rule again.
+It never acts without a recorded acceptance by the person. It never calls a model. It never holds a Google sign-in. It is the only part that asks connections to send, and only for an accepted action. connections does not check that acceptance. What a prepared reply may hold is the [prepared reply](../../contracts/CONTEXT.md#prepared-reply) shape.
 
 ## Operations
 
@@ -42,6 +42,7 @@ It never acts without a recorded acceptance by the person. It never calls a mode
 - Reference: [Operations](../operations/CONTEXT.md)
 - Reference: [Connections](../connections/CONTEXT.md)
 - Reference: [Store](../store/CONTEXT.md)
+- Reference: [Prepared reply](../../contracts/CONTEXT.md#prepared-reply)
 
 ## Process
 

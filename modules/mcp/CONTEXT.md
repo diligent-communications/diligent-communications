@@ -36,7 +36,7 @@ This part adds no operation. It offers the door's operations as tools. This conn
 
 ## Process
 
-1. Present each operation the agent is allowed to call as a tool.
+1. Offer every operation. One that needs the person answers `not_allowed`.
 2. Pass the call through to the door and return the named result.
 
 ## Outputs
@@ -45,4 +45,4 @@ This part adds no operation. It offers the door's operations as tools. This conn
 
 ## Check
 
-When this part's code is written, a contributor lists the tools and finds the piece-1 operations, and no tool that sends mail.
+When this part's code is written, a contributor lists the tools and finds every operation the door names. One that needs the person answers `not_allowed`.

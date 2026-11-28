@@ -29,6 +29,10 @@ Each shape that has a version number has its own whole number, starting at 1. An
 
 These headings are the seam. They are draft: the fields are what other parts may rely on, and the code that reads and writes them is not written yet. A quote is at most 300 characters and a summary is at most 1,200. Those two limits are proposals, not a decision by the owner.
 
+### Prepared reply
+
+Draft. No received mail body is stored. A prepared reply is stored with its matter and holds only the new words, never the quoted original.
+
 ### Matter
 
 Draft.
