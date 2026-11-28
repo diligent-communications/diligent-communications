@@ -1,7 +1,7 @@
 ---
 build_step: 1
 status: draft
-consumes: ["../access/CONTEXT.md", "../store/CONTEXT.md", "../../contracts/CONTEXT.md#activity-line", "../../contracts/CONTEXT.md#answer", "../../contracts/CONTEXT.md#caller", "../../contracts/CONTEXT.md#level", "../../contracts/CONTEXT.md#operation", "../../contracts/CONTEXT.md#who-did-it", "../../contracts/CONTEXT.md#work"]
+consumes: ["../access/CONTEXT.md", "../brief/CONTEXT.md", "../links/CONTEXT.md", "../people/CONTEXT.md", "../store/CONTEXT.md", "../../contracts/CONTEXT.md#activity-line", "../../contracts/CONTEXT.md#answer", "../../contracts/CONTEXT.md#caller", "../../contracts/CONTEXT.md#level", "../../contracts/CONTEXT.md#operation", "../../contracts/CONTEXT.md#who-did-it", "../../contracts/CONTEXT.md#work"]
 produces: ["The operations list", "The door: one answer for one call"]
 ---
 # operations — The one door
@@ -16,12 +16,15 @@ The operations list, the level check, the request ID, and the record of who did 
 
 It never contains the work itself. The work of an operation belongs to the part that owns it.
 
-## Slice 1: the door (complete)
+## The door (complete for slices 1 and 2)
 
 ### Inputs
 
 - Working: `src/door.ts`, `src/list.ts`
 - Reference: [access](../access/CONTEXT.md)
+- Reference: [brief](../brief/CONTEXT.md)
+- Reference: [links](../links/CONTEXT.md)
+- Reference: [people](../people/CONTEXT.md)
 - Reference: [store](../store/CONTEXT.md)
 - Reference: [Activity line](../../contracts/CONTEXT.md#activity-line)
 - Reference: [Answer](../../contracts/CONTEXT.md#answer)
@@ -33,7 +36,7 @@ It never contains the work itself. The work of an operation belongs to the part 
 
 ### Process
 
-The operations list is `src/list.ts`. Each part describes its own operations, and the list joins them. In this slice it holds [access](../access/CONTEXT.md)'s seven and [store](../store/CONTEXT.md)'s one. The screen's forms, the commands and the agent tools are all made from it.
+The operations list is `src/list.ts`. Each part describes its own operations, and the list joins them. It holds [access](../access/CONTEXT.md)'s seven, [store](../store/CONTEXT.md)'s one, [brief](../brief/CONTEXT.md)'s six, [links](../links/CONTEXT.md)' two and [people](../people/CONTEXT.md)'s one. The screen's forms, the commands and the agent tools are all made from it.
 
 `run` takes the caller, an operation's name and an input, and returns one answer. In order:
 
@@ -75,9 +78,9 @@ What is recorded, one [activity line](../../contracts/CONTEXT.md#activity-line) 
 
 ## Still to come in piece one (draft)
 
-Draft. The operations of the parts that are not built yet join the list with their parts. `changed_since` is named among the results any operation can return and no operation in this slice returns it. The [target map](../../map/target.md#operations) is the plan.
+Draft. The operations of the parts that are not built yet join the list with their parts. The [target map](../../map/target.md#operations) is the plan.
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 8,600 tokens, just above the 8,000-token guide for one read, because it reads the access and store contracts whole.
+- Counted as characters divided by four, this contract with its references and working files is about 14,300 tokens, above the 8,000-token guide for one read, because it reads the contracts of the five parts whose operations it lists whole.
 - A kept answer is kept for 30 days in the plan. Nothing removes one yet: see [store](../store/CONTEXT.md).

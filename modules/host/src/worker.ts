@@ -1,14 +1,14 @@
-import { accessTables, openAccess } from '../../access/src/access.ts';
+import { openAccess } from '../../access/src/access.ts';
 import { AGENT_CONNECTION_PATH } from '../../mcp/src/address.ts';
 import { answerAgent } from '../../mcp/src/connection.ts';
 import { toolsCalledIn } from '../../mcp/src/tools.ts';
-import { openDoor, operationsTables, refusal } from '../../operations/src/door.ts';
+import { openDoor, refusal } from '../../operations/src/door.ts';
 import type { Ran } from '../../operations/src/door.ts';
-import { storeTables, storeWork } from '../../store/src/activity.ts';
 import { openStore } from '../../store/src/store.ts';
 import type { Answer } from '../../../contracts/operation.ts';
 import { OPERATION_PATH, SESSION_COOKIE, THIS_PC } from './addresses.ts';
 import { BODY_LIMIT, readBody } from './body.ts';
+import { PART_TABLES, partsWork } from './parts.ts';
 
 // The session cookie outlives the session's own idle limit, which access
 // keeps. 400 days is the longest a browser keeps a cookie.
@@ -92,9 +92,9 @@ async function answer(request: Request, env: Env, ctx: ExecutionContext): Promis
     return json(403, refusal('not_allowed', 'The request came from another site.'));
   }
 
-  const store = await openStore(env.DB, [storeTables, operationsTables, accessTables]);
+  const store = await openStore(env.DB, PART_TABLES);
   const access = openAccess({ store, setupCode: env.SETUP_CODE });
-  const door = openDoor({ store, work: { ...access.work, ...storeWork(store) } });
+  const door = openDoor({ store, work: partsWork(store, access) });
 
   if (isAgentConnection) {
     // The agent connection accepts agent sign-ins only, and a request without

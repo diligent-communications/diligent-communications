@@ -27,34 +27,44 @@ flowchart TD
     folder15["modules/sources"]
     folder16["modules/store"]
     folder10 --> folder11
+    folder11 --> folder12
     folder11 --> folder16
     folder11 --> folder2
+    folder11 --> folder4
+    folder11 --> folder9
+    folder12 --> folder16
     folder2 --> folder16
     folder3 --> folder11
     folder3 --> folder8
+    folder4 --> folder16
+    folder4 --> folder9
     folder5 --> folder11
     folder5 --> folder8
     folder8 --> folder10
     folder8 --> folder11
+    folder8 --> folder12
     folder8 --> folder16
     folder8 --> folder2
     folder8 --> folder3
+    folder8 --> folder4
+    folder8 --> folder9
+    folder9 --> folder16
 ```
 
 | Folder contract | Piece | Contract status | Outputs | Writes to |
 | --- | --- | --- | --- | --- |
 | [guides](../guides/CONTEXT.md) | — | Draft | None | — |
 | [modules/access](../modules/access/CONTEXT.md) | 1 (draft) | Draft | The caller of a request, The person's sign-in and the agent sign-ins | — |
-| [modules/app](../modules/app/CONTEXT.md) | 1 (draft) | Draft | The bare screen: a form for every operation | — |
-| [modules/brief](../modules/brief/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/app](../modules/app/CONTEXT.md) | 1 (draft) | Draft | The screen: the Brief, a matter, search and settings | — |
+| [modules/brief](../modules/brief/CONTEXT.md) | 1 (draft) | Draft | The Brief, a matter and a search, A matter's changes: edit in place and its state, A message moved to another matter | — |
 | [modules/cli](../modules/cli/CONTEXT.md) | 1 (draft) | Draft | The `diligent` command: one operation per command | — |
 | [modules/connections](../modules/connections/CONTEXT.md) | 1 (draft) | Draft | None | — |
 | [modules/effects](../modules/effects/CONTEXT.md) | 2 (draft) | Draft | None | — |
 | [modules/host](../modules/host/CONTEXT.md) | 1 (draft) | Draft | The running program, The address of each operation, and the session cookie | — |
-| [modules/links](../modules/links/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/links](../modules/links/CONTEXT.md) | 1 (draft) | Draft | Every link, and its undo, A person accepted on a matter, or taken off it | — |
 | [modules/mcp](../modules/mcp/CONTEXT.md) | 1 (draft) | Draft | The agent connection: every operation as a tool | — |
 | [modules/operations](../modules/operations/CONTEXT.md) | 1 (draft) | Draft | The operations list, The door: one answer for one call | — |
-| [modules/people](../modules/people/CONTEXT.md) | 1 (draft) | Draft | None | — |
+| [modules/people](../modules/people/CONTEXT.md) | 1 (draft) | Draft | A person's name, for a matter | — |
 | [modules/plans](../modules/plans/CONTEXT.md) | 5 (draft) | Draft | None | — |
 | [modules/sorting](../modules/sorting/CONTEXT.md) | 1 (draft) | Draft | None | — |
 | [modules/sources](../modules/sources/CONTEXT.md) | 1 (draft) | Draft | None | — |

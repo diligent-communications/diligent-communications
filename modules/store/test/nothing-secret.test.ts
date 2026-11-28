@@ -130,7 +130,11 @@ test('after every kind of sign-in has been made and used, none is in the databas
     'access_setup_codes',
     'access_tries',
     'activity',
+    'brief_history',
+    'brief_matters',
+    'links',
     'operations_requests',
+    'people',
     'store_guard',
     'store_upgrades',
   ]);

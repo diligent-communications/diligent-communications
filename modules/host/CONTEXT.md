@@ -1,7 +1,7 @@
 ---
 build_step: 1
 status: draft
-consumes: ["../access/CONTEXT.md", "../app/CONTEXT.md", "../mcp/CONTEXT.md", "../operations/CONTEXT.md", "../store/CONTEXT.md", "../../contracts/CONTEXT.md#answer", "../../contracts/CONTEXT.md#caller"]
+consumes: ["../access/CONTEXT.md", "../app/CONTEXT.md", "../brief/CONTEXT.md", "../links/CONTEXT.md", "../mcp/CONTEXT.md", "../operations/CONTEXT.md", "../people/CONTEXT.md", "../store/CONTEXT.md", "../../contracts/CONTEXT.md#answer", "../../contracts/CONTEXT.md#caller"]
 produces: ["The running program", "The address of each operation, and the session cookie"]
 ---
 # host — The running program
@@ -16,22 +16,25 @@ The routes and the timer.
 
 It never decides a message, a matter or a send. It never keeps a sign-in, and it never runs a database query: it hands the database to [store](../store/CONTEXT.md).
 
-## Slice 1: the door (complete)
+## The running program (complete for slices 1 and 2)
 
 ### Inputs
 
-- Working: `src/worker.ts`, `src/body.ts`, `src/addresses.ts`, `../../wrangler.jsonc`
+- Working: `src/worker.ts`, `src/parts.ts`, `src/body.ts`, `src/addresses.ts`, `../../wrangler.jsonc`
 - Reference: [access](../access/CONTEXT.md)
 - Reference: [app](../app/CONTEXT.md)
+- Reference: [brief](../brief/CONTEXT.md)
+- Reference: [links](../links/CONTEXT.md)
 - Reference: [mcp](../mcp/CONTEXT.md)
 - Reference: [operations](../operations/CONTEXT.md)
+- Reference: [people](../people/CONTEXT.md)
 - Reference: [store](../store/CONTEXT.md)
 - Reference: [Answer](../../contracts/CONTEXT.md#answer)
 - Reference: [Caller](../../contracts/CONTEXT.md#caller)
 
 ### Process
 
-The program is one Cloudflare Worker, set up by `wrangler.jsonc` at the repository root. The same code runs on Cloudflare and on Cloudflare's local runtime on a PC, where the database is one local file. It is bound to the database and to one secret, the set-up code, and to nothing else.
+The program is one Cloudflare Worker, set up by `wrangler.jsonc` at the repository root. The same code runs on Cloudflare and on Cloudflare's local runtime on a PC, where the database is one local file. It is bound to the database and to one secret, the set-up code, and to nothing else. The parts it is made of, each part's tables and the work behind each operation, are listed once in `src/parts.ts`.
 
 For each request:
 
@@ -81,7 +84,7 @@ Draft. The schedule is not written, because no operation in this slice is called
 
 ### Open
 
-- Counted as characters divided by four, this contract with its references and working files is about 12,500 tokens, above the 8,000-token guide for one read, because it reads five other contracts whole.
+- Counted as characters divided by four, this contract with its references and working files is about 20,100 tokens, above the 8,000-token guide for one read, because it reads eight other contracts whole. Splitting it is a hardening item.
 - On the local runtime, when the program stops reading a body far over the limit, the tooling in front of it can drop the connection instead of passing on the refusal. The request is refused either way, and nothing is recorded. What Cloudflare itself does then is not known here.
 - On a custom address, the agent protocol handler needs the install's own host name named in its settings. That is settled with deployment.
 - Cloudflare's local runtime is a development tool and is not a hardened sandbox. Running an install on a PC for real use is not settled.

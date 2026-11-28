@@ -36,8 +36,9 @@ export type AnyOperationResult = keyof typeof ANY_OPERATION_RESULTS;
 
 // One input an operation takes. A `secret` text is a sign-in the person
 // types. It is never a command-line argument, never kept and never recorded.
+// A text with `lines: 'many'` may hold line breaks; no other text may.
 export type InputField =
-  | { kind: 'text'; meaning: string; required: boolean; min?: number; max: number; secret?: true }
+  | { kind: 'text'; meaning: string; required: boolean; min?: number; max: number; secret?: true; lines?: 'many' }
   | { kind: 'choice'; meaning: string; required: boolean; choices: readonly string[] }
   | { kind: 'yes_no'; meaning: string; required: boolean }
   | { kind: 'count'; meaning: string; required: boolean; min: number; max: number };
@@ -68,6 +69,9 @@ export const REQUEST_ID_FIELD = 'request_id';
 const REQUEST_ID = /^[A-Za-z0-9._:-]{8,100}$/;
 // Characters a plain text input may not hold: control characters.
 const CONTROL = /[\u0000-\u001f\u007f]/;
+// Characters a many-lined text input may not hold: control characters other
+// than the line break.
+const CONTROL_BUT_LINE_BREAK = /[\u0000-\u0009\u000b-\u001f\u007f]/;
 
 export function isOperation(value: unknown): value is Operation {
   if (!isRecord(value) || !isName(value.name) || !isName(value.part)) {
@@ -106,7 +110,11 @@ function isInputField(value: unknown): value is InputField {
     return false;
   }
   if (value.kind === 'text') {
-    return Number.isInteger(value.max) && (value.min === undefined || Number.isInteger(value.min));
+    return (
+      Number.isInteger(value.max) &&
+      (value.min === undefined || Number.isInteger(value.min)) &&
+      (value.lines === undefined || value.lines === 'many')
+    );
   }
   if (value.kind === 'choice') {
     return Array.isArray(value.choices) && value.choices.length > 0 && value.choices.every((choice) => typeof choice === 'string');
@@ -120,7 +128,9 @@ function isInputField(value: unknown): value is InputField {
 export type InputCheck = { ok: true; input: Record<string, unknown> } | { ok: false; about: string };
 
 // Checks an input against what the operation takes. A refusal names the field
-// and the rule, never the value, because the value may be a secret.
+// and the rule, never the value, because the value may be a secret. An
+// accepted input comes back with each Windows line ending in a many-lined text
+// written as a plain line break, which is what its limit counts.
 export function checkInput(operation: Operation, input: unknown): InputCheck {
   if (!isRecord(input)) {
     return { ok: false, about: 'the input must be one object' };
@@ -134,8 +144,13 @@ export function checkInput(operation: Operation, input: unknown): InputCheck {
       return { ok: false, about: `\`${name}\` is not an input of \`${operation.name}\`` };
     }
   }
+  const checked: Record<string, unknown> = { ...input };
   for (const [name, field] of Object.entries(fields)) {
-    const value = input[name];
+    let value = input[name];
+    if (field.kind === 'text' && field.lines === 'many' && typeof value === 'string') {
+      value = value.replaceAll('\r\n', '\n');
+      checked[name] = value;
+    }
     if (value === undefined) {
       if (field.required) {
         return { ok: false, about: `\`${name}\` is missing` };
@@ -147,7 +162,7 @@ export function checkInput(operation: Operation, input: unknown): InputCheck {
       return { ok: false, about: `\`${name}\` ${problem}` };
     }
   }
-  return { ok: true, input };
+  return { ok: true, input: checked };
 }
 
 function requestIdProblem(value: unknown): string | null {
@@ -165,8 +180,11 @@ function fieldProblem(field: InputField, value: unknown): string | null {
     if (value.length < min || value.length > field.max) {
       return `must be ${min} to ${field.max} characters`;
     }
-    if (field.secret !== true && (CONTROL.test(value) || value !== value.trim())) {
-      return 'must not start or end with a space, or hold a control character';
+    const control = field.lines === 'many' ? CONTROL_BUT_LINE_BREAK : CONTROL;
+    if (field.secret !== true && (control.test(value) || value !== value.trim())) {
+      return field.lines === 'many'
+        ? 'must not start or end with a space or a line break, or hold any other control character'
+        : 'must not start or end with a space, or hold a control character';
     }
     return null;
   }

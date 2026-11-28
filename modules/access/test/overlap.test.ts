@@ -11,7 +11,8 @@ import { madeUp, startInstall } from '../../host/test/helpers/local-install.ts';
 import type { Install } from '../../host/test/helpers/local-install.ts';
 import { openDoor, operationsTables } from '../../operations/src/door.ts';
 import type { Door } from '../../operations/src/door.ts';
-import { storeTables, storeWork } from '../../store/src/activity.ts';
+import { partsWork } from '../../host/src/parts.ts';
+import { storeTables } from '../../store/src/activity.ts';
 import { openStore } from '../../store/src/store.ts';
 import type { Store } from '../../store/src/store.ts';
 import { accessTables, openAccess } from '../src/access.ts';
@@ -46,7 +47,7 @@ async function setUp(): Promise<Setup> {
   const store = await openStore((await install.database()) as unknown as D1Database, [storeTables, operationsTables, accessTables]);
   const code = madeUp('setup-code');
   const access = openAccess({ store, setupCode: code });
-  const work = { ...access.work, ...storeWork(store) };
+  const work = partsWork(store, access);
 
   let waiting: { arrive(): void; gate: Promise<void> } | undefined;
   const gated: Store = {
@@ -97,7 +98,7 @@ async function firstPassword(setup: Setup, password: string): Promise<Caller> {
 function withNewCode(setup: Setup): { door: Door; code: string } {
   const code = madeUp('setup-code');
   const access = openAccess({ store: setup.store, setupCode: code });
-  return { code, door: openDoor({ store: setup.store, work: { ...access.work, ...storeWork(setup.store) } }) };
+  return { code, door: openDoor({ store: setup.store, work: partsWork(setup.store, access) }) };
 }
 
 test('a sign-in that was checking the old password while a reset landed starts no session', async () => {
@@ -295,7 +296,7 @@ test('of many tries sent at once, the password is read and checked for only as m
     landOne: (write) => setup.store.landOne(write),
   };
   const access = openAccess({ store: counting, setupCode: setup.code });
-  const door = openDoor({ store: counting, work: { ...access.work, ...storeWork(counting) } });
+  const door = openDoor({ store: counting, work: partsWork(counting, access) });
 
   const sent = WRONG_TRIES * 4;
   const answers = await Promise.all(Array.from({ length: sent }, () => door.run(nobody, 'sign_in', { password: madeUp('guess') })));

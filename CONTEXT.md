@@ -32,6 +32,8 @@ The checks run on Node.js 24.12.0 or later. Run `npm ci --ignore-scripts`, `npm 
 
 A test that needs the running program starts it on Cloudflare's local runtime with `modules/host/test/helpers/local-install.ts`, and reaches it by one of the three ways in with `modules/host/test/helpers/ways.ts`. Such a test uses made-up data, reaches no network and leaves no program running. It writes in two places and no other. One is the temporary folder that helper makes under the system temporary folder, and removes when the run ends. If the system still holds one of its files open at that moment, the folder is left there. The other is the checkout's own `.wrangler/` folder, where Cloudflare's tooling builds the program for each run and clears its own older build folders. Git ignores `.wrangler/`. No test may write to the home folder.
 
+The made-up Brief, with invented people and businesses only, is `modules/brief/test/helpers/made-up.ts`. A test, or `modules/app/test/look.ts` for looking at the screen, writes it straight into a test install's own database. No operation, route or door loads it, and no program code imports from a `test/` folder.
+
 `worker-configuration.d.ts` is generated from `wrangler.jsonc`. After changing that file, run `npx wrangler types --include-runtime=false` and commit the result. A test fails when the two disagree.
 
 ## Working across folders
