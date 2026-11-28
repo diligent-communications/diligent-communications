@@ -402,6 +402,28 @@ h3 {
   inset-block: min(0px, calc((100% - var(--base-size-44)) / 2));
 }
 
+/* With nothing on the meta row, the reach below the title would land on the
+   line's controls. The row is left out, the title's own row is 44 px tall,
+   and the tap area stays inside it. */
+.meta:empty {
+  display: none;
+}
+
+.line-head:has(+ .meta:empty) {
+  min-height: var(--base-size-44);
+  align-items: center;
+}
+
+.line-head:has(+ .meta:empty) .line-title {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+.line-head:has(+ .meta:empty) .line-title::after {
+  inset-block: 0;
+}
+
 .line-title:hover {
   color: var(--fgColor-accent);
 }

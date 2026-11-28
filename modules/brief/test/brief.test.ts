@@ -370,6 +370,48 @@ test('each of the five changes by the person leaves one record under the person,
   );
 });
 
+test('a refused change names the matter only when the work found it', async () => {
+  const id = it.brief.matters.water!;
+  const { matter } = await getMatter('water');
+  const before = (await it.activity()).length;
+  const calls: [string, Record<string, unknown>, string][] = [
+    // The work found the matter.
+    ['matter_edit', { matter: id, version: matter.version, due: 'Friday' }, 'invalid_input'],
+    ['matter_edit', { matter: id, version: matter.version + 99, title: 'A title' }, 'changed_since'],
+    ['matter_set_state', { matter: id, to: 'snoozed' }, 'invalid_input'],
+    // The work found the person link, which was already accepted.
+    ['link_accept_person', { link: it.brief.personLinks.sealant![0] }, 'already_so'],
+    // The work found no matter or link.
+    ['matter_edit', { matter: 'nosuchmatter', version: 1, title: 'A title' }, 'unknown_matter'],
+    ['matter_set_state', { matter: 'nosuchmatter', to: 'done' }, 'unknown_matter'],
+    ['link_accept_person', { link: 'nosuchlink' }, 'unknown_link'],
+    ['link_remove_person', { link: 'nosuchlink' }, 'unknown_link'],
+    // The door refused before the work ran.
+    ['matter_edit', { matter: id, version: matter.version, colour: 'red' }, 'invalid_input'],
+  ];
+  for (const [operation, input, result] of calls) {
+    assert.equal((await it.onScreen.call(operation, input)).result, result, operation);
+  }
+  assert.equal((await it.reader.call('matter_set_state', { matter: id, to: 'done' })).result, 'not_allowed');
+  const added = (await it.activity()).slice(0, -before || undefined).reverse();
+  const on = `matter:${id}`;
+  assert.deepEqual(
+    added.map((entry) => [entry.operation, entry.result, entry.on]),
+    [
+      ['matter_edit', 'invalid_input', on],
+      ['matter_edit', 'changed_since', on],
+      ['matter_set_state', 'invalid_input', on],
+      ['link_accept_person', 'already_so', `matter:${it.brief.matters.sealant}`],
+      ['matter_edit', 'unknown_matter', null],
+      ['matter_set_state', 'unknown_matter', null],
+      ['link_accept_person', 'unknown_link', null],
+      ['link_remove_person', 'unknown_link', null],
+      ['matter_edit', 'invalid_input', null],
+      ['matter_set_state', 'not_allowed', null],
+    ],
+  );
+});
+
 test('notes may hold line breaks: saved from the screen and the command line, shown again the same every way in, and refused to an agent', async () => {
   const id = it.brief.matters.registration!;
   const twoLines = 'Bring the old registration.\nThe office closes at noon.';

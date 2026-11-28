@@ -301,21 +301,46 @@ async function markDone(matter) {
     return;
   }
   await renderBrief();
-  // Undo is the ordinary change of state back, recorded like any other change.
-  showNotice(`Done: ${matter.title}.`, async () => {
-    const back = await change('matter_set_state', { matter: matter.id, to: stateBefore(matter) });
+  showNotice(`Done: ${matter.title}.`, undoFor(matter, answer, { to: 'done' }));
+}
+
+// What Undo asks for to put a matter back as it was before a change: open,
+// waiting, or snoozed until the same time when that time is still to come. A
+// snooze whose time has come had put the matter on the Brief, so it goes back
+// open.
+export function undoInput(matter, now) {
+  if (matter.state === 'waiting') {
+    return { to: 'waiting' };
+  }
+  if (matter.state === 'snoozed' && new Date(matter.snoozed_until) > now) {
+    return { to: 'snoozed', until: matter.snoozed_until };
+  }
+  return { to: 'open' };
+}
+
+// Whether a notice offers Undo: only when the change was made and Undo would
+// change the matter back. A notice never offers an Undo that changes nothing.
+export function offersUndo(matter, answer, made, now) {
+  if (answer.result !== 'changed') {
+    return false;
+  }
+  const back = undoInput(matter, now);
+  return back.to !== made.to || back.until !== made.until;
+}
+
+// The Undo of a notice: the ordinary change of state back, recorded like any
+// other change. Undefined when there is nothing to undo.
+function undoFor(matter, answer, made) {
+  if (!offersUndo(matter, answer, made, new Date())) {
+    return undefined;
+  }
+  return async () => {
+    const back = await change('matter_set_state', { matter: matter.id, ...undoInput(matter, new Date()) });
     if (back.result !== 'changed' && back.result !== 'already_so') {
       showAnswer(back);
     }
     await rerender();
-  });
-}
-
-// The state Undo puts a matter back to. A line on the Brief is open, or
-// snoozed with its time come, which Undo leaves open; a line under Waiting
-// is waiting.
-export function stateBefore(matter) {
-  return matter.state === 'waiting' ? 'waiting' : 'open';
+  };
 }
 
 // How a matter's page shows its state: the badge, whether its main control
@@ -399,13 +424,7 @@ async function chooseMore(choice) {
     return;
   }
   await rerender();
-  showNotice(words, async () => {
-    const back = await change('matter_set_state', { matter: matter.id, to: stateBefore(matter) });
-    if (back.result !== 'changed' && back.result !== 'already_so') {
-      showAnswer(back);
-    }
-    await rerender();
-  });
+  showNotice(words, undoFor(matter, answer, input));
 }
 
 function renderChips(answer) {
@@ -473,17 +492,21 @@ async function renderBrief() {
 // ---------------------------------------------------------------------------
 // A matter's page.
 
-// The agents' names, or null when they could not be loaded. Only a list that
-// loaded is kept.
-async function agentNames() {
-  if (view.agents === null) {
-    const listed = await call('agent_list');
-    if (listed.result !== 'listed') {
-      return null;
-    }
-    view.agents = new Map(listed.agents.map((agent) => [`agent:${agent.id}`, agent.name]));
+// The agents' names, or null when they could not be loaded.
+async function loadAgents() {
+  const listed = await call('agent_list');
+  return listed.result === 'listed' ? new Map(listed.agents.map((agent) => [`agent:${agent.id}`, agent.name])) : null;
+}
+
+// The names for the agents in `whos`. The list kept from earlier is used when
+// it holds them all. No operation removes an agent, so a name it lacks means
+// the list is old: it is loaded once more. Null when it could not be loaded.
+export async function agentNamesFor(whos, kept, load) {
+  const missing = (names) => whos.some((who) => who.startsWith('agent:') && !names.has(who));
+  if (kept !== null && !missing(kept)) {
+    return kept;
   }
-  return view.agents;
+  return load();
 }
 
 // Who made a change, as the history shows it. `agents` is null when their
@@ -499,7 +522,7 @@ export function whoName(who, agents) {
     return 'An agent whose name could not be loaded';
   }
   const name = agents.get(who);
-  return name === undefined ? 'An agent no longer listed' : `Agent ${name}`;
+  return name === undefined ? 'An agent whose name could not be loaded' : `Agent ${name}`;
 }
 
 // One field edited in place: its value, and an Edit button that turns it
@@ -546,7 +569,10 @@ async function renderMatter(id, params) {
   }
   const { matter } = got;
   const [agents, others, people] = await Promise.all([
-    agentNames(),
+    agentNamesFor(got.history.map((line) => line.who), view.agents, loadAgents).then((names) => {
+      view.agents = names;
+      return names;
+    }),
     otherMatters(matter.id),
     Promise.all(got.people.map(async (link) => ({ ...link, found: await call('person_get', { person: link.person }) }))),
   ]);

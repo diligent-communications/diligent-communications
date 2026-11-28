@@ -62,6 +62,7 @@ test('moving a message to another matter works, leaves a history line on both ma
 
 test('a move to where the message already is, to no matter, or of no message link is refused and changes nothing', async () => {
   const rowsBefore = await linkRows();
+  const recordBefore = ((await it.onScreen.call('activity_list', { limit: 200 })).entries as unknown[]).length;
   const link = it.brief.messages.water![0]!;
   assert.equal((await it.onScreen.call('link_move_message', { link, to: it.brief.matters.water })).result, 'same_matter');
   assert.equal((await it.onScreen.call('link_move_message', { link, to: 'nosuchmatter' })).result, 'unknown_matter');
@@ -69,6 +70,19 @@ test('a move to where the message already is, to no matter, or of no message lin
   // A person link is not a message link.
   assert.equal((await it.onScreen.call('link_move_message', { link: it.brief.personLinks.deposit![0], to: it.brief.matters.lumber })).result, 'unknown_link');
   assert.deepEqual(await linkRows(), rowsBefore);
+  // Once the message link is found, a refusal is recorded on the matter the
+  // message is on, the missing target included. An unknown link names none.
+  const entries = ((await it.onScreen.call('activity_list', { limit: 200 })).entries as { on: string | null; result: string }[]).slice(0, -recordBefore || undefined).reverse();
+  const source = `matter:${it.brief.matters.water}`;
+  assert.deepEqual(
+    entries.map((entry) => [entry.result, entry.on]),
+    [
+      ['same_matter', source],
+      ['unknown_matter', source],
+      ['unknown_link', null],
+      ['unknown_link', null],
+    ],
+  );
 });
 
 test('the same message moved twice at once is moved once, and is in force on one matter only', async () => {

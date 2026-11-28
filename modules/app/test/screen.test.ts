@@ -24,7 +24,9 @@ type ScreenScript = {
   laneOf(typed: string): string;
   snoozeTimes(now: Date): Record<string, string>;
   snoozeOnDay(day: string): string;
-  stateBefore(matter: { state: string }): string;
+  undoInput(matter: { state: string; snoozed_until: string | null }, now: Date): { to: string; until?: string };
+  offersUndo(matter: { state: string; snoozed_until: string | null }, answer: { result: string }, made: { to: string; until?: string }, now: Date): boolean;
+  agentNamesFor(whos: string[], kept: Map<string, string> | null, load: () => Promise<Map<string, string> | null>): Promise<Map<string, string> | null>;
   pageState(matter: { state: string; snoozed_until: string | null }, now: Date): { badge: string; kind: string; main: string; offerBack: boolean };
   emptyLine(lane: string, waiting: boolean): string;
   personName(found: Record<string, unknown>): string;
@@ -141,11 +143,44 @@ test('a line shows its next action, timing or due date, and who owes it; a lane 
   assert.deepEqual(Object.keys(script.MAIN_ACTION_LATER).sort(), ['contact', 'reply', 'schedule']);
 });
 
-test('Undo puts a line back on the Brief, or under Waiting for a matter that was waiting', () => {
-  assert.equal(script.stateBefore({ state: 'open' }), 'open');
-  // A snoozed line on the Brief is one whose time has come: Undo leaves it open.
-  assert.equal(script.stateBefore({ state: 'snoozed' }), 'open');
-  assert.equal(script.stateBefore({ state: 'waiting' }), 'waiting');
+test('Undo puts a matter back as it was, a snooze still to come included, and is never offered when it would change nothing', () => {
+  const now = new Date('2026-12-02T12:00:00Z');
+  const later = '2026-12-03T08:00:00Z';
+  const gone = '2026-12-01T08:00:00Z';
+  assert.deepEqual(script.undoInput({ state: 'open', snoozed_until: null }, now), { to: 'open' });
+  assert.deepEqual(script.undoInput({ state: 'waiting', snoozed_until: null }, now), { to: 'waiting' });
+  // Back on the Brief from a snooze still to come: Undo puts the same snooze back.
+  assert.deepEqual(script.undoInput({ state: 'snoozed', snoozed_until: later }, now), { to: 'snoozed', until: later });
+  // A snooze whose time has come had put it on the Brief: Undo leaves it open.
+  assert.deepEqual(script.undoInput({ state: 'snoozed', snoozed_until: gone }, now), { to: 'open' });
+
+  const changed = { result: 'changed' };
+  const snoozed = { state: 'snoozed', snoozed_until: later };
+  assert.equal(script.offersUndo(snoozed, changed, { to: 'open' }, now), true);
+  assert.equal(script.offersUndo({ state: 'open', snoozed_until: null }, changed, { to: 'done' }, now), true);
+  // Nothing changed, or Undo would ask for what was just set: no Undo.
+  assert.equal(script.offersUndo({ state: 'open', snoozed_until: null }, { result: 'already_so' }, { to: 'done' }, now), false);
+  assert.equal(script.offersUndo({ state: 'snoozed', snoozed_until: gone }, changed, { to: 'open' }, now), false);
+  assert.equal(script.offersUndo(snoozed, changed, { to: 'snoozed', until: later }, now), false);
+});
+
+test('an agent name the kept list lacks is loaded again once, and if it is still missing the name could not be loaded', async () => {
+  const loads: number[] = [];
+  const fresh = new Map([['agent:a1', 'sorter'], ['agent:a2', 'reader']]);
+  const load = async () => {
+    loads.push(1);
+    return fresh;
+  };
+  const kept = new Map([['agent:a1', 'sorter']]);
+  // The kept list holds every name: nothing is loaded.
+  assert.equal(await script.agentNamesFor(['you', 'agent:a1'], kept, load), kept);
+  assert.equal(loads.length, 0);
+  // A name is missing: the list is loaded once more.
+  assert.equal(await script.agentNamesFor(['agent:a2', 'agent:a1'], kept, load), fresh);
+  assert.equal(loads.length, 1);
+  // Nothing kept: loaded. A failed load is null, and names then say so.
+  assert.equal(await script.agentNamesFor(['agent:a1'], null, async () => null), null);
+  assert.equal(script.whoName('agent:a3', fresh), 'An agent whose name could not be loaded');
 });
 
 test("a matter's page has Done unless the matter is done or dismissed, and never shows a snooze whose time has gone", () => {
@@ -183,7 +218,7 @@ test('a name that could not be loaded is not shown as gone', () => {
   }
   const agents = new Map([['agent:a1', 'sorter']]);
   assert.equal(script.whoName('agent:a1', agents), 'Agent sorter');
-  assert.equal(script.whoName('agent:a2', agents), 'An agent no longer listed');
+  assert.equal(script.whoName('agent:a2', agents), 'An agent whose name could not be loaded');
   assert.equal(script.whoName('agent:a1', null), 'An agent whose name could not be loaded');
   assert.equal(script.whoName('you', null), 'You');
 });
@@ -195,6 +230,11 @@ test('a title link takes a tap at least 44 px tall without changing the layout',
   assert.ok(rule.includes('position: absolute'));
   assert.ok(rule.includes('inset-block: min(0px, calc((100% - var(--base-size-44)) / 2))'));
   assert.ok(/\.line-title \{[^}]*position: relative/.test(css));
+  // With an empty meta row, the reach below would land on the controls: the
+  // row is left out and the title's own row is 44 px, holding the tap area.
+  assert.ok(/\.meta:empty \{\s*display: none;/.test(css));
+  assert.ok(/\.line-head:has\(\+ \.meta:empty\) \{[^}]*min-height: var\(--base-size-44\)/.test(css));
+  assert.ok(/\.line-head:has\(\+ \.meta:empty\) \.line-title::after \{[^}]*inset-block: 0;/.test(css));
 });
 
 test('a snooze comes back at 8 in the morning, tomorrow, on the next Monday, or on a day picked', () => {
