@@ -16,6 +16,15 @@ type ScreenScript = {
   ADVICE: Record<string, string>;
   requestFor(operation: string, input: unknown): { path: string; init: { method: string; headers: Record<string, string>; body: string } };
   inputOf(fields: { name: string; value: string; kind: string }[]): Record<string, unknown>;
+  CHANGES: string[];
+  MAIN_ACTION_NAMES: Record<string, string>;
+  MAIN_ACTION_LATER: Record<string, string>;
+  lineParts(matter: Record<string, unknown>): string[];
+  laneName(lane: string): string;
+  laneOf(typed: string): string;
+  snoozeTimes(now: Date): Record<string, string>;
+  snoozeOnDay(day: string): string;
+  stateBefore(matter: { state: string }): string;
 };
 
 const publicFolder = path.join(import.meta.dirname, '..', 'public');
@@ -55,11 +64,18 @@ after(async () => {
   await install?.close();
 });
 
-test('the screen has a form for every operation, and each form takes inputs its operation takes', () => {
+// The operations the script calls by name, read from its source.
+function calledByScript(source: string): Set<string> {
+  return new Set(Array.from(source.matchAll(/\b(?:call|change)\('([a-z_]+)'/g), ([, name]) => name!));
+}
+
+test('every operation is called from the screen, by a form or by the script, and each form takes inputs its operation takes', async () => {
   const forms = formsOf(page);
+  const source = await readFile(path.join(publicFolder, 'app.js'), 'utf8');
+  const called = calledByScript(source);
   for (const operation of operationList) {
     const mine = forms.filter((form) => form.operation === operation.name);
-    assert.ok(mine.length >= 1, `${operation.name} has a form`);
+    assert.ok(mine.length >= 1 || called.has(operation.name), `${operation.name} can be called from the screen`);
     for (const form of mine) {
       assert.equal(form.takesRequestId, operation.request_id, `${operation.name} request ID`);
       for (const field of form.fields) {
@@ -78,6 +94,14 @@ test('the screen has a form for every operation, and each form takes inputs its 
   for (const form of forms) {
     assert.ok(operationList.some((operation) => operation.name === form.operation), `${form.operation} is an operation`);
   }
+  for (const name of called) {
+    assert.ok(operationList.some((operation) => operation.name === name), `${name} is an operation`);
+  }
+  // The script makes up a request ID for exactly the operations it calls that take one.
+  assert.deepEqual(
+    [...script.CHANGES].sort(),
+    operationList.filter((operation) => operation.request_id && called.has(operation.name)).map((operation) => operation.name).sort(),
+  );
   // A new password's shortest length is the one access sets.
   const lengths = Array.from(page.matchAll(/autocomplete="new-password" minlength="(\d+)"/g), ([, length]) => Number(length));
   assert.deepEqual(lengths, [PASSWORD_LENGTH.min, PASSWORD_LENGTH.min]);
@@ -88,6 +112,47 @@ test('the screen has a form for every operation, and each form takes inputs its 
       assert.ok(field!.includes('type="password"'), `${name} is hidden as it is typed`);
     }
   }
+});
+
+test('nothing an operation returns is written into the page as HTML', async () => {
+  const source = await readFile(path.join(publicFolder, 'app.js'), 'utf8');
+  for (const way of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'createContextualFragment', 'DOMParser', 'srcdoc']) {
+    assert.equal(source.includes(way), false, `app.js uses ${way}`);
+  }
+});
+
+test('a line shows its next action, timing or due date, and who owes it; a lane is shown with a capital and stored in lowercase', () => {
+  const matter = { next_action: 'Pay the invoice', timing: 'by Friday', owed_by: 'you', due: null };
+  assert.deepEqual(script.lineParts(matter), ['Pay the invoice', 'by Friday', 'you']);
+  assert.deepEqual(script.lineParts({ ...matter, owed_by: 'A made-up supplier' }), ['Pay the invoice', 'by Friday', 'waiting on A made-up supplier']);
+  const due = script.lineParts({ ...matter, due: '2026-12-12' });
+  assert.equal(due.length, 3);
+  assert.match(due[1]!, /^due /);
+  assert.deepEqual(script.lineParts({ next_action: '', timing: '', owed_by: '', due: null }), []);
+  assert.equal(script.laneName('job-114'), 'Job 114');
+  assert.equal(script.laneName('work'), 'Work');
+  assert.equal(script.laneOf(' Home Office '), 'home-office');
+  // The three main actions have a button, and none has no word for later.
+  assert.deepEqual(Object.keys(script.MAIN_ACTION_NAMES).sort(), ['contact', 'reply', 'schedule']);
+  assert.deepEqual(Object.keys(script.MAIN_ACTION_LATER).sort(), ['contact', 'reply', 'schedule']);
+});
+
+test('Undo puts a line back on the Brief, or under Waiting for a matter that was waiting', () => {
+  assert.equal(script.stateBefore({ state: 'open' }), 'open');
+  // A snoozed line on the Brief is one whose time has come: Undo leaves it open.
+  assert.equal(script.stateBefore({ state: 'snoozed' }), 'open');
+  assert.equal(script.stateBefore({ state: 'waiting' }), 'waiting');
+});
+
+test('a snooze comes back at 8 in the morning, tomorrow, on the next Monday, or on a day picked', () => {
+  // A Wednesday afternoon.
+  const now = new Date(2026, 11, 2, 15, 30);
+  const times = script.snoozeTimes(now);
+  assert.equal(new Date(times.tomorrow).getTime(), new Date(2026, 11, 3, 8).getTime());
+  assert.equal(new Date(times['next-week']).getTime(), new Date(2026, 11, 7, 8).getTime());
+  // On a Monday, the next Monday is a week on.
+  assert.equal(new Date(script.snoozeTimes(new Date(2026, 11, 7, 9))['next-week']).getTime(), new Date(2026, 11, 14, 8).getTime());
+  assert.equal(new Date(script.snoozeOnDay('2026-12-20')).getTime(), new Date(2026, 11, 20, 8).getTime());
 });
 
 test('the screen calls an operation at its address, as JSON, and never runs anything else', () => {
@@ -131,7 +196,20 @@ test('the advice beside a result is the screen\'s own, and every result that ref
   for (const result of Object.keys(script.ADVICE)) {
     assert.ok(named.has(result), `${result} is a result some operation returns`);
   }
-  const needsAdvice = [...Object.keys(ANY_OPERATION_RESULTS), 'wrong_code', 'wrong_password', 'locked_out', 'name_taken', 'unknown_agent', 'created', 'set'];
+  const needsAdvice = [
+    ...Object.keys(ANY_OPERATION_RESULTS),
+    'wrong_code',
+    'wrong_password',
+    'locked_out',
+    'name_taken',
+    'unknown_agent',
+    'created',
+    'set',
+    'unknown_matter',
+    'unknown_link',
+    'unknown_person',
+    'same_matter',
+  ];
   for (const result of needsAdvice) {
     assert.ok(script.ADVICE[result], `${result} has advice`);
   }

@@ -2,110 +2,174 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="referrer" content="no-referrer">
+    <meta name="color-scheme" content="light dark">
     <title>Diligent</title>
     <link rel="stylesheet" href="/app.css">
     <script type="module" src="/app.js"></script>
   </head>
   <body>
+    <header class="bar">
+      <a class="home" href="#/">Diligent</a>
+      <nav class="bar-links" aria-label="Elsewhere">
+        <a class="bar-link" href="#/search">Search</a>
+        <a class="bar-link" href="#/settings">Settings</a>
+      </nav>
+    </header>
+
     <main>
-      <h1>Diligent</h1>
-      <p class="muted">A bare screen for the first operations. Each button calls one operation and shows what it returned.</p>
-
-      <section aria-labelledby="set-up">
-        <h2 id="set-up">The password</h2>
-
-        <form data-operation="password_set">
-          <h3>Set the password with the set-up code</h3>
-          <label>Set-up code <input name="code" type="password" autocomplete="off" required></label>
-          <label>New password, 16 characters or more <input name="password" type="password" autocomplete="new-password" minlength="16" required></label>
-          <button type="submit">Set the password</button>
-          <output></output>
-        </form>
-
-        <form data-operation="sign_in">
-          <h3>Sign in</h3>
-          <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
-          <button type="submit">Sign in</button>
-          <output></output>
-        </form>
-
-        <form data-operation="password_set">
-          <h3>Change the password</h3>
-          <label>Current password <input name="current" type="password" autocomplete="current-password" required></label>
-          <label>New password, 16 characters or more <input name="password" type="password" autocomplete="new-password" minlength="16" required></label>
-          <button type="submit">Change the password</button>
-          <output></output>
-        </form>
-
-        <form data-operation="whoami">
-          <h3>Who am I</h3>
-          <button type="submit">Ask</button>
-          <output></output>
-        </form>
-
-        <form data-operation="sign_out">
-          <h3>Sign out on this device</h3>
-          <button type="submit">Sign out</button>
-          <output></output>
-        </form>
+      <section data-view="brief" aria-label="The Brief">
+        <div class="chips" role="group" aria-label="Show">
+          <button type="button" class="chip" data-lane="" aria-pressed="true">All</button>
+          <span data-lanes></span>
+          <button type="button" class="chip chip-waiting" data-waiting aria-pressed="false">Waiting <span class="count" data-waiting-count></span></button>
+        </div>
+        <!-- The freshness lines come from sorting in a later slice. Their place is kept here, empty. -->
+        <div class="freshness" data-freshness></div>
+        <p class="state-line" data-brief-state role="status" hidden></p>
+        <button type="button" class="button" data-retry hidden>Try again</button>
+        <div data-groups></div>
       </section>
 
-      <section aria-labelledby="agents">
-        <h2 id="agents">Agents</h2>
-
-        <form data-operation="agent_create" data-request-id>
-          <h3>Make an agent sign-in</h3>
-          <label>Name <input name="name" type="text" autocomplete="off" maxlength="64" required></label>
-          <label>Level
-            <select name="level" required>
-              <option value="read">read</option>
-              <option value="prepare">prepare</option>
-            </select>
-          </label>
-          <button type="submit">Make the agent</button>
-          <output></output>
-        </form>
-
-        <form data-operation="agent_list">
-          <h3>List the agents</h3>
-          <button type="submit">List</button>
-          <output></output>
-        </form>
-
-        <form data-operation="agent_set" data-request-id>
-          <h3>Change an agent</h3>
-          <label>Agent ID <input name="agent" type="text" autocomplete="off" maxlength="64" required></label>
-          <label>Level
-            <select name="level">
-              <option value="">leave as it is</option>
-              <option value="read">read</option>
-              <option value="prepare">prepare</option>
-            </select>
-          </label>
-          <label>On or off
-            <select name="on" data-kind="yes_no">
-              <option value="">leave as it is</option>
-              <option value="true">on</option>
-              <option value="false">off</option>
-            </select>
-          </label>
-          <button type="submit">Change the agent</button>
-          <output></output>
-        </form>
+      <section data-view="matter" aria-label="A matter" hidden>
+        <a class="back" href="#/">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          The Brief
+        </a>
+        <p class="state-line" data-matter-state role="status" hidden></p>
+        <article data-matter></article>
       </section>
 
-      <section aria-labelledby="activity">
-        <h2 id="activity">Activity</h2>
-
-        <form data-operation="activity_list">
-          <h3>Who did what</h3>
-          <label>How many lines <input name="limit" type="number" data-kind="count" min="1" max="200" placeholder="50"></label>
-          <button type="submit">List</button>
-          <output></output>
+      <section data-view="search" aria-label="Search" hidden>
+        <h1>Search</h1>
+        <form class="search" role="search" data-search data-operation="matter_search">
+          <label for="search-words">Find matters, done and dismissed ones too</label>
+          <div class="search-row">
+            <input id="search-words" name="words" type="search" maxlength="200" autocomplete="off" required>
+            <button type="submit" class="button button-main">Search</button>
+          </div>
         </form>
+        <p class="state-line" data-search-state role="status" hidden></p>
+        <ul class="found" data-found></ul>
+      </section>
+
+      <section data-view="settings" aria-label="Settings" hidden>
+        <h1>Settings</h1>
+        <p class="state-line" data-settings-state role="status" hidden></p>
+
+        <section aria-labelledby="set-up">
+          <h2 id="set-up">The password</h2>
+
+          <form data-operation="password_set">
+            <h3>Set the password with the set-up code</h3>
+            <label>Set-up code <input name="code" type="password" autocomplete="off" required></label>
+            <label>New password, 16 characters or more <input name="password" type="password" autocomplete="new-password" minlength="16" required></label>
+            <button type="submit">Set the password</button>
+            <output></output>
+          </form>
+
+          <form data-operation="sign_in">
+            <h3>Sign in</h3>
+            <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+            <button type="submit">Sign in</button>
+            <output></output>
+          </form>
+
+          <form data-operation="password_set">
+            <h3>Change the password</h3>
+            <label>Current password <input name="current" type="password" autocomplete="current-password" required></label>
+            <label>New password, 16 characters or more <input name="password" type="password" autocomplete="new-password" minlength="16" required></label>
+            <button type="submit">Change the password</button>
+            <output></output>
+          </form>
+
+          <form data-operation="whoami">
+            <h3>Who am I</h3>
+            <button type="submit">Ask</button>
+            <output></output>
+          </form>
+
+          <form data-operation="sign_out">
+            <h3>Sign out on this device</h3>
+            <button type="submit">Sign out</button>
+            <output></output>
+          </form>
+        </section>
+
+        <section aria-labelledby="agents">
+          <h2 id="agents">Agents</h2>
+
+          <form data-operation="agent_create" data-request-id>
+            <h3>Make an agent sign-in</h3>
+            <label>Name <input name="name" type="text" autocomplete="off" maxlength="64" required></label>
+            <label>Level
+              <select name="level" required>
+                <option value="read">read</option>
+                <option value="prepare">prepare</option>
+              </select>
+            </label>
+            <button type="submit">Make the agent</button>
+            <output></output>
+          </form>
+
+          <form data-operation="agent_list">
+            <h3>List the agents</h3>
+            <button type="submit">List</button>
+            <output></output>
+          </form>
+
+          <form data-operation="agent_set" data-request-id>
+            <h3>Change an agent</h3>
+            <label>Agent ID <input name="agent" type="text" autocomplete="off" maxlength="64" required></label>
+            <label>Level
+              <select name="level">
+                <option value="">leave as it is</option>
+                <option value="read">read</option>
+                <option value="prepare">prepare</option>
+              </select>
+            </label>
+            <label>On or off
+              <select name="on" data-kind="yes_no">
+                <option value="">leave as it is</option>
+                <option value="true">on</option>
+                <option value="false">off</option>
+              </select>
+            </label>
+            <button type="submit">Change the agent</button>
+            <output></output>
+          </form>
+        </section>
+
+        <section aria-labelledby="activity">
+          <h2 id="activity">Activity</h2>
+
+          <form data-operation="activity_list">
+            <h3>Who did what</h3>
+            <label>How many lines <input name="limit" type="number" data-kind="count" min="1" max="200" placeholder="50"></label>
+            <button type="submit">List</button>
+            <output></output>
+          </form>
+        </section>
       </section>
     </main>
+
+    <div id="more" class="sheet" popover aria-label="More for this matter">
+      <p class="sheet-title" data-more-title></p>
+      <button type="button" class="sheet-item" data-more="waiting">Mark waiting</button>
+      <button type="button" class="sheet-item" data-more="tomorrow">Snooze until tomorrow morning</button>
+      <button type="button" class="sheet-item" data-more="next-week">Snooze until Monday morning</button>
+      <div class="sheet-pick">
+        <label>Snooze until a day <input type="date" data-more-day></label>
+        <button type="button" class="button" data-more="day">Snooze</button>
+      </div>
+      <button type="button" class="sheet-item" data-more="dismissed">Dismiss</button>
+      <button type="button" class="sheet-item sheet-cancel" data-more="cancel">Cancel</button>
+    </div>
+
+    <div class="notice" data-notice role="status" aria-live="polite" hidden>
+      <span data-notice-text></span>
+      <button type="button" class="notice-action" data-notice-undo hidden>Undo</button>
+    </div>
   </body>
 </html>
