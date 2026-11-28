@@ -173,6 +173,33 @@ class MapValidationTests(unittest.TestCase):
             self.assertIn(f"    {node('app')} --> {node('store')}", text)
             self.assertIn("inner.md draft", text)
 
+    def test_no_arrows_sentence_matches_whether_the_map_draws_any(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.copy_workspace(root)
+            script = [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py")]
+            result = subprocess.run(script, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (root / "map" / "README.md").read_text(encoding="utf-8")
+            self.assertIn("There are no arrows yet.", text)
+            diagram = text.split("```", 2)[1]
+            self.assertNotIn("-->", diagram)
+
+            path = root / "modules" / "brief" / "CONTEXT.md"
+            contract = path.read_text(encoding="utf-8")
+            contract = contract.replace("consumes: []", 'consumes: ["../store/CONTEXT.md"]', 1)
+            contract = contract.replace(
+                "# brief — The matters\n",
+                "# brief — The matters\n\n## Inputs\n\n- Reference: [Store](../store/CONTEXT.md)\n",
+                1,
+            )
+            path.write_text(contract, encoding="utf-8")
+            result = subprocess.run(script, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (root / "map" / "README.md").read_text(encoding="utf-8")
+            self.assertNotIn("There are no arrows yet", text)
+            self.assertIn("-->", text)
+
     def test_piece_span_status_uses_piece_words(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

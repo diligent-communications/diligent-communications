@@ -280,6 +280,11 @@ def render():
             f"| [{folder}](../{folder}/CONTEXT.md) | {build_step} | {status} | {outputs} | "
             f"{', '.join(write_links) or '—'} |"
         )
+    if edges:
+        lines[4] = (
+            "An arrow appears when a piece writes a contract that reads another part. "
+            "The **Writes to** column below lists write handoffs separately."
+        )
     return "\n".join([*lines, *sorted(edges), "```", "", *table, ""])
 
 
