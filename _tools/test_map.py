@@ -204,6 +204,9 @@ class MapValidationTests(unittest.TestCase):
                 text,
             )
             self.assertNotIn("Build step", text)
+            self.assertIn("An arrow appears when a piece writes a contract that reads another part.", text)
+            self.assertNotIn("Every arrow points toward", text)
+            self.assertNotIn("points toward the contract", text)
 
 
 if __name__ == "__main__":
