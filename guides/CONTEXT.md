@@ -24,7 +24,7 @@ None. A person or an agent reads a page. Nothing here changes the install.
 ## Hard rules
 
 1. A recipe stays inside the operations the seams name. It does not invent a step those seams forbid.
-2. The sorting guide uses `full` and `reference` as sorting defines them. Both levels are part of the seam. Use starts at `full`.
+2. The sorting guide takes `full`, `reference` and the close path from sorting. It does not add another statement of either.
 3. A recipe contains no real mailbox, no token and no customer data.
 
 ## Inputs

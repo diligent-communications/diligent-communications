@@ -209,7 +209,7 @@ def render():
     ]
     edges = set()
     table = [
-        "| Folder contract | Build step | Contract status | Outputs | Writes to |",
+        "| Folder contract | Piece | Contract status | Outputs | Writes to |",
         "| --- | --- | --- | --- | --- |",
     ]
     for path, step, draft, lanes, fields in contracts:

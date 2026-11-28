@@ -16,7 +16,7 @@ Prepared actions, the person's acceptance of each, the sending, and the receipt.
 
 ## What it never does
 
-It never acts without a recorded acceptance by the person. It never calls a model. It never holds a Google sign-in. It asks connections to send. It never stores a mail body beyond the reply the person is about to send.
+It never acts without a recorded acceptance by the person. It never calls a model. It never holds a Google sign-in. It is the only part that asks connections to send, and only for an accepted action. connections does not check that acceptance. Whether a prepared reply may be stored is the one exception in [Rules every part keeps](../../map/target.md#rules-every-part-keeps). This part does not state that rule again.
 
 ## Operations
 
@@ -34,7 +34,7 @@ It never acts without a recorded acceptance by the person. It never calls a mode
 1. An accepted action is carried out at most once.
 2. An unknown outcome is checked with the provider before any retry.
 3. An event that invites or notifies someone shows who gets notified before the person taps.
-4. A send uses connections. A network failure does not change the account's lasting state. A rejected sign-in is `needs_sign_in`.
+4. Only this part asks connections to send, and only for an accepted action. connections answers `sent`, `failed`, `outcome_unknown` or `needs_sign_in`. A network failure does not change the account's lasting state.
 
 ## Inputs
 

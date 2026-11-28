@@ -1,7 +1,7 @@
 ---
 build_step: 1
 status: draft
-consumes: ["../operations/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#agent"]
+consumes: ["../operations/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#agent","../../contracts/CONTEXT.md#who-did-it"]
 produces: ["Caller and level"]
 ---
 # access — Who is calling
@@ -12,7 +12,9 @@ One job: say who is calling, and at what level.
 
 ## What it owns
 
-Sign-ins to this install, and the list of agents. Two kinds of sign-in: the person's, and one token per agent. The person signs in with a long password, typed once per device. It is stored only as a hash. Wrong tries are locked out. A passkey can be added later. It is not this sign-in. The person creates an agent token and can switch it off. A token is shown once and then kept only as a fingerprint.
+Sign-ins to this install, and the list of agents. The person signs in with a long password, typed once per device. The password and agent tokens are stored only as hashes. Wrong tries are locked out. A passkey can be added later. It is not this sign-in. The person creates an agent token and can switch it off. A token is shown once. The command line's bridge holds an agent token the person made for it. This part never treats that token as the person's password.
+
+A caller kind `device` is named for the phone app. Its sign-in is defined in piece three. Until then this seam only names it. A change it makes is recorded as `device:<id>` in [Who did it](../../contracts/CONTEXT.md#who-did-it).
 
 ## What it never does
 
@@ -33,8 +35,8 @@ An agent that is switched off is refused at once, as `switched_off` from the [do
 
 ## Hard rules
 
-1. A token is shown once. What is stored is a fingerprint, not the token.
-2. The person's password is stored only as a hash. Wrong tries are locked out. It is typed once per device.
+1. A token is shown once. What is stored is a hash, not the token. No result, activity line or log holds a token.
+2. The person's password is stored only as a hash. Wrong tries are locked out. It is typed once per device. A backup does not include the password hash or a token hash.
 3. This part never holds a Google sign-in. That stays in connections.
 4. Switching an agent off refuses its next call. It does not erase matters.
 
@@ -44,6 +46,7 @@ An agent that is switched off is refused at once, as `switched_off` from the [do
 - Reference: [Operations](../operations/CONTEXT.md)
 - Reference: [Store](../store/CONTEXT.md)
 - Reference: [Agent](../../contracts/CONTEXT.md#agent)
+- Reference: [Who did it](../../contracts/CONTEXT.md#who-did-it)
 
 ## Process
 

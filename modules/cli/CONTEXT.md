@@ -12,9 +12,9 @@ One job: a small program on the person's PC, called `diligent`.
 
 ## What it owns
 
-Nothing about mail or matters. It stores only its own token, the one it uses to call the install. It sends an operation to the install through [host](../host/CONTEXT.md) and prints the result.
+Nothing about mail or matters. It signs in as the person with the password, sends an operation to the install through [host](../host/CONTEXT.md), and prints the result.
 
-It also runs as a local bridge an agent can start (`diligent mcp`), for an agent that cannot hold a token itself. The bridge uses this program's token. It does not create a second kind of sign-in.
+It also runs as a local bridge an agent can start (`diligent mcp`), for an agent that cannot hold a token itself. The bridge uses an agent sign-in of its own, which the person makes and gives it, and nothing else. It never uses the person's password.
 
 ## What it never does
 
@@ -26,7 +26,7 @@ This part adds no operation. Each command is an operation the door already names
 
 ## Hard rules
 
-1. The only secret stored here is this program's own token.
+1. The command line signs in as the person with the password. The bridge stores only the agent sign-in it was given.
 2. Printed output contains no Google sign-in and no mail body.
 3. A command uses the same operation name as the screen and the agent.
 

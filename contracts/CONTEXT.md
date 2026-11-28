@@ -42,7 +42,7 @@ Draft.
 | `state` | `open`, `waiting`, `snoozed` (until a date), `done` or `dismissed` |
 | `main_action` | `reply`, `schedule`, `contact` or `none` |
 | `notes`, `due` | The person's only |
-| `set_by_you` | Which fields the person has edited. An agent does not overwrite those |
+| `set_by_you` | Which fields the person has edited. An agent does not overwrite those. State is not one of these fields |
 
 ### Source message
 
@@ -76,4 +76,4 @@ Draft. `run`, the agent, started, last activity, ended, and how it ended (`finis
 
 ### Who did it
 
-Draft. `you`, `agent:<id>`, or `diligent`. Every change records one of these.
+Draft. `you`, `agent:<id>`, `device:<id>`, or `diligent`. Every change records one of these. `device:<id>` is the phone app. Its sign-in is defined in piece three.

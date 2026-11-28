@@ -1,7 +1,7 @@
 ---
 build_step: 1
 status: draft
-consumes: ["../operations/CONTEXT.md","../links/CONTEXT.md","../connections/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#person"]
+consumes: ["../operations/CONTEXT.md","../links/CONTEXT.md","../brief/CONTEXT.md","../plans/CONTEXT.md","../connections/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#person"]
 produces: ["Person pages"]
 ---
 # people — A page per person
@@ -12,7 +12,7 @@ One job: the light record of a person. No pipelines and no marketing.
 
 ## What it owns
 
-Person records, as the [person](../../contracts/CONTEXT.md#person) shape says. The page shows what was said, their open matters and their projects. Those come from links, brief and plans. This part does not copy them into a second store.
+Person records, as the [person](../../contracts/CONTEXT.md#person) shape says. The page shows what was said, their open matters and their projects. What was said comes from [links](../links/CONTEXT.md). Open matters come from [brief](../brief/CONTEXT.md). Projects come from [plans](../plans/CONTEXT.md). This part does not copy them into a second store. brief returns a person id. The caller asks this part for the page. This part does not need brief to read it back.
 
 ## What it never does
 
@@ -36,6 +36,8 @@ It never calls a model. It never stores a mail body. It never becomes the addres
 - Working: None yet.
 - Reference: [Operations](../operations/CONTEXT.md)
 - Reference: [Links](../links/CONTEXT.md)
+- Reference: [Brief](../brief/CONTEXT.md)
+- Reference: [Plans](../plans/CONTEXT.md)
 - Reference: [Connections](../connections/CONTEXT.md)
 - Reference: [Store](../store/CONTEXT.md)
 - Reference: [Person](../../contracts/CONTEXT.md#person)

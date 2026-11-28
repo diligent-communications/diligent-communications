@@ -31,7 +31,9 @@ flowchart TD
     folder10 --> folder8
     folder11 --> folder16
     folder12 --> folder11
+    folder12 --> folder13
     folder12 --> folder16
+    folder12 --> folder4
     folder12 --> folder6
     folder12 --> folder9
     folder13 --> folder11
@@ -51,7 +53,6 @@ flowchart TD
     folder3 --> folder11
     folder3 --> folder8
     folder4 --> folder11
-    folder4 --> folder14
     folder4 --> folder16
     folder4 --> folder9
     folder5 --> folder11
@@ -67,7 +68,7 @@ flowchart TD
     folder9 --> folder16
 ```
 
-| Folder contract | Build step | Contract status | Outputs | Writes to |
+| Folder contract | Piece | Contract status | Outputs | Writes to |
 | --- | --- | --- | --- | --- |
 | [guides](../guides/CONTEXT.md) | — | Draft | Set-up recipes, Sorting guide | — |
 | [modules/access](../modules/access/CONTEXT.md) | 1 (draft) | Draft | Caller and level | — |

@@ -20,7 +20,7 @@ It never calls a model. Diligent does not start or wake the agent. This part nev
 
 ## Operations
 
-This part adds no operation. It offers the door's operations as tools, at the agent's level. An agent holds Read or Prepare, never You.
+This part adds no operation. It offers the door's operations as tools. This connection accepts agent sign-ins only, so an operation that needs the person's level answers `not_allowed`. An agent's level stops at Prepare.
 
 ## Hard rules
 

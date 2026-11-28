@@ -1,7 +1,7 @@
 ---
 build_step: 1
 status: draft
-consumes: ["../operations/CONTEXT.md","../links/CONTEXT.md","../sorting/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#matter"]
+consumes: ["../operations/CONTEXT.md","../links/CONTEXT.md","../store/CONTEXT.md","../../contracts/CONTEXT.md#matter"]
 produces: ["Matters"]
 ---
 # brief — The matters on the Brief
@@ -12,7 +12,7 @@ One job: the matters. One matter is one line on the Brief, however many messages
 
 ## What it owns
 
-Each matter's fields, state and dated history, and how the Brief is grouped and filtered. The freshness line at the top is sorting's counts. This part shows them and does not compute them.
+Each matter's fields, state and dated history, and how the Brief is grouped and filtered. The freshness line is sorting's. This part does not read sorting. The caller asks `sort_status`.
 
 ## What it never does
 
@@ -22,26 +22,24 @@ It never reads mail and never stores a mail body. It never calls a model. It nev
 
 | Operation | Meaning | Level | Named results |
 | --- | --- | --- | --- |
-| `brief_list` | The Brief, grouped by kind, with the freshness line | Read | `brief` |
-| `matter_get` | One matter with its sources, person and history | Read | `matter`, `unknown_matter` |
+| `brief_list` | The Brief, grouped by kind. The caller asks `sort_status` for the freshness line | Read | `brief` |
+| `matter_get` | One matter with its sources, the person id and history. The caller asks people for the page | Read | `matter`, `unknown_matter` |
 | `matter_search` | Find matters, including closed ones | Read | `found` |
 | `matter_edit` | Change title, notes, due date, kind or lane | You | `changed` |
-| `matter_set_state` | Done, Waiting, snooze, dismiss or reopen. Prepare may set `done` when a message being sorted shows the matter is finished | You, and Prepare for that done | `changed`, `already_so` |
+| `matter_set_state` | Done, Waiting, snooze, dismiss or reopen. This stays the person's | You | `changed`, `already_so` |
 
 ## Hard rules
 
 1. A matter's ID never changes and is never reused.
 2. Every change adds a history line, including who did it.
-3. A new linked message reopens a done matter. A dismissed matter is reopened only by the person. The person reopens a done matter with one tap.
-4. An agent at Prepare may set `done` only in that sorting case. The history line names the agent. Waiting, snooze, dismiss and every other state change stay the person's.
-5. A field the person has edited is not overwritten by an agent. The field list is `set_by_you` on the [matter](../../contracts/CONTEXT.md#matter) shape.
+3. When the message being recorded shows the matter is finished, `sort_record` may carry a close with the link. `matter_set_state` stays the person's. `sort_record` can make no other state change. The link that carries a close does not reopen the matter. A later linked message reopens a done matter, never a dismissed one. That reopen is part of the `sort_record` that links the message, and it is recorded under its caller. State is not one of the fields "what you set stays yours" covers, so an agent may close again on a later message. The person reopens with one tap. sorting states the same rule. This part does not read sorting. The caller asks `sort_status` for the freshness line.
+4. A field the person has edited is not overwritten by an agent. The field list is `set_by_you` on the [matter](../../contracts/CONTEXT.md#matter) shape. State is not one of those fields.
 
 ## Inputs
 
 - Working: None yet.
 - Reference: [Operations](../operations/CONTEXT.md)
 - Reference: [Links](../links/CONTEXT.md)
-- Reference: [Sorting](../sorting/CONTEXT.md)
 - Reference: [Store](../store/CONTEXT.md)
 - Reference: [Matter](../../contracts/CONTEXT.md#matter)
 

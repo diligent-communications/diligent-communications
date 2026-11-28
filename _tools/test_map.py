@@ -147,6 +147,22 @@ class MapValidationTests(unittest.TestCase):
             text = (root / "map" / "README.md").read_text(encoding="utf-8")
             self.assertIn("Piece 1 complete, piece 2 draft", text)
 
+    def test_table_says_piece(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.copy_workspace(root)
+            result = subprocess.run(
+                [sys.executable, "-I", "-X", "utf8", str(root / "_tools" / "map.py")],
+                capture_output=True, text=True, encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            text = (root / "map" / "README.md").read_text(encoding="utf-8")
+            self.assertIn(
+                "| Folder contract | Piece | Contract status | Outputs | Writes to |",
+                text,
+            )
+            self.assertNotIn("Build step", text)
+
 
 if __name__ == "__main__":
     unittest.main()

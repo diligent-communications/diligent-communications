@@ -20,7 +20,7 @@ It never calls a model, never stores a mail body, and never sends mail or change
 
 ## Operations
 
-This part adds no operation of its own. A call names an operation from a part contract. The level on that operation is the lowest level that may call it. Levels are Read, Prepare and You. Phone is a caller for the two source operations that say so. Prepare is the most an agent can hold. The same operation, the same level check and the same record are used from the screen, the command line and an agent.
+This part adds no operation of its own. A call names an operation from a part contract. The level on that operation is the lowest level that may call it. Levels are Read, Prepare and You. What a caller may do depends on its sign-in, never on the way in. The screen, the command line and the agent connection use this one check. The agent connection accepts agent sign-ins only, so an operation at the person's level answers `not_allowed` there. An agent's level stops at Prepare. A `device` caller is named for the phone app. Its sign-in is defined in piece three. Until then the seam names the caller kind `device`.
 
 A repeat carries a request ID the caller makes up. The same ID with the same input returns the same answer and changes nothing twice. The same ID with a different input returns `request_id_reused`.
 
@@ -33,7 +33,7 @@ Every result has a name and a plain description that names what it is about. The
 1. Results say what was found, never what to do.
 2. A repeat is safe. One operation's changes land together or not at all.
 3. Not reachable, gone and empty are three different results. A part does not use one name for another.
-4. Who did it is `you`, `agent:<id>` or `diligent`, as [Who did it](../../contracts/CONTEXT.md#who-did-it) says.
+4. Who did it is `you`, `agent:<id>`, `device:<id>` or `diligent`, as [Who did it](../../contracts/CONTEXT.md#who-did-it) says.
 
 ## Inputs
 

@@ -12,7 +12,7 @@ One job: say what exists at each source, and fetch it when asked.
 
 ## What it owns
 
-The list of source messages, and the retention clock. For mail it notices new messages and reads one when asked, keeping nothing but its ID and the fields on the [source message](../../contracts/CONTEXT.md#source-message) shape. For texts and call transcripts it keeps the words for one year, because they live nowhere else. Audio is not kept once it has been transcribed.
+The list of source messages. For mail it notices new messages and reads one when asked, keeping nothing but its ID and the fields on the [source message](../../contracts/CONTEXT.md#source-message) shape. How far back a newly connected mailbox is sorted is a setting, 14 days unless the person changes it. [store](../store/CONTEXT.md) keeps that setting and removes what has aged out. This part does not own a clock. For texts and call transcripts the words stay until store removes them, because they live nowhere else. Audio is not kept once it has been transcribed.
 
 ## What it never does
 
@@ -24,16 +24,15 @@ It never stores a mail body, a subject or a sender. It never calls a model. It n
 | --- | --- | --- | --- |
 | `mail_check` | Look for new mail in one account or all | You, and the schedule | `checked`, `needs_sign_in`, `not_reachable`, `rate_limited`, `already_checking` |
 | `source_open` | Where to open the original, checked live | You | `open_this`, `gone`, `not_reachable` |
-| `text_add` | The phone app brings in a text | Phone or You | `added`, `already_have` |
-| `call_add` | The phone app or a file brings in a transcript | Phone or You | `added`, `already_have` |
+| `text_add` | The phone app brings in a text | device or You | `added`, `already_have` |
+| `call_add` | The phone app or a file brings in a transcript | device or You | `added`, `already_have` |
 
 ## Hard rules
 
 1. A message is identified by its kind, this install's account ID, and the provider's own message ID. Reconnecting the same Google account keeps the same account ID. That ID is not a mail address.
 2. Mail is read from the provider's mail address only, by connections. This part never sees the sign-in.
-3. A mailbox that cannot be read is `not_reachable`. That is not `gone`, and it is not an empty check. `gone` means the provider no longer has that message.
-4. A run of work that reads mail is tied to the connection it began with. If that connection is no longer current, the run stops and does not keep reading.
-5. `already_have` means this install already stored that text or transcript. It does not mean a mail body was stored.
+3. A mailbox that cannot be read is `not_reachable`. That is not `gone`, and it is not an empty check. `gone` means the provider no longer has that message. A read from connections is `read`, `gone`, `needs_sign_in`, `not_reachable`, `rate_limited` (with the wait asked for, if any) or `refused_address`.
+4. `already_have` means this install already stored that text or transcript. It does not mean a mail body was stored.
 
 ## Inputs
 
@@ -66,7 +65,7 @@ When this part's code is written, a contributor checks mail that contains a mark
 
 #### Process
 
-1. Notice new mail and read one message when an operation asks. Keep the ID, not the body.
+1. Notice new mail and read one message when an operation asks. Keep the ID, not the body. A newly connected mailbox is listed back as far as the setting says, 14 days unless the person changes it.
 
 #### Outputs
 
@@ -84,7 +83,7 @@ Piece 1 checks `mail_check` and `source_open` against the hard rules.
 
 #### Process
 
-1. Take a text from the phone app and keep its words for one year.
+1. Take a text from the phone app. store removes the words when the kept period ends. This part does not run a clock.
 
 #### Outputs
 

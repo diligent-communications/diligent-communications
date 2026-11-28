@@ -36,7 +36,7 @@ The screen, the command line and the agent connection are the three ways in. The
 
 The seam of a part is complete while the part is still draft: its operations, their named results, the shapes it shares and its hard rules. The inner step-by-step behaviour is written with that part's code. An inner page starts with the line `Draft.` and the map marks that page draft. Where an inner page disagrees with a hard rule, the hard rule stands.
 
-Nothing comes in except through [sources](modules/sources/CONTEXT.md). Nothing leaves except through [effects](modules/effects/CONTEXT.md), and only after the person accepts. No part calls a model. No mail body is stored. Only [connections](modules/connections/CONTEXT.md) holds a sign-in to an outside account. Only [store](modules/store/CONTEXT.md) talks to the database.
+Nothing comes in except through [sources](modules/sources/CONTEXT.md). Nothing leaves except through [effects](modules/effects/CONTEXT.md), and only after the person accepts. No part calls a model. A stored mail body follows [Rules every part keeps](map/target.md#rules-every-part-keeps), including that rule's one exception. Only [connections](modules/connections/CONTEXT.md) holds a sign-in to an outside account. Only [store](modules/store/CONTEXT.md) talks to the database.
 
 The build has six pieces. Piece 1 is mail to Brief. A later piece may add operations and lanes. It does not change an operation an earlier piece shipped without changing the shared shape here first.
 

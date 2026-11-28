@@ -12,7 +12,7 @@ One job: sign-ins to outside accounts, Google first. This is the only part that 
 
 ## What it owns
 
-The sign-in for each connected account, and that account's lasting state. The lasting states are `connected` and `needs-sign-in`. Nothing secret appears in a result, a record or a log.
+The sign-in for each connected account, and that account's lasting state. The lasting states are `connected` and `needs-sign-in`. Each outside sign-in is kept encrypted with a key that is not in the database. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no token. A backup does not include the sign-in.
 
 ## What it never does
 
@@ -26,13 +26,15 @@ It never calls a model. It never stores a mail body. It never puts a sign-in in 
 | `account_list` | Connected accounts and their state | Read | `listed` |
 | `account_disconnect` | Forget a sign-in. Matters stay | You | `disconnected`, `unknown_account` |
 
-Signing in to Google happens on Google's own page in a browser. That step cannot be done from the command line or by an agent. Starting it, seeing its state and disconnecting work from the screen, the command line and an agent.
+Signing in to Google happens on Google's own page in a browser. That step cannot be done from the command line or by an agent. `account_connect_start` and `account_disconnect` need the person's level, so on the agent connection they answer `not_allowed`. `account_list` is Read, so an agent may see the state.
 
-Other parts ask this part to read or change Google. Those calls are not separate operations. They return the same kind of named result, and they obey the hard rules below.
+Other parts ask this part to read Google. Those calls are not separate operations. A read returns `read`, `gone`, `needs_sign_in`, `not_reachable`, `rate_limited` (with the wait asked for, if any) or `refused_address`.
+
+From piece two, a send returns `sent`, `failed`, `outcome_unknown` or `needs_sign_in`. This part does not check whether a send was accepted. It cannot know.
 
 ## Hard rules
 
-1. Only this part holds or uses an outside sign-in. A result, a record and a log contain no token, client secret or sign-in code.
+1. Only this part holds or uses an outside sign-in. The encrypted sign-in lives only in this part's rows. A result, an activity line and a log hold no token.
 2. Mail is read over HTTPS, from the provider's mail address only. A redirect to any other address is refused, and the sign-in is not attached.
 3. A failure has one name. A sign-in Google rejects is the result `needs_sign_in`, and the lasting state becomes `needs-sign-in` until the person signs in again. A network failure is `not_reachable` and changes neither lasting state.
 4. Reconnecting the same Google account keeps the same account ID.
@@ -84,7 +86,7 @@ Piece 1 checks a read against hard rules 2 and 3.
 
 #### Process
 
-1. Send only what effects has already had accepted.
+1. Send when asked. This part does not know whether the person accepted the action. The result is `sent`, `failed`, `outcome_unknown` or `needs_sign_in`.
 
 #### Outputs
 
@@ -92,7 +94,7 @@ Piece 1 checks a read against hard rules 2 and 3.
 
 #### Check
 
-Piece 2 checks that a send without an acceptance does not leave this part.
+Piece 2 checks the four send results. Whether a send was accepted is effects' rule.
 
 ### Calendar and contacts · Piece 6 (draft)
 
@@ -102,7 +104,7 @@ Piece 2 checks that a send without an acceptance does not leave this part.
 
 #### Process
 
-1. Change Calendar or Contacts only for an accepted action.
+1. Change Calendar or Contacts when asked. This part does not know whether the person accepted the action.
 
 #### Outputs
 
@@ -110,4 +112,4 @@ Piece 2 checks that a send without an acceptance does not leave this part.
 
 #### Check
 
-Piece 6 checks the same acceptance rule as sending.
+Piece 6 checks that this part still does not decide whether the person accepted.

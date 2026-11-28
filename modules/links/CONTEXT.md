@@ -6,7 +6,7 @@ produces: ["Links"]
 ---
 # links — What belongs to what
 
-Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes message-to-matter links, person links, and the two undo operations `matter_merge` and `matter_split`. Piece 5 adds a link from a matter to a project.
+Draft. The seam below is what other parts may rely on. The inner behaviour is written with this part's code. Piece 1 completes message-to-matter links, person links, `link_accept_person`, and the undo operations `link_move_message` and `link_remove_person`. `matter_merge` and `matter_split` are later and belong to no piece yet. Piece 5 adds a link from a matter to a project.
 
 One job: record the link, who made it, who accepted it, and the undo.
 
@@ -35,7 +35,7 @@ Sorting may also create a message-to-matter link as part of `sort_record`. That 
 1. A link is marked `removed`. It is not deleted.
 2. A message-to-matter link made by sorting is `active` at once.
 3. A person link proposed by an agent stays unconfirmed until the person accepts it.
-4. Undo of a merge or a split is a new link change, with its own history. It does not erase the earlier line.
+4. Piece 1's undo is `link_move_message` and `link_remove_person`, beside `link_accept_person`. `matter_merge` and `matter_split` belong to no piece yet. Undoing one of them, when they exist, is a new link change. It does not erase the earlier line.
 
 ## Inputs
 
