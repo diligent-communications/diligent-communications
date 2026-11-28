@@ -85,11 +85,11 @@ The limits on the summary and the quote are the target map's proposals. The othe
 - `level`: `read`, `prepare`, `you`, or `none`. `none` means it needs no session, and it is the person's: an agent sign-in is answered `not_allowed`.
 - `changes`: true when it changes something. A read is false.
 - `request_id`: true when it takes a request ID and its answer is kept. Only an operation that changes something may.
-- `input`: each input's kind (`text`, `choice`, `yes_no` or `count`), its limits, whether it is required, and whether it is `secret`. A secret is a sign-in the person types.
+- `input`: each input's kind (`text`, `choice`, `yes_no` or `count`), its limits, whether it is required, and whether it is `secret`. A secret is a sign-in the person types. A text may be declared many-lined (`lines: 'many'`).
 - `results`: its own named results, each with its meaning.
 - `shown_once`: answer fields left out of the kept answer and of a repeat.
 
-`checkInput` accepts an input only when it is exactly what the operation takes. A refusal names the field and the rule and never repeats the value.
+`checkInput` accepts an input only when it is exactly what the operation takes. A refusal names the field and the rule and never repeats the value. A text that is not a secret is refused when it starts or ends with a space or holds a control character. A many-lined text may also hold line breaks, and nothing else of that kind, a tab included. In it each Windows line ending is turned into a plain line break, and its length is counted after that. The input `checkInput` accepts is the one the operation's work is given.
 
 ### Work
 

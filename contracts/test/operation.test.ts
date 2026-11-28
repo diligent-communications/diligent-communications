@@ -96,3 +96,33 @@ test('an answer has a result name and a description, and the shared results each
     assert.equal(meaning.length > 0, true);
   }
 });
+
+test('only a text declared many-lined accepts a line break, written as a plain one, and its limit counts what is kept', () => {
+  const noting: Operation = {
+    ...sample,
+    input: {
+      name: { kind: 'text', meaning: 'Its name.', required: true, max: 10 },
+      notes: { kind: 'text', meaning: 'Notes.', required: false, min: 0, max: 9, lines: 'many' },
+    },
+  };
+  assert.equal(isOperation(noting), true);
+  assert.equal(isOperation({ ...noting, input: { notes: { kind: 'text', meaning: 'x', required: false, max: 9, lines: 'few' } } }), false);
+  const base = { request_id: 'request-0001', name: 'one' };
+
+  assert.deepEqual(checkInput(noting, { ...base, notes: 'one\ntwo' }), { ok: true, input: { ...base, notes: 'one\ntwo' } });
+  // A Windows line ending is kept as a plain line break, and the limit counts that.
+  // Sent, it is ten characters; kept, nine, which is the limit.
+  assert.deepEqual(checkInput(noting, { ...base, notes: 'four\r\nfive' }), { ok: true, input: { ...base, notes: 'four\nfive' } });
+  assert.equal(checkInput(noting, { ...base, notes: 'four\r\nfive!' }).ok, false);
+  for (const notes of ['one\ttwo', 'one\rtwo', 'one\u0000', 'one\u000btwo', '\none', 'one\n', ' one']) {
+    assert.deepEqual(
+      checkInput(noting, { ...base, notes }),
+      { ok: false, about: '`notes` must not start or end with a space or a line break, or hold any other control character' },
+      JSON.stringify(notes),
+    );
+  }
+  // An input not declared many-lined still refuses a line break, of either kind.
+  for (const name of ['o\nne', 'o\r\nne']) {
+    assert.deepEqual(checkInput(noting, { ...base, name }), { ok: false, about: '`name` must not start or end with a space, or hold a control character' });
+  }
+});
