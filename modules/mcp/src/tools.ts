@@ -66,30 +66,43 @@ export function toolOf(operation: Operation): Tool {
   };
 }
 
-// The name of the tool a request on the agent connection calls, or nothing.
-// It is read as plain JSON, without the protocol library, for one purpose:
-// so the host can record a change that an agent it has already refused was
-// trying to make. Anything else, and anything that cannot be understood, is
-// nothing.
-export function toolCalledIn(body: string | null): string | null {
-  if (body === null) {
-    return null;
-  }
+// The most messages the agent protocol's handler takes in one array.
+export const MESSAGES_AT_MOST = 100;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// The names of the tools a request on the agent connection calls, in order.
+//
+// It is read as plain JSON, without the protocol library, for one purpose: so
+// the host can have recorded every change that an agent it has already
+// refused was trying to make. The handler runs a tool call from one request,
+// or from each request in an array of up to 100, so both are read here. A
+// tool call is a request: it names the protocol's version, carries an ID and
+// the method `tools/call`, and names its tool. Anything else is not one, and
+// a body that cannot be understood calls nothing.
+export function toolsCalledIn(body: string): string[] {
   let request: unknown;
   try {
     request = JSON.parse(body);
   } catch {
-    return null;
+    return [];
   }
-  if (typeof request !== 'object' || request === null || Array.isArray(request)) {
-    return null;
+  if (Array.isArray(request) && request.length > MESSAGES_AT_MOST) {
+    return [];
   }
-  const { method, params } = request as { method?: unknown; params?: unknown };
-  if (method !== 'tools/call' || typeof params !== 'object' || params === null) {
-    return null;
+  const names: string[] = [];
+  for (const message of Array.isArray(request) ? request : [request]) {
+    if (!isRecord(message) || message.jsonrpc !== '2.0' || message.method !== 'tools/call') {
+      continue;
+    }
+    const hasId = typeof message.id === 'string' || (typeof message.id === 'number' && Number.isInteger(message.id));
+    if (hasId && isRecord(message.params) && typeof message.params.name === 'string') {
+      names.push(message.params.name);
+    }
   }
-  const { name } = params as { name?: unknown };
-  return typeof name === 'string' ? name : null;
+  return names;
 }
 
 // Every operation is offered as a tool.

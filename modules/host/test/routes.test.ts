@@ -38,6 +38,28 @@ test('an operation is called with a POST of JSON to its own address, and anythin
   const tooBig = await install.fetch('/api/sign_in', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'x'.repeat(70_000) }) });
   assert.equal(tooBig.status, 400);
 
+  // The limit is on what arrives, not on what a request says: a stream with
+  // no declared length is refused the same way, and one within the limit is read.
+  const stream = (text: string): RequestInit & { duplex: 'half' } => ({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    duplex: 'half',
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        const bytes = new TextEncoder().encode(text);
+        controller.enqueue(bytes.slice(0, 10));
+        controller.enqueue(bytes.slice(10));
+        controller.close();
+      },
+    }) as unknown as BodyInit,
+  });
+  const streamedTooBig = await install.fetch('/api/sign_in', stream(JSON.stringify({ password: 'x'.repeat(70_000) })));
+  assert.equal(streamedTooBig.status, 400);
+  assert.equal(((await streamedTooBig.json()) as { description: string }).description.includes('at most 65,536 bytes'), true);
+  const streamed = await install.fetch('/api/whoami', stream('{}'));
+  assert.equal(streamed.status, 200);
+  assert.equal(((await streamed.json()) as { result: string }).result, 'not_signed_in');
+
   const unknown = await post(install, 'no_such_operation', {});
   assert.equal(unknown.status, 200);
   assert.equal(unknown.answer.result, 'invalid_input');
@@ -136,4 +158,16 @@ test('when the install cannot finish a tool call, the agent gets unavailable and
     await connection.close();
     await broken.close();
   }
+});
+
+test('the host reads a request body in one place only, the reader that stops at the limit', async () => {
+  // Whether a read stopped early cannot be seen from outside the program, so
+  // this checks the code: no other way of reading a body is used in the host.
+  const source = async (file: string): Promise<string> => readFile(path.join(REPOSITORY, 'modules', 'host', 'src', file), 'utf8');
+  const worker = await source('worker.ts');
+  for (const other of ['.text()', '.json()', '.arrayBuffer()', '.formData()', '.blob()', '.bytes()', 'getReader', 'request.body']) {
+    assert.equal(worker.includes(other), false, `worker.ts reads a body with ${other}`);
+  }
+  assert.equal(worker.split('readBody(request)').length - 1, 2);
+  assert.ok((await source('body.ts')).includes('received > limit'));
 });

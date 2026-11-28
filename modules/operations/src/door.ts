@@ -2,7 +2,7 @@ import { ANY_OPERATION_RESULTS, REQUEST_ID_FIELD, checkInput } from '../../../co
 import type { Answer, AnyOperationResult, Operation, Outcome, Work, Write } from '../../../contracts/operation.ts';
 import { levelOf, levelReaches, whoOf } from '../../../contracts/who.ts';
 import type { Caller, Who } from '../../../contracts/who.ts';
-import { activityWrite } from '../../store/src/activity.ts';
+import { activityWrite, activityWrites } from '../../store/src/activity.ts';
 import type { Store, Tables } from '../../store/src/store.ts';
 import { operationList } from './list.ts';
 
@@ -23,6 +23,11 @@ export type Door = {
   // `seen` are access's own writes that note the caller was seen. They land
   // with the call's other writes.
   run(caller: Caller, name: string, input: unknown, seen?: readonly Write[]): Promise<Ran>;
+  // Refuses, in one landing, every call a switched-off agent made in one
+  // request, and returns the one answer they all get. Each call that names an
+  // operation that changes something leaves one line, as `run` would leave
+  // for the same call. A read, or a name that is no operation, leaves none.
+  refuseSwitchedOff(caller: Caller, names: readonly string[], seen?: readonly Write[]): Promise<Answer>;
 };
 
 export function refusal(result: AnyOperationResult, about?: string): Answer {
@@ -59,7 +64,26 @@ export function openDoor(options: { store: Store; work: Readonly<Record<string, 
     return { answer };
   }
 
+  function switchedOff(name: string): Answer {
+    return refusal('switched_off', `The agent "${name}" is switched off.`);
+  }
+
   return {
+    async refuseSwitchedOff(caller, names, seen = []) {
+      if (caller.kind !== 'agent' || caller.on) {
+        throw new Error('Only a switched-off agent is refused this way.');
+      }
+      const who = whoOf(caller);
+      const answer = switchedOff(caller.name);
+      const at = now().toISOString();
+      const lines = names
+        .map((name) => operations.get(name))
+        .filter((operation) => operation !== undefined && operation.changes)
+        .map((operation) => ({ at, who: who!, operation: operation!.name, on: null, result: answer.result }));
+      await store.land([...activityWrites(lines), ...seen]);
+      return answer;
+    },
+
     async run(caller, name, input, seen = []) {
       const operation = operations.get(name);
       if (operation === undefined) {
@@ -70,7 +94,7 @@ export function openDoor(options: { store: Store; work: Readonly<Record<string, 
       const level = levelOf(caller);
 
       if (caller.kind === 'agent' && !caller.on) {
-        return refuse(operation, who, at, refusal('switched_off', `The agent "${caller.name}" is switched off.`), seen);
+        return refuse(operation, who, at, switchedOff(caller.name), seen);
       }
       if (operation.level === 'none') {
         if (caller.kind === 'agent') {

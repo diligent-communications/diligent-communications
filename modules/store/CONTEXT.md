@@ -32,7 +32,7 @@ It never calls a model, and it never stores a received mail body.
 3. `land` lands every write of one call together or none of them. `clash` means a rule of the tables refused one, so nothing was written. Any other failure is an error.
 4. `stillTrue` makes a write that changes nothing and makes the whole landing clash unless a query still finds a row. A part adds one when its writes rest on something it read earlier, so a change made in between is never written over.
 5. `landOne` lands one write by itself, at once, and returns the rows it names. The database runs one statement whole, so a write that counts and decides in the same statement cannot be split by another request.
-6. `activityWrite` makes the write for one activity line and refuses anything that is not exactly an [activity line](../../contracts/CONTEXT.md#activity-line).
+6. `activityWrite` makes the write for one activity line and refuses anything that is not exactly an [activity line](../../contracts/CONTEXT.md#activity-line). `activityWrites` does the same for many lines at once, at most 20 to a statement.
 
 Operation, from the [operations table](../../map/target.md#operations):
 
@@ -56,6 +56,7 @@ Operation, from the [operations table](../../map/target.md#operations):
 | One write landed by itself counts whole when many arrive together | `test/store.test.ts`: "one write landed by itself returns the rows it names" |
 | A table step is applied once, and a failed step is not recorded | `test/store.test.ts`: the two tests about steps |
 | The activity record holds time, who, which operation, on what and the result's name, and has nowhere to put anything else | `test/store.test.ts`: "an activity line is written only when it is exactly an activity line" |
+| Many lines are written in few statements | `test/store.test.ts`: "many activity lines are written in few statements" |
 | No sign-in is in any row | `test/nothing-secret.test.ts`, and [host](../host/CONTEXT.md)'s local-file test for the file on a PC |
 | Reading the record adds no line to it | `test/store.test.ts`: "activity_list returns the newest lines first" |
 

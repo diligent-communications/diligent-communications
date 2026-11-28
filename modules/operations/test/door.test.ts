@@ -152,3 +152,37 @@ test('the door writes the record in the same landing as the change, and none for
   await door.run(you, 'whoami', {});
   assert.equal(store.landed.length, 1);
 });
+
+test('a switched-off agent is refused several calls in one landing: one line for each that would change something', async () => {
+  const store = standIn();
+  const at = new Date('2026-01-02T03:04:05.006Z');
+  const door = openDoor({ store, now: () => at, work: workFor() });
+  const off: Caller = { kind: 'agent', id: '4f2a', name: 'sleeper', level: 'prepare', on: false };
+  const seen = [{ sql: 'UPDATE seen', values: [] }];
+
+  const answer = await door.refuseSwitchedOff(off, ['agent_set', 'whoami', 'no_such_operation', 'sign_out', 'agent_set'], seen);
+  assert.deepEqual(answer, { result: 'switched_off', description: 'The caller\'s agent sign-in is switched off. The agent "sleeper" is switched off.' });
+  // One landing, holding the three lines and the note that the agent was seen.
+  assert.equal(store.landed.length, 1);
+  const [lines, noted] = store.landed[0]!;
+  assert.ok(lines!.sql.startsWith('INSERT INTO activity'));
+  const line = (operation: string): unknown[] => [at.toISOString(), 'agent:4f2a', operation, null, 'switched_off'];
+  assert.deepEqual(lines!.values, [...line('agent_set'), ...line('sign_out'), ...line('agent_set')]);
+  assert.equal(noted!.sql, 'UPDATE seen');
+
+  // The same answer and the same line as the door gives for one such call.
+  const single = standIn();
+  const ran = await openDoor({ store: single, now: () => at, work: workFor() }).run(off, 'agent_set', {});
+  assert.deepEqual(ran.answer, answer);
+  assert.deepEqual(single.landed[0]![0]!.values, line('agent_set'));
+
+  // Nothing that would change something leaves no line.
+  const quiet = standIn();
+  await openDoor({ store: quiet, work: workFor() }).refuseSwitchedOff(off, ['whoami', 'agent_list']);
+  assert.deepEqual(quiet.landed, []);
+
+  // It is only for an agent that is switched off.
+  await assert.rejects(door.refuseSwitchedOff({ ...off, on: true }, ['agent_set']));
+  await assert.rejects(door.refuseSwitchedOff(you, ['agent_set']));
+  await assert.rejects(door.refuseSwitchedOff({ kind: 'nobody' }, ['agent_set']));
+});

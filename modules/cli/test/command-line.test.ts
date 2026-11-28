@@ -351,7 +351,8 @@ test('a redirect is an error and is never followed, so a password and a session 
       assert.equal(await terminal.run(['--install', redirecting.origin, 'sign_in'], [typed]), 1, String(status));
       assert.match(terminal.said.at(-1)!, /did not answer/);
       assert.deepEqual(terminal.printed, []);
-      assert.equal((await kept(terminal.home)).session, undefined);
+      // Nothing was kept: no session, and not the address that failed.
+      await assert.rejects(readFile(path.join(terminal.home, 'session.json'), 'utf8'));
     }
     // The first address was asked each time. The second was never reached.
     assert.equal(redirecting.seen.length, 5);
@@ -402,4 +403,40 @@ test('nothing typed on the line is ever said or printed back, wherever it sits',
       assert.deepEqual(terminal.sent, [], args.join(' '));
     }
   }
+});
+
+test('a new address is remembered only after it answers as an install, so a mistyped one never gets a later password', async () => {
+  const terminal = commandLine(install);
+  assert.equal((await terminal.call('sign_in', { password })).result, 'signed_in');
+  assert.ok((await kept(terminal.home)).session);
+
+  // An address that answers, but not as an install does.
+  const stranger = await listener(() => ({ status: 200, body: JSON.stringify({ hello: 'I am some other server' }) }));
+  try {
+    assert.equal(await terminal.run(['--install', stranger.origin, 'whoami']), 1);
+    // The old session was dropped at once, and was not sent.
+    assert.equal(stranger.seen[0]!.cookie, undefined);
+    // The address that failed is not remembered. The one before it still is.
+    assert.deepEqual(await kept(terminal.home), { install: install.origin });
+
+    // A later sign-in with no address goes to the real install, password and all.
+    const typed = madeUp('password');
+    assert.equal(await terminal.run(['sign_in'], [typed]), 0);
+    assert.equal((JSON.parse(terminal.printed.at(-1)!) as { result: string }).result, 'wrong_password');
+    assert.equal(stranger.seen.length, 1);
+    assert.equal(JSON.stringify(stranger.seen).includes(typed), false);
+  } finally {
+    await stranger.close();
+  }
+
+  // An address where nothing answers is not remembered either.
+  assert.equal(await terminal.run(['--install', 'http://127.0.0.1:9', 'whoami']), 1);
+  assert.deepEqual(await kept(terminal.home), { install: install.origin });
+
+  // With nothing remembered yet, a failed address leaves nothing behind.
+  const fresh = commandLine(install);
+  assert.equal(await fresh.run(['--install', 'http://127.0.0.1:9', 'whoami']), 1);
+  await assert.rejects(readFile(path.join(fresh.home, 'session.json'), 'utf8'));
+  assert.equal(await fresh.run(['whoami']), 1);
+  assert.match(fresh.said.at(-1)!, /--install <address>/);
 });

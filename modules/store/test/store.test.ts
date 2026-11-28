@@ -4,7 +4,7 @@ import type { ActivityEntry } from '../../../contracts/activity.ts';
 import { madeUp, startInstall } from '../../host/test/helpers/local-install.ts';
 import type { Install } from '../../host/test/helpers/local-install.ts';
 import { screen } from '../../host/test/helpers/ways.ts';
-import { activityWrite, storeTables } from '../src/activity.ts';
+import { activityWrite, activityWrites, storeTables } from '../src/activity.ts';
 import { ACTIVITY_LIMIT } from '../src/operations.ts';
 import { openStore, stillTrue } from '../src/store.ts';
 import type { Tables } from '../src/store.ts';
@@ -158,4 +158,29 @@ test('writes that rest on something read earlier land only while it is still tru
   assert.deepEqual(await store.rows('SELECT state FROM guarded_rows'), [{ state: 'changed by me' }]);
   // The guard itself never keeps a row.
   assert.deepEqual(await store.rows('SELECT held FROM store_guard'), []);
+});
+
+test('many activity lines are written in few statements, each line exactly an activity line', async () => {
+  const line = (n: number): ActivityEntry => ({ at: '2026-01-02T03:04:05.006Z', who: 'agent:4f2a', operation: 'agent_set', on: null, result: n % 2 === 0 ? 'switched_off' : 'not_allowed' });
+  assert.deepEqual(activityWrites([]), []);
+  assert.equal(activityWrites([line(1)]).length, 1);
+  const hundred = activityWrites(Array.from({ length: 100 }, (_, n) => line(n)));
+  assert.equal(hundred.length, 5);
+  for (const write of hundred) {
+    // No statement carries more values than the database takes in one.
+    assert.ok(write.values.length <= 100);
+  }
+  assert.throws(() => activityWrites([line(1), { ...line(2), note: 'the words of a message' } as ActivityEntry]), TypeError);
+
+  // They land, all of them, in order.
+  const own = await startInstall();
+  try {
+    const store = await openStore((await own.database()) as unknown as D1Database, [storeTables]);
+    assert.equal(await store.land(hundred), 'landed');
+    const kept = await store.rows<{ result: string }>('SELECT result FROM activity ORDER BY id');
+    assert.equal(kept.length, 100);
+    assert.deepEqual(kept.slice(0, 3).map((row) => row.result), ['switched_off', 'not_allowed', 'switched_off']);
+  } finally {
+    await own.close();
+  }
 });

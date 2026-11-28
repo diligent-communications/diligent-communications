@@ -200,10 +200,17 @@ export async function run(surroundings: Surroundings): Promise<number> {
   }
   const install = checked.address;
   // A session belongs to the address that issued it. When the address
-  // changes the session is dropped, at once, and is never sent to the new one.
+  // changes the session is dropped, at once, and is never sent to the new
+  // one. The new address is remembered only after it has answered as an
+  // install does, so a mistyped one that fails is never the place a later
+  // command sends a typed password.
+  let remembered = kept;
   if (kept.install !== install) {
+    if (kept.session !== undefined) {
+      remembered = kept.install === undefined ? {} : { install: kept.install };
+      await writeKept(surroundings.home, remembered);
+    }
     kept = { install };
-    await writeKept(surroundings.home, kept);
   }
   const input = await inputFor(operation, parsed.given, surroundings);
   if (typeof input === 'string') {
@@ -242,7 +249,7 @@ export async function run(surroundings: Surroundings): Promise<number> {
   if (session !== undefined && answer.result !== 'not_signed_in') {
     next.session = session;
   }
-  if (next.install !== kept.install || next.session !== kept.session) {
+  if (next.install !== remembered.install || next.session !== remembered.session) {
     await writeKept(surroundings.home, next);
   }
 

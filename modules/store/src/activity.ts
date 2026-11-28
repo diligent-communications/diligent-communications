@@ -27,6 +27,23 @@ export function activityWrite(entry: ActivityEntry): Write {
   };
 }
 
+// The writes that add several lines at once. A statement holds at most 20
+// lines, so that many lines stay few statements and each stays well inside
+// the database's limit on values in one statement.
+const LINES_PER_STATEMENT = 20;
+
+export function activityWrites(entries: readonly ActivityEntry[]): Write[] {
+  const writes: Write[] = [];
+  for (let start = 0; start < entries.length; start += LINES_PER_STATEMENT) {
+    const lines = entries.slice(start, start + LINES_PER_STATEMENT).map(activityWrite);
+    writes.push({
+      sql: `INSERT INTO activity (at, who, operation, on_what, result) VALUES ${lines.map(() => '(?, ?, ?, ?, ?)').join(', ')}`,
+      values: lines.flatMap((line) => line.values),
+    });
+  }
+  return writes;
+}
+
 export function storeWork(store: Store): Readonly<Record<string, Work>> {
   return {
     async activity_list({ input }) {

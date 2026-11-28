@@ -38,7 +38,7 @@ The operations list is `src/list.ts`. Each part describes its own operations, an
 `run` takes the caller, an operation's name and an input, and returns one answer. In order:
 
 1. An unknown name answers `invalid_input`.
-2. An agent that is switched off answers `switched_off`. The [host](../host/CONTEXT.md) asks the door for this answer on the agent connection too, so the same refused change is recorded the same way.
+2. An agent that is switched off answers `switched_off`. On the agent connection the host has the door refuse every call of one request in one landing, with `refuseSwitchedOff`. What that records is in the [host](../host/CONTEXT.md) contract.
 3. The level check. An operation at the level `none` runs for a caller with no sign-in and for the person, and answers `not_allowed` to an agent. Any other operation answers `not_signed_in` to a caller with no sign-in, and `not_allowed` to a caller whose level does not reach it. What a caller may do depends on its sign-in, never on the way in.
 4. The input is checked against what the operation takes. Anything else answers `invalid_input`, which names the field and never repeats the value.
 5. For an operation that takes a request ID: a request ID already kept with the same operation, caller and input returns the kept answer, and nothing is changed or recorded again. The same ID with anything different answers `request_id_reused`.
@@ -69,6 +69,7 @@ What is recorded, one [activity line](../../contracts/CONTEXT.md#activity-line) 
 | `sign_in`, `sign_out` and `password_set` take no request ID, so no answer of theirs is kept | `test/door.test.ts`: "the levels, request IDs and named results" |
 | Every answer is a named result with a description that says what was found, never what to do ([rule 9](../../map/target.md#rules-every-part-keeps)) | `test/door.test.ts`: "an answer that is not one of the named results", "a refusal says what was found" |
 | The change and its record land together ([rule 11](../../map/target.md#rules-every-part-keeps)) | `test/door.test.ts`: "the door writes the record in the same landing as the change" |
+| Several refused calls land together, one line for each that would change something | `test/door.test.ts`: "a switched-off agent is refused several calls in one landing" |
 | Every listed operation has its work, and no work is unlisted | `test/door.test.ts`: "the door opens only when" |
 | The levels and named results are the ones the operations table gives | `test/door.test.ts`: "the levels, request IDs and named results" |
 
@@ -78,4 +79,5 @@ Draft. The operations of the parts that are not built yet join the list with the
 
 ### Open
 
+- Counted as characters divided by four, this contract with its references and working files is about 8,400 tokens, just above the 8,000-token guide for one read, because it reads the access and store contracts whole.
 - A kept answer is kept for 30 days in the plan. Nothing removes one yet: see [store](../store/CONTEXT.md).

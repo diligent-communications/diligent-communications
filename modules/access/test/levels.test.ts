@@ -126,15 +126,16 @@ test('a switched-off agent is refused everything on its very next call, and work
   };
   const change = { request_id: crypto.randomUUID(), agent: agent.id, on: true };
   // None of these is an attempt at a change, so none leaves a record: a
-  // handshake, a tool list, a read, a tool that is no operation, several
-  // requests in one body, a body that is not JSON, and a body too large to read.
+  // handshake, a tool list, a read, a tool that is no operation, a request
+  // that is not a tool call, a body that is not JSON, and a body too large
+  // to read. The same shapes that do attempt a change are in host's
+  // agent-connection test.
   const noRecord = [
     JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test-agent', version: '1' } } }),
     JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'whoami', arguments: {} } }),
     JSON.stringify({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'no_such_operation', arguments: {} } }),
     JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'agent_set', params: { name: 'agent_set' } }),
-    JSON.stringify([{ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'agent_set', arguments: change } }]),
     'not json {{{',
     JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'agent_set', arguments: { ...change, padding: 'x'.repeat(70_000) } } }),
   ];
